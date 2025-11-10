@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { Mail, TrendingUp, Filter, Clock, RefreshCw, Check, MailIcon } from 'lucide-react';
 import { useAuth } from '../../../../context/AuthContext';
 import { OnboardingModal } from '@/components/OnBoardingModal';
+import { motion, AnimatePresence } from 'motion/react';
 
 type TimePeriod = 'today' | 'week' | 'month';
 
@@ -147,7 +148,20 @@ export default function Dashboard() {
                 };
             });
 
-            setAccounts(allAccounts);
+            // Trier les comptes : actifs d'abord (alphabétique), puis désactivés (alphabétique)
+            const sortedAccounts = allAccounts.sort((a, b) => {
+                const aIsDisabled = a.is_active === false || a.cancel_at_period_end === true;
+                const bIsDisabled = b.is_active === false || b.cancel_at_period_end === true;
+                
+                // Si un compte est désactivé et l'autre non, le compte actif vient en premier
+                if (aIsDisabled && !bIsDisabled) return 1;
+                if (!aIsDisabled && bIsDisabled) return -1;
+                
+                // Si les deux sont dans le même état, trier par ordre alphabétique
+                return a.email.localeCompare(b.email);
+            });
+
+            setAccounts(sortedAccounts);
 
             // Seulement initialiser la sélection si aucun compte n'est actuellement sélectionné
             if (allAccounts.length > 0 && !selectedAccountId) {
@@ -476,10 +490,20 @@ export default function Dashboard() {
 `}</style>
 
             {/* Flux de traitement */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-200 w-full">
+            <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5 }}
+                className="bg-white rounded-xl shadow-sm border border-gray-200 w-full"
+            >
                 <div className="flex flex-col lg:flex-row items-center justify-between gap-6 ">
                     {/* Section Toggle et Informations */}
-                    <div className="flex flex-col gap-6 py-6 md:py-8 px-4 md:px-6 border-gray-200 w-full lg:w-[30%] border-b lg:border-b-0 lg:border-r">
+                    <motion.div 
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 0.5, delay: 0.1 }}
+                        className="flex flex-col gap-6 py-6 md:py-8 px-4 md:px-6 border-gray-200 w-full lg:w-[30%] border-b lg:border-b-0 lg:border-r"
+                    >
                         <div className='flex flex-col sm:flex-row justify-between gap-3'>
                             <button
                                 disabled={hasEverHadSubscription && !hasActiveSubscription}
@@ -519,16 +543,31 @@ export default function Dashboard() {
                             </div>
                         </div>
 
-                        <div>
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ duration: 0.5, delay: 0.2 }}
+                        >
                             <h3 className="font-bold text-gray-900">Flux de traitement automatique</h3>
                             <p className="text-sm text-gray-600">Désactivable à tout moment</p>
-                        </div>
-                    </div>
+                        </motion.div>
+                    </motion.div>
 
                     {/* Section des icônes de flux */}
-                    <div className="flex flex-col sm:flex-row items-center justify-center gap-3 w-full lg:w-[70%] py-4 md:py-6 px-4 md:px-0">
+                    <motion.div 
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 0.5, delay: 0.2 }}
+                        className="flex flex-col sm:flex-row items-center justify-center gap-3 w-full lg:w-[70%] py-4 md:py-6 px-4 md:px-0"
+                    >
                         {/* Email Icon */}
-                        <div className={`flex flex-col items-center p-3 md:p-5 bg-blue-200/50 rounded-md gap-2`}>
+                        <motion.div 
+                            initial={{ opacity: 0, scale: 0.8 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            transition={{ duration: 0.4, delay: 0.3 }}
+                            whileHover={{ scale: 1.05 }}
+                            className={`flex flex-col items-center p-3 md:p-5 bg-blue-200/50 rounded-md gap-2`}
+                        >
                             <div className="w-10 h-10 md:w-12 md:h-12 flex items-center justify-center bg-transparent relative">
                                 <img 
                                     src="/assets/icon/icon-email.png" 
@@ -536,24 +575,33 @@ export default function Dashboard() {
                                     className={autoSort ? 'animate-pulse-opacity' : ''}
                                 />
                                 {autoSort && (
-                                    <div className="absolute -top-1 -right-1 w-4 h-4 md:w-4 md:h-4 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-bold animate-bounce-alert shadow-md">
+                                    <div className="absolute -top-1 -right-1 w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-bold animate-bounce-alert shadow-md">
                                         !
                                     </div>
                                 )}
                             </div>
                             <p className="mt-1 text-xs md:text-sm font-medium text-blue-500">Email</p>
-                        </div>
+                        </motion.div>
 
                         {/* Ligne animée 1 */}
-                        <div className="flex-1 py-2 md:px-2 md:py-0 max-w-[80px] md:max-w-[80px] w-full md:w-auto h-full md:h-auto min-h-[40px] md:min-h-0">
+                        <motion.div 
+                            initial={{ opacity: 0, scaleX: 0 }}
+                            animate={{ opacity: 1, scaleX: 1 }}
+                            transition={{ duration: 0.5, delay: 0.5 }}
+                            className="flex-1 py-2 md:px-2 md:py-0 max-w-[80px] md:max-w-[80px] w-full md:w-auto h-full md:h-auto min-h-[40px] md:min-h-0"
+                        >
                             <div className={`w-0.5 md:w-full md:h-0.5 h-full rounded-full ${!autoSort
                                 ? 'bg-gray-200'
                                 : 'animate-flow-orange-1'
                                 }`} />
-                        </div>
+                        </motion.div>
 
                         {/* Logo IA avec rotation */}
-                        <div
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            transition={{ duration: 0.5, delay: 0.6, ease: "easeOut" }}
+                            whileHover={{ scale: 1.05, transition: { duration: 0.2 } }}
                             className={`flex flex-col items-center p-3 md:p-5 rounded-md gap-2 transition-opacity`}
                             style={{
                                 background: !autoSort ? '#000000' : `conic-gradient(
@@ -580,19 +628,29 @@ export default function Dashboard() {
                                 alt="Logo"
                                 className={!autoSort ? 'grayscale' : ''}
                             />
-                        </div>
+                        </motion.div>
 
                         {/* Ligne animée 2 */}
-                        <div className="flex-1 py-2 md:px-2 md:py-0 max-w-[80px] md:max-w-[80px] w-full md:w-auto h-full md:h-auto min-h-[40px] md:min-h-0">
+                        <motion.div 
+                            initial={{ opacity: 0, scaleX: 0 }}
+                            animate={{ opacity: 1, scaleX: 1 }}
+                            transition={{ duration: 0.5, delay: 0.7 }}
+                            className="flex-1 py-2 md:px-2 md:py-0 max-w-[80px] md:max-w-[80px] w-full md:w-auto h-full md:h-auto min-h-[40px] md:min-h-0"
+                        >
                             <div className={`w-0.5 md:w-full md:h-0.5 h-full rounded-full ${!autoSort
                                 ? 'bg-gray-200'
                                 : 'animate-flow-orange-2'
                                 }`} />
-                        </div>
+                        </motion.div>
 
                         {/* Traité, Pub, Info - grisés si inactif */}
-                        <div className={`flex flex-col sm:flex-row gap-1.5 font-roboto transition-opacity ${!autoSort ? 'opacity-40 grayscale' : ''
-                            }`}>
+                        <motion.div 
+                            initial={{ opacity: 0, scale: 0.8 }}
+                            animate={{ opacity: !autoSort ? 0.4 : 1, scale: 1 }}
+                            transition={{ duration: 0.5, delay: 0.8 }}
+                            className={`flex flex-col sm:flex-row gap-1.5 font-roboto transition-opacity ${!autoSort ? 'opacity-40 grayscale' : ''
+                            }`}
+                        >
                             <div className="flex flex-col items-center bg-green-200/50 p-3 md:p-5 rounded-t-md sm:rounded-t-none sm:rounded-tl-md sm:rounded-bl-md gap-2">
                                 <div className={`w-9 h-9 md:w-11 md:h-11 rounded-lg flex items-center justify-center shadow-md ${!autoSort
                                     ? 'bg-gray-300'
@@ -620,38 +678,68 @@ export default function Dashboard() {
                                 </div>
                                 <p className="mt-1 text-xs md:text-sm font-medium text-blue-500">Info</p>
                             </div>
-                        </div>
-                    </div>
+                        </motion.div>
+                    </motion.div>
                 </div>
-            </div>
+            </motion.div>
 
             {accounts.length === 0 ? (
-                <div className="bg-white rounded-xl p-6 md:p-8 shadow-sm text-center w-full ">
-                    <div className="flex justify-center mb-4">
+                <motion.div 
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5, delay: 0.2 }}
+                    className="bg-white rounded-xl p-6 md:p-8 shadow-sm text-center w-full "
+                >
+                    <motion.div 
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        transition={{ duration: 0.5, delay: 0.4, type: "spring" }}
+                        className="flex justify-center mb-4"
+                    >
                         <div className="w-12 h-12 md:w-16 md:h-16 bg-blue-100 rounded-full flex items-center justify-center">
                             <Mail className="w-6 h-6 md:w-8 md:h-8 text-blue-600" />
                         </div>
-                    </div>
-                    <h2 className="text-lg md:text-xl font-bold text-gray-900 mb-2">
+                    </motion.div>
+                    <motion.h2 
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ duration: 0.5, delay: 0.5 }}
+                        className="text-lg md:text-xl font-bold text-gray-900 mb-2"
+                    >
                         Aucun compte email configuré
-                    </h2>
-                    <p className="text-sm md:text-base text-gray-600 mb-4 md:mb-6">
+                    </motion.h2>
+                    <motion.p 
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ duration: 0.5, delay: 0.6 }}
+                        className="text-sm md:text-base text-gray-600 mb-4 md:mb-6"
+                    >
                         Ajoutez votre premier compte email pour commencer
-                    </p>
-                </div>
+                    </motion.p>
+                </motion.div>
             ) : (
-                <div className="bg-white rounded-xl p-4 md:p-6 shadow-sm w-full ">
+                <motion.div 
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5, delay: 0.3 }}
+                    className="bg-white rounded-xl p-4 md:p-6 shadow-sm w-full "
+                >
                     <div className="flex flex-col gap-4 md:gap-6 mb-4 md:mb-6">
                         <div>
                             <label className="text-sm md:text-md font-roboto font-semibold text-gray-600 mb-2 md:mb-3 block">
                                 Compte Email
                             </label>
                             <div className="flex gap-2 md:gap-3 overflow-x-auto">
-                                {accounts.map(account => {
+                                {accounts.map((account, index) => {
                                     const isDisabled = account.is_active === false || account.cancel_at_period_end === true;
                                     return (
-                                    <button
+                                    <motion.button
                                         key={account.id}
+                                        initial={{ opacity: 0, x: -20 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        transition={{ duration: 0.3, delay: index * 0.1 }}
+                                        whileHover={{ scale: isDisabled ? 1 : 1.02 }}
+                                        whileTap={{ scale: isDisabled ? 1 : 0.98 }}
                                         onClick={() => {
                                             if (isDisabled) return;
                                             setSelectedAccountId(account.id);
@@ -660,9 +748,9 @@ export default function Dashboard() {
                                             setAutoSort(account.is_classement);
                                         }}
                                         disabled={isDisabled}
-                                        className={` flex items-center gap-2 md:gap-3 px-3 md:px-4 py-2 md:py-3 rounded-xl font-medium transition-all flex-shrink-0 text-sm md:text-base ${
+                                        className={` flex items-center  gap-2 md:gap-3 px-3 md:px-4 py-2 md:py-3 rounded-xl font-medium transition-all flex-shrink-0 text-sm md:text-base ${
                                             isDisabled
-                                                ? 'bg-gray-100 border-2 border-gray-200 opacity-50 cursor-not-allowed'
+                                                ? 'bg-gray-100 border-2 border-gray-300 opacity-40 cursor-not-allowed grayscale pointer-events-none'
                                                 : selectedAccountId === account.id
                                                 ? 'bg-blue-50 border-2 border-blue-200 shadow-md'
                                                 : 'bg-gray-50 border-1 border-transparent hover:border-gray-300'
@@ -679,20 +767,20 @@ export default function Dashboard() {
                                                     className="w-full h-full object-contain"
                                                 />
                                             ) : (
-                                                <MailIcon className='w-6 h-6 text-blue-600' />
+                                                <MailIcon className={`w-6 h-6 ${isDisabled ? 'text-gray-400' : 'text-blue-600'}`} />
                                             )}
                                         </div>
 
                                         <div className='flex flex-col gap-1 items-start flex-1'>
                                             <div className="flex items-center gap-2">
-                                                <span>{account.company_name?.trim() || 'Nom non défini'}</span>
+                                                <span className={isDisabled ? 'text-gray-400' : ''}>{account.company_name?.trim() || 'Nom non défini'}</span>
                                                 {isDisabled && (
-                                                    <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs font-medium rounded">
+                                                    <span className="px-2 py-0.5 bg-gray-200 text-gray-500 text-xs font-medium rounded">
                                                         {account.cancel_at_period_end ? 'En résiliation' : 'Inactif'}
                                                     </span>
                                                 )}
                                             </div>
-                                            <span>{account.email}</span>
+                                            <span className={isDisabled ? 'text-gray-400' : ''}>{account.email}</span>
 
                                         </div>
 
@@ -709,7 +797,7 @@ export default function Dashboard() {
 
 
 
-                                    </button>
+                                    </motion.button>
                                     );
                                 })}
                             </div>
@@ -766,7 +854,13 @@ export default function Dashboard() {
 
                     {/* Stats Cards */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-                        <div className="bg-white border-2  rounded-xl p-4 md:p-6">
+                        <motion.div 
+                            initial={{ opacity: 0, y: 30 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.5, delay: 0.4 }}
+                            whileHover={{ y: -5, transition: { duration: 0.2 } }}
+                            className="bg-white border-2  rounded-xl p-4 md:p-6"
+                        >
                             <div className="flex items-center justify-between mb-4">
                                 <span className="text-sm md:text-md font-inter text-black ">Temps économisé</span>
                                 <img src="/assets/icon/icon-envelope.png" alt="envelope" className=" bg-gray-100/50 rounded-md p-2     " />                            </div>
@@ -782,8 +876,14 @@ export default function Dashboard() {
                                     </div>
                                 </>
                             )}
-                        </div>
-                        <div className="bg-white border-2  rounded-xl p-4 md:p-6">
+                        </motion.div>
+                        <motion.div 
+                            initial={{ opacity: 0, y: 30 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.5, delay: 0.5 }}
+                            whileHover={{ y: -5, transition: { duration: 0.2 } }}
+                            className="bg-white border-2  rounded-xl p-4 md:p-6"
+                        >
                             <div className="flex items-center justify-between mb-4">
                                 <span className="text-sm md:text-md font-inter text-black">Emails répondus</span>
                                 <img src="/assets/icon/icon-check.png" alt="check" className=" bg-green-200/50 rounded-md p-2 rounded-2xl" />
@@ -800,9 +900,15 @@ export default function Dashboard() {
                                     </div>
                                 </>
                             )}
-                        </div>
+                        </motion.div>
 
-                        <div className="bg-white border-2 rounded-xl p-4 md:p-6">
+                        <motion.div 
+                            initial={{ opacity: 0, y: 30 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.5, delay: 0.6 }}
+                            whileHover={{ y: -5, transition: { duration: 0.2 } }}
+                            className="bg-white border-2 rounded-xl p-4 md:p-6"
+                        >
                             <div className="flex items-center justify-between mb-4">
                                 <span className="text-sm md:text-md font-inter text-black">Emails triés</span>
                                 <img src="/assets/icon/icon-close.png" alt="close" className=" bg-red-200/50 rounded-md p-2 rounded-2xl" />
@@ -819,9 +925,15 @@ export default function Dashboard() {
                                     </div>
                                 </>
                             )}
-                        </div>
+                        </motion.div>
 
-                        <div className="bg-white border-2 rounded-xl p-4 md:p-6">
+                        <motion.div 
+                            initial={{ opacity: 0, y: 30 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.5, delay: 0.7 }}
+                            whileHover={{ y: -5, transition: { duration: 0.2 } }}
+                            className="bg-white border-2 rounded-xl p-4 md:p-6"
+                        >
                             <div className="flex items-center justify-between mb-4">
                                 <span className="text-sm md:text-md font-inter text-black">Publicités filtrées</span>
                                 <img src="/assets/icon/icon-info.png" alt="info" className=" bg-blue-200/50 rounded-md p-2 rounded-2xl" />
@@ -838,17 +950,24 @@ export default function Dashboard() {
                                     </div>
                                 </>
                             )}
-                        </div>
+                        </motion.div>
 
                         
                     </div>
-                </div>
+                </motion.div>
             )}
 
             {/* Notification toast */}
-            {showNotification && (
-                <div className="fixed top-4 right-2 md:right-4 left-2 md:left-auto z-50 animate-fade-in-right font-inter">
-                    <div className="relative overflow-hidden bg-white rounded-2xl shadow-2xl border border-orange-200">
+            <AnimatePresence>
+                {showNotification && (
+                    <motion.div 
+                        initial={{ opacity: 0, x: 100, scale: 0.8 }}
+                        animate={{ opacity: 1, x: 0, scale: 1 }}
+                        exit={{ opacity: 0, x: 100, scale: 0.8 }}
+                        transition={{ duration: 0.3, type: "spring", stiffness: 200 }}
+                        className="fixed top-4 right-2 md:right-4 left-2 md:left-auto z-50 font-inter"
+                    >
+                        <div className="relative overflow-hidden bg-white rounded-2xl shadow-2xl border border-orange-200">
                         {/* Barre latérale colorée */}
                         <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b from-[#F35F4F] to-[#FFAD5A]" />
                         
@@ -866,8 +985,9 @@ export default function Dashboard() {
                         {/* Effet de brillance */}
                         <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-shimmer" />
                     </div>
-                </div>
-            )}
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
             {showOnboarding && user && (
                 <OnboardingModal

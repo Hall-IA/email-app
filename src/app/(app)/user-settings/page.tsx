@@ -7,6 +7,7 @@ import { useSearchParams } from 'next/navigation';
 import { useAuth } from '../../../../context/AuthContext';
 import { Subscription } from '@/components/Subscription';
 import Container from '@/components/Container';
+import { motion, AnimatePresence } from 'motion/react';
 
 interface ProfileData {
     email: string;
@@ -244,17 +245,34 @@ export default function UserSettingsPage() {
 
     return (
         <Container>
-            <div className="w-full mt-6 font-inter">
+            <motion.div 
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.3 }}
+                className="w-full mt-6 font-inter"
+            >
                 {/* Header */}
-                <div className="bg-white rounded-t-xl p-6 shadow-sm border border-gray-200">
+                <motion.div 
+                    initial={{ opacity: 0, y: -20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5 }}
+                    className="bg-white rounded-t-xl p-6 shadow-sm border border-gray-200"
+                >
                     <h1 className="text-2xl font-bold text-gray-900 mb-2">Paramètres</h1>
                     <p className="text-gray-600">Gérez vos informations personnelles et votre abonnement</p>
-                </div>
+                </motion.div>
 
                 {/* Navbar horizontale */}
-                <div className="bg-white border-x border-gray-200">
+                <motion.div 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.5, delay: 0.2 }}
+                    className="bg-white border-x border-gray-200"
+                >
                     <nav className="flex border-b border-gray-200">
-                        <button
+                        <motion.button
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
                             onClick={() => setActiveSection('personal')}
                             className={`flex items-center gap-2 px-6 py-4 font-medium transition-all ${
                                 activeSection === 'personal'
@@ -264,9 +282,11 @@ export default function UserSettingsPage() {
                         >
                             <User className="w-5 h-5" />
                             <span>Informations personnelles</span>
-                        </button>
+                        </motion.button>
 
-                        <button
+                        <motion.button
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
                             onClick={() => setActiveSection('company')}
                             className={`flex items-center gap-2 px-6 py-4 font-medium transition-all ${
                                 activeSection === 'company'
@@ -276,9 +296,11 @@ export default function UserSettingsPage() {
                         >
                             <Building2 className="w-5 h-5" />
                             <span>Informations entreprise</span>
-                        </button>
+                        </motion.button>
 
-                        <button
+                        <motion.button
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
                             onClick={() => setActiveSection('subscription')}
                             className={`flex items-center gap-2 px-6 py-4 font-medium transition-all ${
                                 activeSection === 'subscription'
@@ -288,15 +310,27 @@ export default function UserSettingsPage() {
                         >
                             <CreditCard className="w-5 h-5" />
                             <span>Abonnement</span>
-                        </button>
+                        </motion.button>
                     </nav>
-                </div>
+                </motion.div>
 
                 {/* Main Content */}
-                <div className="bg-white border border-t-0 border-gray-200 rounded-b-xl p-6">
-                    {/* Section Informations Entreprise */}
-                    {activeSection === 'company' && (
-                        <>
+                <motion.div 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.5, delay: 0.3 }}
+                    className="bg-white border border-t-0 border-gray-200 rounded-b-xl p-6"
+                >
+                    <AnimatePresence mode="wait">
+                        {/* Section Informations Entreprise */}
+                        {activeSection === 'company' && (
+                            <motion.div
+                                key="company"
+                                initial={{ opacity: 0, x: 20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                exit={{ opacity: 0, x: -20 }}
+                                transition={{ duration: 0.3 }}
+                            >
                             {/* Informations entreprise et nom */}
                             <div className="mb-8">
                                 <div className="flex items-center justify-between mb-6">
@@ -765,12 +799,19 @@ export default function UserSettingsPage() {
                                     </div>
                                 )}
                             </div>
-                        </>
-                    )}
+                            </motion.div>
+                        )}
 
-                    {/* Section Informations Personnelles */}
-                    {activeSection === 'personal' && (
-                        <div className="space-y-6">
+                        {/* Section Informations Personnelles */}
+                        {activeSection === 'personal' && (
+                            <motion.div
+                                key="personal"
+                                initial={{ opacity: 0, x: 20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                exit={{ opacity: 0, x: -20 }}
+                                transition={{ duration: 0.3 }}
+                                className="space-y-6"
+                            >
                             {/* Logo/Icône */}
                            
                             {/* Identifiant email */}
@@ -820,21 +861,37 @@ export default function UserSettingsPage() {
                             </div>
 
                          
-                        </div>
-                    )}
+                            </motion.div>
+                        )}
 
-                    {/* Section Abonnement */}
-                    {activeSection === 'subscription' && (
-                        <Subscription />
-                    )}
-                </div>
-            </div>
+                        {/* Section Abonnement */}
+                        {activeSection === 'subscription' && (
+                            <motion.div
+                                key="subscription"
+                                initial={{ opacity: 0, x: 20 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                exit={{ opacity: 0, x: -20 }}
+                                transition={{ duration: 0.3 }}
+                            >
+                                <Subscription />
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+                </motion.div>
+            </motion.div>
 
             {/* Modal changement de mot de passe */}
-            {showPasswordModal && (
-                <>
-                    {/* Overlay */}
-                    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100]" onClick={() => {
+            <AnimatePresence>
+                {showPasswordModal && (
+                    <>
+                        {/* Overlay */}
+                        <motion.div 
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.2 }}
+                            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100]" 
+                            onClick={() => {
                         setShowPasswordModal(false);
                         setPasswordData({ newPassword: '', confirmPassword: '' });
                         setPasswordError('');
@@ -843,9 +900,16 @@ export default function UserSettingsPage() {
                         setShowConfirmPassword(false);
                     }} />
 
-                    {/* Modal */}
-                    <div className="fixed inset-0 z-[101] flex items-center justify-center p-4 pointer-events-none">
-                        <div className="relative flex flex-col gap-6 w-full max-w-md bg-[#F9F7F5] rounded-2xl border border-[#F1EDEA] shadow-2xl pointer-events-auto overflow-hidden p-6" onClick={(e) => e.stopPropagation()}>
+                        {/* Modal */}
+                        <div className="fixed inset-0 z-[101] flex items-center justify-center p-4 pointer-events-none">
+                            <motion.div 
+                                initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                                transition={{ duration: 0.3, type: "spring" }}
+                                className="relative flex flex-col gap-6 w-full max-w-md bg-[#F9F7F5] rounded-2xl border border-[#F1EDEA] shadow-2xl pointer-events-auto overflow-hidden p-6" 
+                                onClick={(e) => e.stopPropagation()}
+                            >
                             
                             {/* Décoration en haut à gauche */}
                             <div 
@@ -968,10 +1032,11 @@ export default function UserSettingsPage() {
                                     </svg>
                                 </button>
                             </div>
+                            </motion.div>
                         </div>
-                    </div>
-                </>
-            )}
+                    </>
+                )}
+            </AnimatePresence>
 
             {/* Notification toast */}
             {showNotification && (

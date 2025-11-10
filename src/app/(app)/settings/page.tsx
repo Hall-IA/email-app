@@ -10,6 +10,7 @@ import { ConfirmationModal } from '@/components/ConfirmationModal';
 import { DeleteAccountModal } from '@/components/DeleteAccountModal';
 import { HowItWorks } from '@/components/HowItWork';
 import Container from '@/components/Container';
+import { motion, AnimatePresence } from 'motion/react';
 
 interface EmailAccount {
     id: string;
@@ -324,7 +325,20 @@ export default function Settings({ onNavigateToEmailConfig }: SettingsNewProps =
                 };
             });
 
-            setAccounts(allAccounts);
+            // Trier les comptes : actifs d'abord (alphabétique), puis désactivés (alphabétique)
+            const sortedAccounts = allAccounts.sort((a, b) => {
+                const aIsDisabled = a.is_active === false || a.cancel_at_period_end === true;
+                const bIsDisabled = b.is_active === false || b.cancel_at_period_end === true;
+                
+                // Si un compte est désactivé et l'autre non, le compte actif vient en premier
+                if (aIsDisabled && !bIsDisabled) return 1;
+                if (!aIsDisabled && bIsDisabled) return -1;
+                
+                // Si les deux sont dans le même état, trier par ordre alphabétique
+                return a.email.localeCompare(b.email);
+            });
+
+            setAccounts(sortedAccounts);
 
             if (allAccounts.length === 0) {
                 setSelectedAccount(null);
@@ -793,13 +807,25 @@ export default function Settings({ onNavigateToEmailConfig }: SettingsNewProps =
             <HowItWorks />
 
                 {/* Contenu principal */}
-                <div className="w-full mt-6 font-inter">
+                <motion.div 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.3 }}
+                    className="w-full mt-6 font-inter"
+                >
                     {/* Header avec bouton */}
-                    <div className="bg-white flex justify-between items-center font-inter p-6 rounded-t-xl border border-gray-200">
+                    <motion.div 
+                        initial={{ opacity: 0, y: -20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.5 }}
+                        className="bg-white flex justify-between items-center font-inter p-6 rounded-t-xl border border-gray-200"
+                    >
                     <h2 className="text-2xl font-bold text-gray-900 mb-2">
                         Configuration de vos emails
                     </h2>
-                    <button 
+                    <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }} 
                         onClick={handleAddAccountClick}
                         className="group relative px-3 md:px-4 py-1.5 md:py-2 rounded-full font-medium text-xs md:text-sm text-white disabled:opacity-50 flex items-center gap-2 overflow-hidden w-full md:w-auto justify-center shadow-md hover:shadow-lg transition-all duration-300  hover:scale-105"
                         style={{background:`conic-gradient(
@@ -816,13 +842,26 @@ export default function Settings({ onNavigateToEmailConfig }: SettingsNewProps =
                             Ajouter un compte
                         </span>
                     
-                    </button>
-                </div>
+                    </motion.button>
+                </motion.div>
 
             {/* Modal d'ajout de compte */}
-            {showAddAccountModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl font-inter">
+            <AnimatePresence>
+                {showAddAccountModal && (
+                    <motion.div 
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+                    >
+                        <motion.div 
+                            initial={{ opacity: 0, scale: 0.9, y: 20 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+                            transition={{ duration: 0.3, type: "spring" }}
+                            className="bg-white rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl font-inter"
+                        >
                         <div className="mb-6">
                             <h2 className="text-2xl font-bold text-gray-900 mb-2">Ajouter un compte email</h2>
                             <p className="text-gray-600 text-sm">Sélectionnez votre fournisseur d'email</p>
@@ -886,9 +925,10 @@ export default function Settings({ onNavigateToEmailConfig }: SettingsNewProps =
                         >
                             Annuler
                         </button>
-                    </div>
-                </div>
-            )}
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
                 {/* Bannière d'abonnement annulé */}
                 {isCanceled && hasActiveSubscription && subscriptionEndDate && (
@@ -916,17 +956,27 @@ export default function Settings({ onNavigateToEmailConfig }: SettingsNewProps =
                 {/* Layout principal */}
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-0">
                     {/* Colonne gauche - Liste des comptes */}
-                    <div className="lg:col-span-1">
+                    <motion.div 
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 0.5, delay: 0.2 }}
+                        className="lg:col-span-1"
+                    >
                         <div className="bg-white py-6 shadow-sm border border-gray-200 h-full rounded-bl-xl">
                             <div className="">
-                                {accounts.map((account) => {
+                                {accounts.map((account, index) => {
                                     const isDisabled = account.is_active === false || account.cancel_at_period_end === true;
                                     return (
-                                    <button
-                                        key={account.id}
+                                    <div key={account.id} className="relative group">
+                                    <motion.button
+                                        initial={{ opacity: 0, x: -20 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        transition={{ duration: 0.3, delay: 0.3 + index * 0.1 }}
+                                        whileHover={!isDisabled ? { scale: 1.02, x: 4 } : {}}
+                                        whileTap={!isDisabled ? { scale: 0.98 } : {}}
                                         onClick={() => !isDisabled && setSelectedAccount(account)}
                                         className={`w-full text-left px-4 py-3 transition-colors ${isDisabled
-                                            ? 'bg-gray-50 border-2 border-gray-200 opacity-60 cursor-not-allowed'
+                                            ? 'bg-gray-100 border-2 border-gray-300 opacity-40 text-gray-200 cursor-not-allowed grayscale'
                                                 : selectedAccount?.id === account.id
                                                 ? 'bg-orange-50 text-black shadow-md border-l-4 border-orange-500'
                                                 : 'text-black hover:bg-gray-100'
@@ -944,37 +994,58 @@ export default function Settings({ onNavigateToEmailConfig }: SettingsNewProps =
                                                 </div>
                                             ) : (
                                                 <div className="w-10 h-10 flex items-center justify-center">
-                                                    <Mail className="w-5 h-5 text-orange-500" />
+                                                    <Mail className={`w-5 h-5 ${isDisabled ? 'text-gray-400' : 'text-orange-500'}`} />
                                                 </div>
                                             )}
                                             
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex items-center justify-between">
-                                                    <div className="font-medium truncate">{account.email}</div>
+                                                    <div className={`font-medium truncate ${isDisabled ? 'text-gray-400' : ''}`}>{account.email}</div>
                                                     {isDisabled && (
-                                                        <span className="ml-2 px-2 py-0.5 bg-red-100 text-red-700 text-xs font-medium rounded">
+                                                        <span className="ml-2 px-2 py-0.5 bg-gray-200 text-gray-500 text-xs font-medium rounded">
                                                             {account.cancel_at_period_end ? 'En résiliation' : 'Inactif'}
                                                         </span>
                                                     )}
                                                 </div>
-                                                <div className="text-xs text-gray-500">
+                                                <div className={`text-xs ${isDisabled ? 'text-gray-400' : 'text-gray-500'}`}>
                                                     {account.provider === 'gmail' ? 'Gmail' : account.provider === 'outlook' ? 'Outlook' : 'IMAP'}
                                                 </div>
                                             </div>
                                         </div>
-                                    </button>
+                                    </motion.button>
+                                    {/* Tooltip pour les comptes désactivés */}
+                                    {isDisabled && (
+                                        <div className="absolute left-full ml-2 top-1/2 -translate-y-1/2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg">
+                                            Réactiver vos emails dans Compte &gt; Abonnement
+                                            <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-gray-900"></div>
+                                        </div>
+                                    )}
+                                    </div>
                                     );
                                 })}
                               
                             </div>
                         </div>
-                    </div>
+                    </motion.div>
 
                     {/* Colonne droite - Détails du compte */}
-                    <div className="lg:col-span-2">
+                    <motion.div 
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 0.5, delay: 0.3 }}
+                        className="lg:col-span-2"
+                    >
                         {/* Indicateur d'état du tri automatique */}
-                        {selectedAccount && (
-                            <div className="bg-white p-6 shadow-sm border-t border-r border-gray-200 mb-0">
+                        <AnimatePresence mode="wait">
+                            {selectedAccount && (
+                                <motion.div 
+                                    key={selectedAccount.id}
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: -20 }}
+                                    transition={{ duration: 0.3 }}
+                                    className="bg-white p-6 shadow-sm border-t border-r border-gray-200 mb-0"
+                                >
                                 <div className="flex items-center justify-between gap-4">
                                     <div className="flex items-center gap-2 border rounded-md p-1">
                                         <div className="relative flex items-center gap-2">
@@ -1039,13 +1110,21 @@ export default function Settings({ onNavigateToEmailConfig }: SettingsNewProps =
                                         />
                                     </button>
                                 </div>
-                            </div>
-                        )}
-
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
 
                         {/* Informations du compte sélectionné */}
-                        {selectedAccount && (
-                            <div className="font-inter bg-white p-6 border-r border-gray-200">
+                        <AnimatePresence mode="wait">
+                            {selectedAccount && (
+                                <motion.div 
+                                    key={`info-${selectedAccount.id}`}
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: -20 }}
+                                    transition={{ duration: 0.3 }}
+                                    className="font-inter bg-white p-6 border-r border-gray-200"
+                                >
                                     <h2 className="text-lg font-semibold text-gray-900">{selectedAccount.email}</h2>
 
                                     
@@ -1059,12 +1138,21 @@ export default function Settings({ onNavigateToEmailConfig }: SettingsNewProps =
                                 <p className="text-sm text-gray-500">
                                   Flux de traitement automatique
                                 </p>
-                            </div>
-                        )}
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
 
                         {/* Informations de l'entreprise */}
-                        {selectedAccount && (
-                            <div className="bg-white font-inter p-6 shadow-sm border-r border-b border-gray-200 rounded-br-xl">
+                        <AnimatePresence mode="wait">
+                            {selectedAccount && (
+                                <motion.div 
+                                    key={`company-${selectedAccount.id}`}
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: -20 }}
+                                    transition={{ duration: 0.3, delay: 0.1 }}
+                                    className="bg-white font-inter p-6 shadow-sm border-r border-b border-gray-200 rounded-br-xl"
+                                >
                                
                                 <div className="space-y-3 text-sm">
                                     <div>
@@ -1105,8 +1193,9 @@ export default function Settings({ onNavigateToEmailConfig }: SettingsNewProps =
                                         <p className="font-medium text-gray-900 whitespace-pre-wrap mt-2">{companyFormData.services_offered || 'Non renseignée'}</p>
                                     </div>
                                 </div>
-                            </div>
-                        )}
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
 
                         {/* Fonctionnalités */}
                         {/* <div className="bg-white  p-6 shadow-sm border border-gray-200">
@@ -1277,6 +1366,7 @@ export default function Settings({ onNavigateToEmailConfig }: SettingsNewProps =
                                 </button>
                             </div>
                         </div> */}
+                    {/* </motion.div> */}
 
                         {/* Zone de danger */}
                         {/* <div className="bg-white p-6 shadow-sm border-2 border-red-200">
@@ -1307,10 +1397,11 @@ export default function Settings({ onNavigateToEmailConfig }: SettingsNewProps =
                                 </button>
                             </div>
                         </div>*/}
-                    </div>
+                    </motion.div>
                 </div>
-                </div> 
-            </Container>
+                {/* </div> */}
+</motion.div> 
+</Container>
 
             {/* Modal d'information de l'entreprise */}
             {showCompanyInfoModal && (

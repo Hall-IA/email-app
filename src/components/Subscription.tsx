@@ -795,8 +795,26 @@ export function Subscription() {
         return (
             <div className="mt-6 flex items-center justify-center py-12">
                 <div className="text-center">
-                    <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-gray-200 border-t-blue-600 mb-4"></div>
-                    <p className="text-gray-600 font-medium">Chargement de votre abonnement...</p>
+                    <div className="relative inline-block mb-6">
+                        {/* Cercle extérieur avec gradient orange */}
+                        <div 
+                            className="inline-block animate-spin rounded-full h-16 w-16 border-4 border-transparent"
+                            style={{
+                                borderTopColor: '#FE9736',
+                                borderRightColor: '#F4664C',
+                                borderBottomColor: '#FE9736',
+                                borderLeftColor: 'transparent'
+                            }}
+                        ></div>
+                        {/* Point central orange qui pulse */}
+                        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+                            <div className="w-3 h-3 bg-gradient-to-br from-orange-400 to-orange-600 rounded-full animate-pulse"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <p className="text-gray-900 font-semibold text-lg mb-1">Chargement de votre abonnement</p>
+                        <p className="text-gray-500 text-sm">Veuillez patienter quelques instants...</p>
+                    </div>
                 </div>
             </div>
         );

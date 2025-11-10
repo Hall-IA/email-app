@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -214,52 +212,74 @@ export function OnboardingModal({ userId, onComplete }: OnboardingModalProps) {
     };
 
     return (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-                {/* Header */}
-                <div className="bg-gradient-to-r from-blue-600 to-blue-500 px-8 py-6 text-white">
-                    <h2 className="text-2xl font-bold mb-2">Bienvenue sur Hall IA!</h2>
-                    <p className="text-white/90">Configurons votre compte en quelques étapes</p>
-                </div>
+        <>
+            {/* Overlay */}
+            <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm" />
 
-                {/* Progress Steps */}
-                <div className="px-8 py-6 border-b border-gray-200">
+            {/* Modal centré */}
+            <div className="fixed inset-0 z-[51] flex items-center justify-center p-4">
+                <div className="relative bg-[#F9F7F5] rounded-3xl border border-[#F1EDEA] shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
+                    
+                    {/* Décoration en haut à gauche */}
+                    <div 
+                        className="absolute -left-48 -top-48 w-[479px] h-[479px] rounded-full opacity-24 pointer-events-none"
+                        style={{
+                            background: `conic-gradient(from 194deg at 84% -3.1%, #FF9A34 0deg, #F35F4F 76.15deg, #CE7D2A 197.31deg, #FFAD5A 245.77deg)`,
+                            filter: 'blur(50px)',
+                        }}
+                    />
+
+                    {/* Header avec logo et titre */}
+                    <div className="relative px-8 pt-8 pb-4">
+                        <div className='flex items-center gap-3 mb-2'>
+                            <img src="/logo/logo-hallia-orange.png" alt="HALL-IA Logo" className="w-12 h-12" />
+                            <div>
+                                <h2 className='text-3xl font-bold font-roboto text-gray-900'>Bienvenue sur Hall IA !</h2>
+                            </div>
+                        </div>
+                        <p className="text-gray-600 text-base ml-15">Configurons votre compte en quelques étapes</p>
+                    </div>
+
+                {/* Contenu scrollable */}
+                <div className="relative overflow-y-auto max-h-[calc(90vh-180px)]">
+                    {/* Progress Steps */}
+                    <div className="px-8 py-4 border-b border-gray-200">
                     <div className="flex items-center justify-between">
                         {[1, 2, 3].map((step) => (
                             <div key={step} className="flex items-center flex-1">
                                 <div
-                                    className={`flex items-center justify-center w-10 h-10 rounded-full font-bold transition-all ${step < currentStep
-                                            ? 'bg-green-500 text-white'
+                                    className={`flex items-center justify-center w-10 h-10 rounded-full font-semibold transition-all ${step < currentStep
+                                            ? 'bg-white border-2 border-orange-400 text-orange-500'
                                             : step === currentStep
-                                                ? 'bg-gradient-to-r from-blue-600 to-blue-500 text-white'
-                                                : 'bg-gray-200 text-gray-500'
+                                                ? 'bg-gradient-to-br from-[#F35F4F] to-[#FFAD5A] text-white shadow-md'
+                                                : 'bg-gray-50 border-2 border-gray-200 text-gray-400'
                                         }`}
                                 >
-                                    {step < currentStep ? <Check className="w-5 h-5" /> : step}
+                                    {step < currentStep ? <Check className="w-4 h-4" /> : step}
                                 </div>
                                 {step < totalSteps && (
                                     <div
-                                        className={`flex-1 h-1 mx-2 transition-all ${step < currentStep ? 'bg-green-500' : 'bg-gray-200'
+                                        className={`flex-1 h-0.5 mx-3 rounded-full transition-all ${step < currentStep ? 'bg-orange-300' : 'bg-gray-200'
                                             }`}
                                     />
                                 )}
                             </div>
                         ))}
                     </div>
-                    <div className="flex justify-between mt-3">
+                    <div className="flex justify-between mt-4">
                         <span
-                            className={`text-sm font-medium ${currentStep === 1 ? 'text-blue-600' : currentStep > 1 ? 'text-green-600' : 'text-gray-400'
+                            className={`text-sm font-medium ${currentStep === 1 ? 'text-orange-500' : currentStep > 1 ? 'text-orange-400' : 'text-gray-400'
                                 }`}
                         >
                             Entreprise
                         </span>
                         <span
-                            className={`text-sm font-medium ${currentStep === 2 ? 'text-blue-600' : currentStep > 2 ? 'text-green-600' : 'text-gray-400'
+                            className={`text-sm font-medium ${currentStep === 2 ? 'text-orange-500' : currentStep > 2 ? 'text-orange-400' : 'text-gray-400'
                                 }`}
                         >
                             Adresse
                         </span>
-                        <span className={`text-sm font-medium ${currentStep === 3 ? 'text-blue-600' : 'text-gray-400'}`}>
+                        <span className={`text-sm font-medium ${currentStep === 3 ? 'text-orange-500' : 'text-gray-400'}`}>
                             Contact
                         </span>
                     </div>
@@ -270,13 +290,13 @@ export function OnboardingModal({ userId, onComplete }: OnboardingModalProps) {
                     {/* Step 1: Informations Entreprise */}
                     {currentStep === 1 && (
                         <div className="space-y-5">
-                            <div className="flex items-center gap-3 mb-6">
-                                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-600 to-blue-500 flex items-center justify-center">
+                            <div className="flex items-center gap-4 mb-6">
+                                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#F35F4F] to-[#FFAD5A] flex items-center justify-center shadow-md">
                                     <Building2 className="w-6 h-6 text-white" />
                                 </div>
                                 <div>
                                     <h3 className="text-xl font-bold text-gray-900">Informations entreprise</h3>
-                                    <p className="text-gray-600 text-sm">Renseignez les informations de votre entreprise</p>
+                                    <p className="text-gray-500 text-sm">Renseignez les informations de votre entreprise</p>
                                 </div>
                             </div>
 
@@ -288,7 +308,7 @@ export function OnboardingModal({ userId, onComplete }: OnboardingModalProps) {
                                     type="text"
                                     value={formData.company_name}
                                     onChange={(e) => setFormData({ ...formData, company_name: e.target.value })}
-                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
                                     placeholder="Nom de votre entreprise"
                                     required
                                 />
@@ -302,7 +322,7 @@ export function OnboardingModal({ userId, onComplete }: OnboardingModalProps) {
                                     <select
                                         value={formData.civility}
                                         onChange={(e) => setFormData({ ...formData, civility: e.target.value })}
-                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
                                         required
                                     >
                                         <option value="">Sélectionner</option>
@@ -319,7 +339,7 @@ export function OnboardingModal({ userId, onComplete }: OnboardingModalProps) {
                                         type="text"
                                         value={formData.first_name}
                                         onChange={(e) => setFormData({ ...formData, first_name: e.target.value })}
-                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
                                         placeholder="Prénom"
                                         required
                                     />
@@ -333,7 +353,7 @@ export function OnboardingModal({ userId, onComplete }: OnboardingModalProps) {
                                         type="text"
                                         value={formData.last_name}
                                         onChange={(e) => setFormData({ ...formData, last_name: e.target.value })}
-                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
                                         placeholder="Nom"
                                         required
                                     />
@@ -348,7 +368,7 @@ export function OnboardingModal({ userId, onComplete }: OnboardingModalProps) {
                                     type="text"
                                     value={formData.job_title}
                                     onChange={(e) => setFormData({ ...formData, job_title: e.target.value })}
-                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
                                     placeholder="Directeur Général, Responsable Commercial..."
                                 />
                             </div>
@@ -358,13 +378,13 @@ export function OnboardingModal({ userId, onComplete }: OnboardingModalProps) {
                     {/* Step 2: Adresse */}
                     {currentStep === 2 && (
                         <div className="space-y-5">
-                            <div className="flex items-center gap-3 mb-6">
-                                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-600 to-blue-500 flex items-center justify-center">
+                            <div className="flex items-center gap-4 mb-6">
+                                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#F35F4F] to-[#FFAD5A] flex items-center justify-center shadow-md">
                                     <MapPin className="w-6 h-6 text-white" />
                                 </div>
                                 <div>
                                     <h3 className="text-xl font-bold text-gray-900">Adresse</h3>
-                                    <p className="text-gray-600 text-sm">Indiquez l'adresse de votre entreprise</p>
+                                    <p className="text-gray-500 text-sm">Indiquez l'adresse de votre entreprise</p>
                                 </div>
                             </div>
 
@@ -376,7 +396,7 @@ export function OnboardingModal({ userId, onComplete }: OnboardingModalProps) {
                                     type="text"
                                     value={formData.street_address}
                                     onChange={(e) => setFormData({ ...formData, street_address: e.target.value })}
-                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
                                     placeholder="123 rue de la République"
                                     required
                                 />
@@ -390,7 +410,7 @@ export function OnboardingModal({ userId, onComplete }: OnboardingModalProps) {
                                     type="text"
                                     value={formData.address_complement}
                                     onChange={(e) => setFormData({ ...formData, address_complement: e.target.value })}
-                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
                                     placeholder="Bâtiment, étage, porte..."
                                 />
                             </div>
@@ -404,7 +424,7 @@ export function OnboardingModal({ userId, onComplete }: OnboardingModalProps) {
                                         type="text"
                                         value={formData.postal_code}
                                         onChange={(e) => setFormData({ ...formData, postal_code: e.target.value })}
-                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
                                         placeholder="75001"
                                         required
                                     />
@@ -418,7 +438,7 @@ export function OnboardingModal({ userId, onComplete }: OnboardingModalProps) {
                                         type="text"
                                         value={formData.city}
                                         onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
                                         placeholder="Paris"
                                         required
                                     />
@@ -430,7 +450,7 @@ export function OnboardingModal({ userId, onComplete }: OnboardingModalProps) {
                                 <select
                                     value={formData.country}
                                     onChange={(e) => setFormData({ ...formData, country: e.target.value })}
-                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
                                 >
                                     <option value="France">France</option>
                                     <option value="Belgique">Belgique</option>
@@ -445,13 +465,13 @@ export function OnboardingModal({ userId, onComplete }: OnboardingModalProps) {
                     {/* Step 3: Contact */}
                     {currentStep === 3 && (
                         <div className="space-y-5">
-                            <div className="flex items-center gap-3 mb-6">
-                                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-600 to-blue-500 flex items-center justify-center">
+                            <div className="flex items-center gap-4 mb-6">
+                                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#F35F4F] to-[#FFAD5A] flex items-center justify-center shadow-md">
                                     <Mail className="w-6 h-6 text-white" />
                                 </div>
                                 <div>
                                     <h3 className="text-xl font-bold text-gray-900">Contact</h3>
-                                    <p className="text-gray-600 text-sm">Ajoutez vos coordonnées de contact</p>
+                                    <p className="text-gray-500 text-sm">Ajoutez vos coordonnées de contact</p>
                                 </div>
                             </div>
 
@@ -463,7 +483,7 @@ export function OnboardingModal({ userId, onComplete }: OnboardingModalProps) {
                                     type="email"
                                     value={formData.contact_email}
                                     onChange={(e) => setFormData({ ...formData, contact_email: e.target.value })}
-                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
                                     placeholder="contact@entreprise.fr"
                                     required
                                 />
@@ -477,7 +497,7 @@ export function OnboardingModal({ userId, onComplete }: OnboardingModalProps) {
                                     type="email"
                                     value={formData.invoice_email}
                                     onChange={(e) => setFormData({ ...formData, invoice_email: e.target.value })}
-                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
                                     placeholder="factures@entreprise.fr"
                                 />
                             </div>
@@ -490,7 +510,7 @@ export function OnboardingModal({ userId, onComplete }: OnboardingModalProps) {
                                     type="tel"
                                     value={formData.phone}
                                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                    className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
                                     placeholder="+33 1 23 45 67 89"
                                     required
                                 />
@@ -498,54 +518,57 @@ export function OnboardingModal({ userId, onComplete }: OnboardingModalProps) {
                         </div>
                     )}
                 </div>
+                </div>
 
                 {/* Footer with Navigation */}
-                <div className="px-8 py-6 bg-gray-50 border-t border-gray-200 flex items-center justify-between rounded-b-2xl">
+                <div className="relative px-8 py-6 bg-white/80 backdrop-blur-sm border-t border-gray-200 flex items-center justify-between">
                     <button
                         onClick={handleBack}
                         disabled={currentStep === 1}
-                        className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-medium transition-all ${currentStep === 1
-                                ? 'text-gray-400 cursor-not-allowed'
-                                : 'text-gray-700 hover:bg-gray-200'
+                        className={`flex items-center gap-2 px-5 py-3 rounded-xl font-semibold transition-all ${currentStep === 1
+                                ? 'text-gray-300 cursor-not-allowed'
+                                : 'text-gray-700 hover:bg-white hover:shadow-sm'
                             }`}
                     >
-                        <ChevronLeft className="w-4 h-4" />
+                        <ChevronLeft className="w-5 h-5" />
                         Précédent
                     </button>
 
-                    <div className="text-sm text-gray-500">
+                    <div className="text-sm font-medium text-gray-500">
                         Étape {currentStep} sur {totalSteps}
                     </div>
 
                     {currentStep < totalSteps ? (
                         <button
                             onClick={handleNext}
-                            className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-lg font-medium hover:shadow-lg transition-all"
+                            className="flex items-center gap-2 px-6 py-3 bg-gradient-to-br from-[#F35F4F] to-[#FFAD5A] text-white rounded-xl font-semibold hover:shadow-xl transition-all"
                         >
                             Suivant
-                            <ChevronRight className="w-4 h-4" />
+                            <ChevronRight className="w-5 h-5" />
                         </button>
                     ) : (
+                    
                         <button
                             onClick={handleSubmit}
                             disabled={loading}
-                            className="flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-blue-600 to-blue-500 text-white rounded-lg font-medium hover:shadow-lg transition-all disabled:opacity-50"
+                            className="flex items-center gap-2 px-6 py-3 bg-gradient-to-br from-[#F35F4F] to-[#FFAD5A] text-white rounded-xl font-semibold hover:shadow-xl transition-all disabled:opacity-50"
                         >
                             {loading ? (
                                 <>
-                                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                                     Enregistrement...
                                 </>
                             ) : (
                                 <>
-                                    <Check className="w-4 h-4" />
+                                    <Check className="w-5 h-5" />
                                     Terminer
                                 </>
                             )}
                         </button>
                     )}
                 </div>
+                </div>
             </div>
-        </div>
+        </>
     );
 }
