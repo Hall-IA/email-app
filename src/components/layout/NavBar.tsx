@@ -364,7 +364,7 @@ export default function NavBar() {
                     <rect x="14" y="14" width="7" height="7" />
                     <rect x="3" y="14" width="7" height="7" />
                   </svg>
-                  Dashboard
+                  Tableau de bord 
                 </Link>
                 <button
                   onClick={handleLogout}

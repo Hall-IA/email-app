@@ -42,6 +42,13 @@ Deno.serve(async (req) => {
 
     const { price_id, success_url, cancel_url, mode, additional_account_price_id, additional_accounts } = await req.json();
 
+    console.log('📥 Données reçues:', {
+      price_id,
+      additional_account_price_id,
+      additional_accounts,
+      mode
+    });
+
     const error = validateParameters(
       { price_id, success_url, cancel_url, mode },
       {
@@ -213,11 +220,19 @@ Deno.serve(async (req) => {
     ];
 
     if (additional_account_price_id && additional_accounts && additional_accounts > 0) {
+      console.log(`➕ Ajout de ${additional_accounts} email(s) additionnel(s) au prix ${additional_account_price_id}`);
       lineItems.push({
         price: additional_account_price_id,
         quantity: additional_accounts,
       });
+    } else {
+      console.log('⚠️ Pas d\'emails additionnels:', {
+        has_price_id: !!additional_account_price_id,
+        count: additional_accounts
+      });
     }
+
+    console.log('🛒 Line items finaux:', JSON.stringify(lineItems, null, 2));
 
     const session = await stripe.checkout.sessions.create({
       customer: customerId,

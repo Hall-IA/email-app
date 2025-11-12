@@ -37,7 +37,7 @@ export default function UserSettingsPage() {
     const getInitialSection = (): Section => {
         const tab = searchParams.get('tab');
         if (tab === 'subscription') return 'subscription';
-        return 'company';
+        return 'personal';
     };
 
     const [activeSection, setActiveSection] = useState<Section>(getInitialSection());
@@ -55,6 +55,7 @@ export default function UserSettingsPage() {
     const [showConfirmPassword, setShowConfirmPassword] = useState(false);
     const [showNotification, setShowNotification] = useState(false);
     const [notificationMessage, setNotificationMessage] = useState('');
+    const [validationErrors, setValidationErrors] = useState<{[key: string]: string}>({});
     const [editFormData, setEditFormData] = useState({
         company_name: '',
         civility: '',
@@ -111,8 +112,83 @@ export default function UserSettingsPage() {
         }
     };
 
+    // Fonctions de validation
+    const validateEmail = (email: string): boolean => {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return emailRegex.test(email);
+    };
+
+    const validatePostalCode = (postalCode: string): boolean => {
+        const postalCodeRegex = /^[0-9]{5}$/;
+        return postalCodeRegex.test(postalCode);
+    };
+
+    const validateCompanyInfo = (): boolean => {
+        const errors: {[key: string]: string} = {};
+
+        if (!editFormData.civility || editFormData.civility.trim() === '') {
+            errors.civility = 'La civilité est obligatoire';
+        }
+
+        if (!editFormData.first_name || editFormData.first_name.trim() === '') {
+            errors.first_name = 'Le prénom est obligatoire';
+        }
+
+        if (!editFormData.last_name || editFormData.last_name.trim() === '') {
+            errors.last_name = 'Le nom est obligatoire';
+        }
+
+        setValidationErrors(errors);
+        return Object.keys(errors).length === 0;
+    };
+
+    const validateAddress = (): boolean => {
+        const errors: {[key: string]: string} = {};
+
+        if (!editFormData.street_address || editFormData.street_address.trim() === '') {
+            errors.street_address = 'L\'adresse est obligatoire';
+        }
+
+        if (!editFormData.postal_code || editFormData.postal_code.trim() === '') {
+            errors.postal_code = 'Le code postal est obligatoire';
+        } else if (!validatePostalCode(editFormData.postal_code)) {
+            errors.postal_code = 'Le code postal doit contenir 5 chiffres';
+        }
+
+        if (!editFormData.city || editFormData.city.trim() === '') {
+            errors.city = 'La ville est obligatoire';
+        }
+
+        if (!editFormData.country || editFormData.country.trim() === '') {
+            errors.country = 'Le pays est obligatoire';
+        }
+
+        setValidationErrors(errors);
+        return Object.keys(errors).length === 0;
+    };
+
+    const validateContact = (): boolean => {
+        const errors: {[key: string]: string} = {};
+
+        if (editFormData.contact_email && !validateEmail(editFormData.contact_email)) {
+            errors.contact_email = 'L\'email de contact n\'est pas valide';
+        }
+
+        if (editFormData.invoice_email && !validateEmail(editFormData.invoice_email)) {
+            errors.invoice_email = 'L\'email de facturation n\'est pas valide';
+        }
+
+        setValidationErrors(errors);
+        return Object.keys(errors).length === 0;
+    };
+
     const handleUpdateCompanyInfo = async () => {
         if (!user) return;
+
+        // Valider les données avant l'envoi
+        if (!validateCompanyInfo()) {
+            return;
+        }
 
         const { error } = await supabase
             .from('profiles')
@@ -129,11 +205,17 @@ export default function UserSettingsPage() {
         if (!error) {
             await loadProfile();
             setIsEditingCompany(false);
+            setValidationErrors({});
         }
     };
 
     const handleUpdateAddress = async () => {
         if (!user) return;
+
+        // Valider les données avant l'envoi
+        if (!validateAddress()) {
+            return;
+        }
 
         const { error } = await supabase
             .from('profiles')
@@ -150,11 +232,17 @@ export default function UserSettingsPage() {
         if (!error) {
             await loadProfile();
             setIsEditingAddress(false);
+            setValidationErrors({});
         }
     };
 
     const handleUpdateContact = async () => {
         if (!user) return;
+
+        // Valider les données avant l'envoi
+        if (!validateContact()) {
+            return;
+        }
 
         const { error } = await supabase
             .from('profiles')
@@ -169,6 +257,7 @@ export default function UserSettingsPage() {
         if (!error) {
             await loadProfile();
             setIsEditingContact(false);
+            setValidationErrors({});
         }
     };
 
@@ -335,7 +424,7 @@ export default function UserSettingsPage() {
                             <div className="mb-8">
                                 <div className="flex items-center justify-between mb-6">
                                     <h2 className="text-lg font-bold text-gray-900">
-                                        Informations sur l'entreprise et nom
+                                        Informations sur l'entreprise
                                     </h2>
                                     {!isEditingCompany && (
                                         <button
@@ -363,36 +452,53 @@ export default function UserSettingsPage() {
                                         </div>
 
                                         <div>
-                                            <label className="block text-sm font-semibold text-gray-900 mb-2">Civilité</label>
+                                            <label className="block text-sm font-semibold text-gray-900 mb-2">
+                                                Civilité <span className="text-red-500">*</span>
+                                            </label>
                                             <select
                                                 value={editFormData.civility}
                                                 onChange={(e) => setEditFormData({ ...editFormData, civility: e.target.value })}
-                                                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                                className={`w-full px-4 py-2.5 border ${validationErrors.civility ? 'border-red-500' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all`}
                                             >
                                                 <option value="">Sélectionner</option>
                                                 <option value="Monsieur">Monsieur</option>
                                                 <option value="Madame">Madame</option>
+                                                <option value="Autre">Autre</option>
+                                                <option value="Ne souhaite pas être défini">Ne souhaite pas être défini</option>
                                             </select>
+                                            {validationErrors.civility && (
+                                                <p className="mt-1 text-sm text-red-500">{validationErrors.civility}</p>
+                                            )}
                                         </div>
 
                                         <div>
-                                            <label className="block text-sm font-semibold text-gray-900 mb-2">Prénom</label>
+                                            <label className="block text-sm font-semibold text-gray-900 mb-2">
+                                                Prénom <span className="text-red-500">*</span>
+                                            </label>
                                             <input
                                                 type="text"
                                                 value={editFormData.first_name}
                                                 onChange={(e) => setEditFormData({ ...editFormData, first_name: e.target.value })}
-                                                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                                className={`w-full px-4 py-2.5 border ${validationErrors.first_name ? 'border-red-500' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all`}
                                             />
+                                            {validationErrors.first_name && (
+                                                <p className="mt-1 text-sm text-red-500">{validationErrors.first_name}</p>
+                                            )}
                                         </div>
 
                                         <div>
-                                            <label className="block text-sm font-semibold text-gray-900 mb-2">Nom</label>
+                                            <label className="block text-sm font-semibold text-gray-900 mb-2">
+                                                Nom <span className="text-red-500">*</span>
+                                            </label>
                                             <input
                                                 type="text"
                                                 value={editFormData.last_name}
                                                 onChange={(e) => setEditFormData({ ...editFormData, last_name: e.target.value })}
-                                                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                                className={`w-full px-4 py-2.5 border ${validationErrors.last_name ? 'border-red-500' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all`}
                                             />
+                                            {validationErrors.last_name && (
+                                                <p className="mt-1 text-sm text-red-500">{validationErrors.last_name}</p>
+                                            )}
                                         </div>
 
                                         <div>
@@ -514,14 +620,17 @@ export default function UserSettingsPage() {
                                     <div className="space-y-4">
                                         <div>
                                             <label className="block text-sm font-semibold text-gray-900 mb-2">
-                                                Numéro et rue
+                                                Numéro et rue <span className="text-red-500">*</span>
                                             </label>
                                             <input
                                                 type="text"
                                                 value={editFormData.street_address}
                                                 onChange={(e) => setEditFormData({ ...editFormData, street_address: e.target.value })}
-                                                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                                className={`w-full px-4 py-2.5 border ${validationErrors.street_address ? 'border-red-500' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all`}
                                             />
+                                            {validationErrors.street_address && (
+                                                <p className="mt-1 text-sm text-red-500">{validationErrors.street_address}</p>
+                                            )}
                                         </div>
 
                                         <div>
@@ -537,33 +646,50 @@ export default function UserSettingsPage() {
                                         </div>
 
                                         <div>
-                                            <label className="block text-sm font-semibold text-gray-900 mb-2">Code postal</label>
+                                            <label className="block text-sm font-semibold text-gray-900 mb-2">
+                                                Code postal <span className="text-red-500">*</span>
+                                            </label>
                                             <input
                                                 type="text"
                                                 value={editFormData.postal_code}
                                                 onChange={(e) => setEditFormData({ ...editFormData, postal_code: e.target.value })}
-                                                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                                className={`w-full px-4 py-2.5 border ${validationErrors.postal_code ? 'border-red-500' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all`}
+                                                maxLength={5}
+                                                placeholder="Ex: 75001"
                                             />
+                                            {validationErrors.postal_code && (
+                                                <p className="mt-1 text-sm text-red-500">{validationErrors.postal_code}</p>
+                                            )}
                                         </div>
 
                                         <div>
-                                            <label className="block text-sm font-semibold text-gray-900 mb-2">Ville</label>
+                                            <label className="block text-sm font-semibold text-gray-900 mb-2">
+                                                Ville <span className="text-red-500">*</span>
+                                            </label>
                                             <input
                                                 type="text"
                                                 value={editFormData.city}
                                                 onChange={(e) => setEditFormData({ ...editFormData, city: e.target.value })}
-                                                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                                className={`w-full px-4 py-2.5 border ${validationErrors.city ? 'border-red-500' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all`}
                                             />
+                                            {validationErrors.city && (
+                                                <p className="mt-1 text-sm text-red-500">{validationErrors.city}</p>
+                                            )}
                                         </div>
 
                                         <div>
-                                            <label className="block text-sm font-semibold text-gray-900 mb-2">Pays</label>
+                                            <label className="block text-sm font-semibold text-gray-900 mb-2">
+                                                Pays <span className="text-red-500">*</span>
+                                            </label>
                                             <input
                                                 type="text"
                                                 value={editFormData.country}
                                                 onChange={(e) => setEditFormData({ ...editFormData, country: e.target.value })}
-                                                className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                                                className={`w-full px-4 py-2.5 border ${validationErrors.country ? 'border-red-500' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all`}
                                             />
+                                            {validationErrors.country && (
+                                                <p className="mt-1 text-sm text-red-500">{validationErrors.country}</p>
+                                            )}
                                         </div>
 
                                         <div className="flex space-x-3 pt-4">
@@ -684,9 +810,12 @@ export default function UserSettingsPage() {
                                                 onChange={(e) =>
                                                     setEditFormData({ ...editFormData, contact_email: e.target.value })
                                                 }
-                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                className={`w-full px-4 py-2 border ${validationErrors.contact_email ? 'border-red-500' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
                                                 placeholder="contact@entreprise.fr"
                                             />
+                                            {validationErrors.contact_email && (
+                                                <p className="mt-1 text-sm text-red-500">{validationErrors.contact_email}</p>
+                                            )}
                                         </div>
 
                                         <div>
@@ -699,9 +828,12 @@ export default function UserSettingsPage() {
                                                 onChange={(e) =>
                                                     setEditFormData({ ...editFormData, invoice_email: e.target.value })
                                                 }
-                                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                className={`w-full px-4 py-2 border ${validationErrors.invoice_email ? 'border-red-500' : 'border-gray-300'} rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
                                                 placeholder="factures@entreprise.fr"
                                             />
+                                            {validationErrors.invoice_email && (
+                                                <p className="mt-1 text-sm text-red-500">{validationErrors.invoice_email}</p>
+                                            )}
                                         </div>
 
                                         <div>

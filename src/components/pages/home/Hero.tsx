@@ -1,7 +1,19 @@
+'use client';
+
 import Image from 'next/image';
 import { MacbookScrollSection } from '../../MacbookScroll';
+import { useState } from 'react';
+import { LoginModal } from '../../LoginModal';
 
 export default function Hero() {
+  const [email, setEmail] = useState('');
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoginModalOpen(true);
+  };
+
   return (
     <section className="overflow-x-hidden">
 
@@ -39,7 +51,7 @@ md:h-[700px] md:w-[700px] xl:h-[900px] xl:w-[900px]" />
               Aucun engagement – Abonnement mensuel
             </p>
           </div>
-          <form className="flex w-full flex-col items-center justify-between gap-4 rounded-2xl bg-white p-6 md:flex-row">
+          <form onSubmit={handleSubmit} className="flex w-full flex-col items-center justify-between gap-4 rounded-2xl bg-white p-6 md:flex-row">
             <div className="flex w-full items-center gap-2 rounded-xl border border-[#F4F1EE] px-3 py-2.5 md:w-2/3">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -69,6 +81,8 @@ md:h-[700px] md:w-[700px] xl:h-[900px] xl:w-[900px]" />
                 required
                 aria-required="true"
                 autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
               />
             </div>
             <button
@@ -76,8 +90,8 @@ md:h-[700px] md:w-[700px] xl:h-[900px] xl:w-[900px]" />
               className="group relative inline-flex w-full cursor-pointer items-center justify-center gap-2 overflow-hidden rounded-full bg-gradient-to-br from-[#F35F4F] to-[#FFAD5A] px-4 py-2.5 font-medium text-nowrap text-white shadow-xl transition-all duration-300 ease-out disabled:cursor-not-allowed disabled:opacity-50 md:w-1/3"
             >
               <span className="relative z-10 translate-x-6 transition-transform duration-300 group-hover:-translate-x-0">
-                Commencez gratuitement
-              </span>
+                Démarrez maintenant
+                </span>
               <svg
                 className={`relative z-10 h-8 w-8 -translate-x-10 opacity-0 transition-all duration-300 group-hover:translate-x-0 group-hover:opacity-100`}
                 fill="none"
@@ -180,6 +194,13 @@ md:h-[700px] md:w-[700px] xl:h-[900px] xl:w-[900px]" />
       </section>
 
       <MacbookScrollSection />
+      
+      {/* Modal de connexion/inscription */}
+      <LoginModal 
+        isOpen={isLoginModalOpen} 
+        onClose={() => setIsLoginModalOpen(false)} 
+        initialEmail={email}
+      />
     </section>
   );
 }

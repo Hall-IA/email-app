@@ -326,8 +326,10 @@ export function OnboardingModal({ userId, onComplete }: OnboardingModalProps) {
                                         required
                                     >
                                         <option value="">Sélectionner</option>
-                                        <option value="M.">M.</option>
-                                        <option value="Mme">Mme</option>
+                                        <option value="Monsieur">Monsieur</option>
+                                        <option value="Madame">Madame</option>
+                                        <option value="Autre">Autre</option>
+                                        <option value="Ne souhaite pas être défini">Ne souhaite pas être défini</option>
                                     </select>
                                 </div>
 

@@ -5,17 +5,20 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../context/AuthContext';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/lib/supabase';
 
 interface LoginModalProps {
   isOpen: boolean;
   onClose: () => void;
+  initialEmail?: string;
+  onSignupSuccess?: (userId: string) => void; // Callback après inscription réussie
 }
 
-export function LoginModal({ isOpen, onClose }: LoginModalProps) {
+export function LoginModal({ isOpen, onClose, initialEmail, onSignupSuccess }: LoginModalProps) {
   const router = useRouter();
-  const { signIn, signUp } = useAuth();
-  const [isLogin, setIsLogin] = useState(true);
-  const [email, setEmail] = useState('');
+  const { signIn, signUp, user } = useAuth();
+  const [isLogin, setIsLogin] = useState(!initialEmail); // Si un email est fourni, on ouvre en mode inscription
+  const [email, setEmail] = useState(initialEmail || '');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
   const [loading, setLoading] = useState(false);
@@ -51,16 +54,24 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
   // Réinitialiser le formulaire quand on ferme le modal
   useEffect(() => {
     if (!isOpen) {
-      setEmail('');
+      setEmail(initialEmail || '');
       setPassword('');
       setFullName('');
       setError(null);
       setSuccessMessage(null);
       setLoading(false);
-      setIsLogin(true);
+      setIsLogin(!initialEmail);
       setShowPassword(false);
     }
-  }, [isOpen]);
+  }, [isOpen, initialEmail]);
+
+  // Mettre à jour l'email quand initialEmail change
+  useEffect(() => {
+    if (initialEmail && isOpen) {
+      setEmail(initialEmail);
+      setIsLogin(false); // Passer en mode inscription
+    }
+  }, [initialEmail, isOpen]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -91,10 +102,12 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
         
         if (error) {
           setError(error.message);
+          setLoading(false);
         } else {
-          setSuccessMessage('Un email de confirmation a été envoyé. Vérifiez votre boîte mail.');
+          // Afficher le message de confirmation d'email
+          setSuccessMessage('Un email de confirmation a été envoyé. Vérifiez votre boîte mail et cliquez sur le lien pour activer votre compte.');
+          setLoading(false);
         }
-        setLoading(false);
       }
     } catch (err) {
       setError('Une erreur est survenue. Veuillez réessayer.');

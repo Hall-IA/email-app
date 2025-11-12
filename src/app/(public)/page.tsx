@@ -21,8 +21,8 @@ export default function Accueil() {
             {/* <HowItWorkSection /> */}
             <section>
 
-            <AppPack />
             <ProductivitySection />
+            <AppPack />
             <TestimonialSection />
             <FaqSection />
             <CTASection />

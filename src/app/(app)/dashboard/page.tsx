@@ -2,9 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Mail, TrendingUp, Filter, Clock, RefreshCw, Check, MailIcon } from 'lucide-react';
+import { Mail, TrendingUp, Filter, Clock, RefreshCw, Check, MailIcon, CreditCard } from 'lucide-react';
 import { useAuth } from '../../../../context/AuthContext';
 import { OnboardingModal } from '@/components/OnBoardingModal';
+import { CheckoutModal } from '@/components/CheckoutModal';
+import { SetupEmailModal } from '@/components/SetupEmailModal';
 import { motion, AnimatePresence } from 'motion/react';
 
 type TimePeriod = 'today' | 'week' | 'month';
@@ -51,6 +53,8 @@ export default function Dashboard() {
     const [isClassementActive, setIsClassementActive] = useState(false);
     const [showOnboarding, setShowOnboarding] = useState(false);
     const [needsOnboarding, setNeedsOnboarding] = useState(false);
+    const [showCheckout, setShowCheckout] = useState(false);
+    const [showSetupEmail, setShowSetupEmail] = useState(false);
 
     const [autoSort, setAutoSort] = useState(false);
     const [hasActiveSubscription, setHasActiveSubscription] = useState(false);
@@ -62,9 +66,68 @@ export default function Dashboard() {
         if (user?.id) {
             loadAccounts();
             checkOnboardingStatus();
-            checkSubscription();
+            checkPaymentAndEmailStatus();
         }
     }, [user?.id]);
+
+    const checkPaymentAndEmailStatus = async () => {
+        if (!user?.id) return;
+
+        const { data, error } = await supabase
+            .from('profiles')
+            .select('is_configured')
+            .eq('id', user.id)
+            .maybeSingle();
+
+        if (error) {
+            console.error('Error checking profile:', error);
+            return;
+        }
+
+        // Si onboarding pas terminé, ne rien vérifier
+        if (!data?.is_configured) {
+            return;
+        }
+
+        // 1. Vérifier si l'utilisateur a un abonnement/facture
+        const { data: allSubs } = await supabase
+            .from('stripe_user_subscriptions')
+            .select('subscription_type, status')
+            .eq('user_id', user.id)
+            .is('deleted_at', null);
+
+        const hasActiveSubscription = allSubs?.some(s =>
+            s.subscription_type === 'premier' &&
+            ['active', 'trialing'].includes(s.status)
+        );
+
+        setHasActiveSubscription(!!hasActiveSubscription);
+        setHasEverHadSubscription((allSubs?.length || 0) > 0);
+
+        // Si PAS d'abonnement → Ouvrir CheckoutModal
+        if (!hasActiveSubscription) {
+            setShowCheckout(true);
+            setShowSetupEmail(false);
+            return;
+        }
+
+        // 2. Si abonnement OK, vérifier si email configuré
+        const { data: emailData } = await supabase
+            .from('email_configurations')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('is_connected', true)
+            .maybeSingle();
+
+        // Si PAS d'email → Ouvrir SetupEmailModal
+        if (!emailData) {
+            setShowCheckout(false);
+            setShowSetupEmail(true);
+        } else {
+            setShowCheckout(false);
+            setShowSetupEmail(false);
+        }
+    };
 
     useEffect(() => {
         if (user?.id && selectedEmail) {
@@ -72,30 +135,6 @@ export default function Dashboard() {
         }
     }, [user?.id, timePeriod, selectedEmail]);
 
-    const checkSubscription = async () => {
-        if (!user) return;
-
-        try {
-            const { data: allSubs } = await supabase
-                .from('stripe_user_subscriptions')
-                .select('subscription_type, status, cancel_at_period_end, current_period_end')
-                .eq('user_id', user.id)
-                .is('deleted_at', null);
-
-            const hasAnySubscription = (allSubs?.length || 0) > 0;
-            setHasEverHadSubscription(hasAnySubscription);
-
-            const premierSub = allSubs?.find(s =>
-                s.subscription_type === 'premier' &&
-                ['active', 'trialing'].includes(s.status)
-            );
-
-            const isActive = !!premierSub;
-            setHasActiveSubscription(isActive);
-        } catch (error) {
-            console.error('Error checking subscription:', error);
-        }
-    };
 
     const loadAccounts = async () => {
         if (!user?.id) return;
@@ -995,7 +1034,39 @@ export default function Dashboard() {
                     onComplete={() => {
                         setShowOnboarding(false);
                         setNeedsOnboarding(false);
-                        checkOnboardingStatus();
+                        
+                        // S'assurer qu'un plan est sélectionné
+                        if (typeof window !== 'undefined') {
+                            const selectedPlan = localStorage.getItem('selected_plan');
+                            if (!selectedPlan) {
+                                localStorage.setItem('selected_plan', 'business_pass');
+                            }
+                        }
+                        
+                        // Vérifier le paiement et l'email
+                        checkPaymentAndEmailStatus();
+                    }}
+                />
+            )}
+
+            {showCheckout && user && (
+                <CheckoutModal
+                    userId={user.id}
+                    onComplete={() => {
+                        setShowCheckout(false);
+                    }}
+                />
+            )}
+
+            {showSetupEmail && user && (
+                <SetupEmailModal
+                    userId={user.id}
+                    onComplete={() => {
+                        setShowSetupEmail(false);
+                        // Recharger les comptes
+                        loadAccounts();
+                        // Vérifier à nouveau le statut
+                        checkPaymentAndEmailStatus();
                     }}
                 />
             )}

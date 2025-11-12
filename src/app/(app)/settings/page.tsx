@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { Plus, Edit, Trash2, FileText, Globe, Share2, X, Check, Lock, ChevronRight, Eye, EyeOff, Edit2Icon, Mail } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../../../context/AuthContext';
-import { UpgradeModal } from '@/components/UpgradeModal';
+import { CheckoutModal } from '@/components/CheckoutModal';
 import { ConfirmationModal } from '@/components/ConfirmationModal';
 import { DeleteAccountModal } from '@/components/DeleteAccountModal';
 import { HowItWorks } from '@/components/HowItWork';
@@ -968,8 +968,8 @@ export default function Settings() {
                                         initial={{ opacity: 0, x: -20 }}
                                         animate={{ opacity: 1, x: 0 }}
                                         transition={{ duration: 0.3, delay: 0.3 + index * 0.1 }}
-                                        whileHover={!isDisabled ? { scale: 1.02, x: 4 } : {}}
-                                        whileTap={!isDisabled ? { scale: 0.98 } : {}}
+                                        // whileHover={!isDisabled ? { scale: 1.02, x: 4 } : {}}
+                                        // whileTap={!isDisabled ? { scale: 0.98 } : {}}
                                         onClick={() => !isDisabled && setSelectedAccount(account)}
                                         className={`w-full text-left px-4 py-3 transition-colors ${isDisabled
                                             ? 'bg-gray-100 border-2 border-gray-300 opacity-40 text-gray-200 cursor-not-allowed grayscale'
@@ -2402,10 +2402,11 @@ export default function Settings() {
                 cancelText="Annuler"
             />
 
-            {showUpgradeModal && (
-                <UpgradeModal
-                    onClose={() => setShowUpgradeModal(false)}
-                    onUpgrade={handleUpgrade}
+            {showUpgradeModal && user && (
+                <CheckoutModal
+                    userId={user.id}
+                    onComplete={handleUpgrade}
+                    isUpgrade={true}
                     currentAdditionalAccounts={currentAdditionalAccounts}
                 />
             )}
