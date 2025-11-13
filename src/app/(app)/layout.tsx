@@ -5,6 +5,9 @@ import { useEffect, useState } from 'react';
 import { useAuth } from '../../../context/AuthContext';
 import AppNavbar from '@/components/layout/AppNavbar';
 import { supabase } from '@/lib/supabase';
+import { OnboardingModal } from '@/components/OnBoardingModal';
+import { CheckoutModal } from '@/components/CheckoutModal';
+import { SetupEmailModal } from '@/components/SetupEmailModal';
 
 export default function DashboardLayout({
     children,
@@ -15,28 +18,141 @@ export default function DashboardLayout({
     const router = useRouter();
     const pathname = usePathname();
     const [hasEmail, setHasEmail] = useState<boolean | null>(null);
+    const [showOnboarding, setShowOnboarding] = useState(false);
+    const [showCheckout, setShowCheckout] = useState(false);
+    const [showSetupEmail, setShowSetupEmail] = useState(false);
+    const [isChecked, setIsChecked] = useState(false);
 
-    // Vérifier si l'utilisateur a un email configuré
+    // Vérifier tout en une seule fois au chargement
     useEffect(() => {
-        const checkEmailConfiguration = async () => {
-            if (!user) return;
+        if (!user || loading || isChecked) return;
+        checkAllRequirements();
+    }, [user, loading]);
 
-            // On laisse le dashboard gérer le flux avec les modals
-            // Pas de redirection automatique ici
-            setHasEmail(true);
-        };
-
-        if (user && !loading) {
-            checkEmailConfiguration();
+    // Gérer le retour du paiement Stripe
+    useEffect(() => {
+        if (!user || loading) return;
+        
+        const params = new URLSearchParams(window.location.search);
+        const paymentStatus = params.get('payment');
+        
+        if (paymentStatus === 'success') {
+            // Nettoyer l'URL
+            window.history.replaceState({}, '', pathname);
+            
+            // Polling pour attendre la mise à jour du webhook
+            const pollInterval = setInterval(() => {
+                checkPaymentStatus();
+                checkEmailStatus();
+            }, 2000);
+            
+            setTimeout(() => {
+                clearInterval(pollInterval);
+            }, 10000);
+        } else if (paymentStatus === 'cancelled') {
+            window.history.replaceState({}, '', pathname);
+            setShowCheckout(true);
         }
-    }, [user, loading, pathname, router]);
+    }, [user, loading, pathname]);
+
+    const checkAllRequirements = async () => {
+        if (!user) return;
+        
+        setIsChecked(true);
+
+        try {
+            // 1. Vérifier onboarding
+            const { data: profile } = await supabase
+                .from('profiles')
+                .select('is_configured')
+                .eq('id', user.id)
+                .maybeSingle();
+
+            if (!profile?.is_configured) {
+                setShowOnboarding(true);
+                setHasEmail(false);
+                return;
+            }
+
+            // 2. Vérifier paiement
+            const { data: allSubs } = await supabase
+                .from('stripe_user_subscriptions')
+                .select('status, subscription_type')
+                .eq('user_id', user.id)
+                .in('status', ['active', 'trialing'])
+                .is('deleted_at', null);
+
+            const hasActiveSubscription = (allSubs?.length || 0) > 0;
+
+            if (!hasActiveSubscription) {
+                setShowCheckout(true);
+                setHasEmail(false);
+                return;
+            }
+
+            // 3. Vérifier email
+            const { data: emailData } = await supabase
+                .from('email_configurations')
+                .select('id')
+                .eq('user_id', user.id)
+                .eq('is_connected', true);
+
+            const hasConfiguredEmail = (emailData?.length || 0) > 0;
+
+            if (!hasConfiguredEmail) {
+                setShowSetupEmail(true);
+                setHasEmail(false);
+            } else {
+                setHasEmail(true);
+            }
+        } catch (error) {
+            console.error('Error checking requirements:', error);
+            setHasEmail(true); // En cas d'erreur, laisser passer
+        }
+    };
+
+    const checkPaymentStatus = async () => {
+        if (!user) return;
+
+        const { data: allSubs } = await supabase
+            .from('stripe_user_subscriptions')
+            .select('status, subscription_type')
+            .eq('user_id', user.id)
+            .in('status', ['active', 'trialing'])
+            .is('deleted_at', null);
+
+        const hasActiveSubscription = (allSubs?.length || 0) > 0;
+
+        if (!hasActiveSubscription) {
+            setShowCheckout(true);
+        } else {
+            setShowCheckout(false);
+            checkEmailStatus();
+        }
+    };
+
+    const checkEmailStatus = async () => {
+        if (!user) return;
+
+        const { data: emailData } = await supabase
+            .from('email_configurations')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('is_connected', true);
+
+        const hasConfiguredEmail = (emailData?.length || 0) > 0;
+
+        if (!hasConfiguredEmail) {
+            setShowSetupEmail(true);
+        } else {
+            setShowSetupEmail(false);
+            setHasEmail(true);
+        }
+    };
 
     useEffect(() => {
         if (!loading && !user) {
-            console.log('❌ Non connecté, redirection vers /login');
             router.push('/auth/login');
-        } else if (user) {
-            console.log('✅ Utilisateur connecté:', user.email);
         }
     }, [user, loading, router]);
 
@@ -61,6 +177,37 @@ export default function DashboardLayout({
             <main className="container mx-auto px-4 py-8">
                 {children}
             </main>
+
+            {/* Modals obligatoires */}
+            {showOnboarding && user && (
+                <OnboardingModal
+                    userId={user.id}
+                    onComplete={() => {
+                        setShowOnboarding(false);
+                        checkPaymentStatus();
+                    }}
+                />
+            )}
+
+            {showCheckout && user && (
+                <CheckoutModal
+                    userId={user.id}
+                    onComplete={() => {
+                        setShowCheckout(false);
+                        checkEmailStatus();
+                    }}
+                />
+            )}
+
+            {showSetupEmail && user && (
+                <SetupEmailModal
+                    userId={user.id}
+                    onComplete={() => {
+                        setShowSetupEmail(false);
+                        setHasEmail(true);
+                    }}
+                />
+            )}
         </div>
     );
 }

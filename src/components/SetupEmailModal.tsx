@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Mail, Server, Eye, EyeOff, CheckCircle, ArrowRight, AlertCircle, X } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from './Toast';
 
 interface SetupEmailModalProps {
     userId: string;
@@ -12,6 +13,7 @@ interface SetupEmailModalProps {
 
 export function SetupEmailModal({ userId, onComplete }: SetupEmailModalProps) {
     const { user } = useAuth();
+    const { showToast, ToastComponent } = useToast();
     const [loading, setLoading] = useState(false);
     const [testing, setTesting] = useState(false);
     const [tested, setTested] = useState(false);
@@ -91,13 +93,13 @@ export function SetupEmailModal({ userId, onComplete }: SetupEmailModalProps) {
 
         } catch (err) {
             console.error('Erreur connexion Gmail:', err);
-            alert('Erreur lors de la connexion Gmail');
+            showToast('Erreur lors de la connexion Gmail', 'error');
         }
     };
 
     const handleTestConnection = async () => {
         if (!formData.email || !formData.password || !formData.imapHost) {
-            alert('Veuillez remplir tous les champs obligatoires');
+            showToast('Veuillez remplir tous les champs obligatoires', 'warning');
             return;
         }
 
@@ -107,24 +109,25 @@ export function SetupEmailModal({ userId, onComplete }: SetupEmailModalProps) {
         try {
             const { data: { session } } = await supabase.auth.getSession();
             if (!session) {
-                alert('Session expirée');
+                showToast('Session expirée', 'error');
                 setTesting(false);
                 return;
             }
 
             const response = await fetch(
-                `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/test-imap-connection`,
+                `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/verify-email-connection`,
                 {
                     method: 'POST',
                     headers: {
                         'Authorization': `Bearer ${session.access_token}`,
+                        'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
                         email: formData.email,
                         password: formData.password,
                         imap_host: formData.imapHost,
-                        imap_port: formData.imapPort,
+                        imap_port: typeof formData.imapPort === 'number' ? formData.imapPort : parseInt(formData.imapPort),
                     }),
                 }
             );
@@ -151,12 +154,12 @@ export function SetupEmailModal({ userId, onComplete }: SetupEmailModalProps) {
         e.preventDefault();
         
         if (!formData.email || !formData.password || !formData.imapHost) {
-            alert('Veuillez remplir tous les champs obligatoires');
+            showToast('Veuillez remplir tous les champs obligatoires', 'warning');
             return;
         }
 
         if (!tested) {
-            alert('Veuillez d\'abord tester la connexion avant d\'enregistrer');
+            showToast('Veuillez d\'abord tester la connexion avant d\'enregistrer', 'warning');
             return;
         }
 
@@ -169,9 +172,10 @@ export function SetupEmailModal({ userId, onComplete }: SetupEmailModalProps) {
                 provider: 'smtp_imap',
                 is_connected: true,
                 is_primary: true,
+                is_classement: true, // ✅ Tri automatique activé par défaut
                 password: formData.password,
                 imap_host: formData.imapHost,
-                imap_port: formData.imapPort,
+                imap_port: typeof formData.imapPort === 'number' ? formData.imapPort : parseInt(formData.imapPort),
                 imap_username: formData.email,
                 imap_password: formData.password,
                 company_name: formData.companyName,
@@ -184,10 +188,11 @@ export function SetupEmailModal({ userId, onComplete }: SetupEmailModalProps) {
             localStorage.removeItem('selected_plan');
             localStorage.removeItem('business_pass_email_counter');
             
-            onComplete();
+            showToast('Email configuré avec succès !', 'success');
+            setTimeout(() => onComplete(), 500);
         } catch (err) {
             console.error('Error adding email:', err);
-            alert('Erreur lors de l\'ajout du compte email');
+            showToast('Erreur lors de l\'ajout du compte email', 'error');
         } finally {
             setLoading(false);
         }
@@ -195,10 +200,12 @@ export function SetupEmailModal({ userId, onComplete }: SetupEmailModalProps) {
 
     return (
         <>
+            <ToastComponent />
+            
             <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm" />
             
             <div className="fixed inset-0 z-[51] flex items-center justify-center p-4">
-                <div className="relative bg-[#F9F7F5] rounded-3xl border border-[#F1EDEA] shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
+                <div className="relative bg-white rounded-3xl border border-gray-200 shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
                     
                     {/* Header */}
                     <div className="relative px-8 pt-8 pb-4">

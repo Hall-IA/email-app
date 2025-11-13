@@ -158,6 +158,7 @@ Deno.serve(async (req) => {
         email: userEmail,
         provider: 'outlook',
         is_connected: true,
+        is_classement: true, // ✅ Tri automatique activé par défaut
         outlook_token_id: tokenData.id,
         last_sync_at: new Date().toISOString()
       });

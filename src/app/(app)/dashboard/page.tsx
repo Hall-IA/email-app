@@ -4,9 +4,6 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Mail, TrendingUp, Filter, Clock, RefreshCw, Check, MailIcon, CreditCard } from 'lucide-react';
 import { useAuth } from '../../../../context/AuthContext';
-import { OnboardingModal } from '@/components/OnBoardingModal';
-import { CheckoutModal } from '@/components/CheckoutModal';
-import { SetupEmailModal } from '@/components/SetupEmailModal';
 import { motion, AnimatePresence } from 'motion/react';
 
 type TimePeriod = 'today' | 'week' | 'month';
@@ -51,10 +48,6 @@ export default function Dashboard() {
     const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
     const [selectedEmail, setSelectedEmail] = useState<string | null>(null);
     const [isClassementActive, setIsClassementActive] = useState(false);
-    const [showOnboarding, setShowOnboarding] = useState(false);
-    const [needsOnboarding, setNeedsOnboarding] = useState(false);
-    const [showCheckout, setShowCheckout] = useState(false);
-    const [showSetupEmail, setShowSetupEmail] = useState(false);
 
     const [autoSort, setAutoSort] = useState(false);
     const [hasActiveSubscription, setHasActiveSubscription] = useState(false);
@@ -65,77 +58,8 @@ export default function Dashboard() {
     useEffect(() => {
         if (user?.id) {
             loadAccounts();
-            checkOnboardingStatus();
-            checkPaymentAndEmailStatus();
         }
     }, [user?.id]);
-
-    const checkPaymentAndEmailStatus = async () => {
-        if (!user?.id) return;
-
-        const { data, error } = await supabase
-            .from('profiles')
-            .select('is_configured')
-            .eq('id', user.id)
-            .maybeSingle();
-
-        if (error) {
-            console.error('Error checking profile:', error);
-            return;
-        }
-
-        // Si onboarding pas terminé, ne rien vérifier
-        if (!data?.is_configured) {
-            console.log('⏸️ Onboarding pas terminé');
-            return;
-        }
-
-        // 1. Vérifier si l'utilisateur a un abonnement/facture
-        const { data: allSubs } = await supabase
-            .from('stripe_user_subscriptions')
-            .select('subscription_type, status')
-            .eq('user_id', user.id)
-            .is('deleted_at', null);
-
-        const hasActiveSubscription = allSubs?.some(s =>
-            s.subscription_type === 'premier' &&
-            ['active', 'trialing'].includes(s.status)
-        );
-
-        setHasActiveSubscription(!!hasActiveSubscription);
-        setHasEverHadSubscription((allSubs?.length || 0) > 0);
-
-        console.log('💳 Abonnement actif:', hasActiveSubscription);
-
-        // Si PAS d'abonnement → Ouvrir CheckoutModal
-        if (!hasActiveSubscription) {
-            console.log('➡️ Pas d\'abonnement → CheckoutModal');
-            setShowCheckout(true);
-            setShowSetupEmail(false);
-            return;
-        }
-
-        // 2. Si abonnement OK, vérifier si email configuré
-        const { data: emailData, error: emailError } = await supabase
-            .from('email_configurations')
-            .select('id')
-            .eq('user_id', user.id)
-            .eq('is_connected', true);
-
-        const hasEmails = emailData && emailData.length > 0;
-        console.log('📧 Nombre d\'emails configurés:', emailData?.length || 0);
-
-        // Si PAS d'email → Ouvrir SetupEmailModal
-        if (!hasEmails) {
-            console.log('➡️ Pas d\'email → SetupEmailModal');
-            setShowCheckout(false);
-            setShowSetupEmail(true);
-        } else {
-            console.log('✅ Tout configuré, dashboard accessible');
-            setShowCheckout(false);
-            setShowSetupEmail(false);
-        }
-    };
 
     useEffect(() => {
         if (user?.id && selectedEmail) {
@@ -235,30 +159,6 @@ export default function Dashboard() {
         }
     };
 
-    const checkOnboardingStatus = async () => {
-        if (!user?.id) return;
-
-        const { data, error } = await supabase
-            .from('profiles')
-            .select('is_configured, company_name, street_address, contact_email')
-            .eq('id', user.id)
-            .maybeSingle();
-
-        if (error) {
-            console.error('Error checking onboarding:', error);
-            return;
-        }
-
-        if (data) {
-            const needsConfig = !data.is_configured ||
-                !data.company_name ||
-                !data.street_address ||
-                !data.contact_email;
-
-            setNeedsOnboarding(needsConfig);
-            setShowOnboarding(needsConfig);
-        }
-    };
 
     const getDateRange = () => {
         const now = new Date();
@@ -1036,48 +936,6 @@ export default function Dashboard() {
                 )}
             </AnimatePresence>
 
-            {showOnboarding && user && (
-                <OnboardingModal
-                    userId={user.id}
-                    onComplete={() => {
-                        setShowOnboarding(false);
-                        setNeedsOnboarding(false);
-                        
-                        // S'assurer qu'un plan est sélectionné
-                        if (typeof window !== 'undefined') {
-                            const selectedPlan = localStorage.getItem('selected_plan');
-                            if (!selectedPlan) {
-                                localStorage.setItem('selected_plan', 'business_pass');
-                            }
-                        }
-                        
-                        // Vérifier le paiement et l'email
-                        checkPaymentAndEmailStatus();
-                    }}
-                />
-            )}
-
-            {showCheckout && user && (
-                <CheckoutModal
-                    userId={user.id}
-                    onComplete={() => {
-                        setShowCheckout(false);
-                    }}
-                />
-            )}
-
-            {showSetupEmail && user && (
-                <SetupEmailModal
-                    userId={user.id}
-                    onComplete={() => {
-                        setShowSetupEmail(false);
-                        // Recharger les comptes
-                        loadAccounts();
-                        // Vérifier à nouveau le statut
-                        checkPaymentAndEmailStatus();
-                    }}
-                />
-            )}
         </div>
     );
 }

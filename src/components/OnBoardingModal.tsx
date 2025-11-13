@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { Building2, MapPin, Mail, ChevronRight, ChevronLeft, Check } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
+import { useToast } from './Toast';
 
 interface OnboardingModalProps {
     userId: string;
@@ -44,6 +45,12 @@ export function OnboardingModal({ userId, onComplete }: OnboardingModalProps) {
         phone: '',
     });
     const [isInitialized, setIsInitialized] = useState(false);
+    const [addressSuggestions, setAddressSuggestions] = useState<any[]>([]);
+    const [showAddressSuggestions, setShowAddressSuggestions] = useState(false);
+    const [emailError, setEmailError] = useState('');
+    const [phoneError, setPhoneError] = useState('');
+    const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(null);
+    const { showToast, ToastComponent } = useToast();
 
     const totalSteps = 3;
 
@@ -125,6 +132,91 @@ export function OnboardingModal({ userId, onComplete }: OnboardingModalProps) {
         }
     };
 
+    // Validation de l'email
+    const validateEmail = (email: string) => {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return emailRegex.test(email);
+    };
+
+    // Validation du téléphone français
+    const validatePhone = (phone: string) => {
+        // Enlever les espaces et points
+        const cleanPhone = phone.replace(/[\s.-]/g, '');
+        // Formats acceptés : 0XXXXXXXXX ou +33XXXXXXXXX
+        const phoneRegex = /^(0[1-9]\d{8}|(\+33|0033)[1-9]\d{8})$/;
+        return phoneRegex.test(cleanPhone);
+    };
+
+    // Formater le téléphone
+    const formatPhone = (phone: string) => {
+        const cleanPhone = phone.replace(/[\s.-]/g, '');
+        if (cleanPhone.startsWith('+33')) {
+            return cleanPhone.replace(/(\+33)(\d)(\d{2})(\d{2})(\d{2})(\d{2})/, '$1 $2 $3 $4 $5 $6');
+        } else if (cleanPhone.startsWith('0')) {
+            return cleanPhone.replace(/(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})/, '$1 $2 $3 $4 $5');
+        }
+        return phone;
+    };
+
+    // Auto-complétion d'adresse avec l'API officielle française (avec debounce)
+    const searchAddress = (query: string) => {
+        // Annuler la recherche précédente
+        if (searchTimeout) {
+            clearTimeout(searchTimeout);
+        }
+
+        // Si trop court, ne pas chercher
+        if (query.length < 3) {
+            setAddressSuggestions([]);
+            setShowAddressSuggestions(false);
+            return;
+        }
+
+        // Attendre 400ms avant de lancer la recherche
+        const timeout = setTimeout(async () => {
+            try {
+                // Utiliser l'API avec autocomplete pour de meilleurs résultats
+                const response = await fetch(
+                    `https://api-adresse.data.gouv.fr/search/?q=${encodeURIComponent(query)}&limit=10&autocomplete=1`
+                );
+                
+                if (!response.ok) {
+                    setAddressSuggestions([]);
+                    setShowAddressSuggestions(false);
+                    return;
+                }
+                
+                const data = await response.json();
+                
+                if (data.features && data.features.length > 0) {
+                    setAddressSuggestions(data.features);
+                    setShowAddressSuggestions(true);
+                } else {
+                    setAddressSuggestions([]);
+                    setShowAddressSuggestions(false);
+                }
+            } catch (error) {
+                console.error('Error searching address:', error);
+                setAddressSuggestions([]);
+                setShowAddressSuggestions(false);
+            }
+        }, 400);
+
+        setSearchTimeout(timeout);
+    };
+
+    // Sélectionner une adresse suggérée
+    const selectAddress = (address: any) => {
+        setFormData({
+            ...formData,
+            street_address: address.properties.name || '',
+            postal_code: address.properties.postcode || '',
+            city: address.properties.city || '',
+        });
+        setShowAddressSuggestions(false);
+        setAddressSuggestions([]);
+    };
+
     const isStep1Valid = () => {
         return (
             formData.company_name.trim() !== '' &&
@@ -143,16 +235,32 @@ export function OnboardingModal({ userId, onComplete }: OnboardingModalProps) {
     };
 
     const isStep3Valid = () => {
-        return formData.contact_email.trim() !== '' && formData.phone.trim() !== '';
+        if (!formData.contact_email.trim() || !formData.phone.trim()) {
+            return false;
+        }
+        
+        // Vérifier le format de l'email
+        if (!validateEmail(formData.contact_email)) {
+            setEmailError('Format d\'email invalide');
+            return false;
+        }
+        
+        // Vérifier le format du téléphone
+        if (!validatePhone(formData.phone)) {
+            setPhoneError('Format de téléphone invalide (ex: 06 12 34 56 78)');
+            return false;
+        }
+        
+        return true;
     };
 
     const handleNext = () => {
         if (currentStep === 1 && !isStep1Valid()) {
-            alert('Veuillez remplir tous les champs obligatoires');
+            showToast('Veuillez remplir tous les champs obligatoires', 'warning');
             return;
         }
         if (currentStep === 2 && !isStep2Valid()) {
-            alert('Veuillez remplir tous les champs obligatoires');
+            showToast('Veuillez remplir tous les champs obligatoires', 'warning');
             return;
         }
         if (currentStep < totalSteps) {
@@ -167,8 +275,16 @@ export function OnboardingModal({ userId, onComplete }: OnboardingModalProps) {
     };
 
     const handleSubmit = async () => {
+        // Réinitialiser les erreurs
+        setEmailError('');
+        setPhoneError('');
+        
         if (!isStep3Valid()) {
-            alert('Veuillez remplir tous les champs obligatoires');
+            if (emailError || phoneError) {
+                showToast('Veuillez corriger les erreurs dans le formulaire', 'error');
+            } else {
+                showToast('Veuillez remplir tous les champs obligatoires', 'warning');
+            }
             return;
         }
 
@@ -198,14 +314,15 @@ export function OnboardingModal({ userId, onComplete }: OnboardingModalProps) {
 
             if (error) {
                 console.error('Error updating profile:', error);
-                alert('Une erreur est survenue. Veuillez réessayer.');
+                showToast('Une erreur est survenue. Veuillez réessayer.', 'error');
                 return;
             }
 
-            onComplete();
+            showToast('Configuration enregistrée avec succès !', 'success');
+            setTimeout(() => onComplete(), 500);
         } catch (error) {
             console.error('Error:', error);
-            alert('Une erreur est survenue. Veuillez réessayer.');
+            showToast('Une erreur est survenue. Veuillez réessayer.', 'error');
         } finally {
             setLoading(false);
         }
@@ -213,12 +330,14 @@ export function OnboardingModal({ userId, onComplete }: OnboardingModalProps) {
 
     return (
         <>
+            <ToastComponent />
+            
             {/* Overlay */}
             <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm" />
 
             {/* Modal centré */}
             <div className="fixed inset-0 z-[51] flex items-center justify-center p-4">
-                <div className="relative bg-[#F9F7F5] rounded-3xl border border-[#F1EDEA] shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
+                <div className="relative bg-[#F9F7F5] rounded-3xl border border-[#F1EDEA] shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
                     
                     {/* Décoration en haut à gauche */}
                     <div 
@@ -390,18 +509,53 @@ export function OnboardingModal({ userId, onComplete }: OnboardingModalProps) {
                                 </div>
                             </div>
 
-                            <div>
+                            <div className="relative">
                                 <label className="block text-sm font-medium text-gray-700 mb-2">
                                     Numéro et rue <span className="text-red-500">*</span>
                                 </label>
                                 <input
                                     type="text"
                                     value={formData.street_address}
-                                    onChange={(e) => setFormData({ ...formData, street_address: e.target.value })}
+                                    onChange={(e) => {
+                                        setFormData({ ...formData, street_address: e.target.value });
+                                        searchAddress(e.target.value);
+                                    }}
+                                    onFocus={() => {
+                                        if (addressSuggestions.length > 0) {
+                                            setShowAddressSuggestions(true);
+                                        }
+                                    }}
+                                    onBlur={() => {
+                                        // Délai pour permettre le clic sur une suggestion
+                                        setTimeout(() => setShowAddressSuggestions(false), 200);
+                                    }}
                                     className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
-                                    placeholder="123 rue de la République"
+                                    placeholder="Ex: 14 avenue Barthélémy Thimonnier"
                                     required
+                                    autoComplete="off"
                                 />
+                                <p className="mt-1 text-xs text-gray-500">
+                                    💡 Tapez votre adresse pour voir les suggestions automatiques
+                                </p>
+                                
+                                {/* Suggestions d'adresses */}
+                                {showAddressSuggestions && addressSuggestions.length > 0 && (
+                                    <div className="absolute z-[60] w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto font-roboto">
+                                        {addressSuggestions.map((suggestion, index) => (
+                                            <button
+                                                key={index}
+                                                type="button"
+                                                onClick={() => selectAddress(suggestion)}
+                                                className="w-full text-left px-4 py-3 hover:bg-orange-50 transition-colors border-b border-gray-100 last:border-b-0"
+                                            >
+                                                <div className="font-medium text-gray-900 text-sm">{suggestion.properties.name}</div>
+                                                <div className="text-xs text-gray-500 mt-1">
+                                                    {suggestion.properties.postcode} {suggestion.properties.city}
+                                                </div>
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
 
                             <div>
@@ -484,11 +638,24 @@ export function OnboardingModal({ userId, onComplete }: OnboardingModalProps) {
                                 <input
                                     type="email"
                                     value={formData.contact_email}
-                                    onChange={(e) => setFormData({ ...formData, contact_email: e.target.value })}
-                                    className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
+                                    onChange={(e) => {
+                                        setFormData({ ...formData, contact_email: e.target.value });
+                                        setEmailError('');
+                                    }}
+                                    onBlur={(e) => {
+                                        if (e.target.value && !validateEmail(e.target.value)) {
+                                            setEmailError('Format d\'email invalide (ex: contact@entreprise.fr)');
+                                        }
+                                    }}
+                                    className={`w-full px-4 py-3 bg-white border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all ${
+                                        emailError ? 'border-red-500' : 'border-gray-300'
+                                    }`}
                                     placeholder="contact@entreprise.fr"
                                     required
                                 />
+                                {emailError && (
+                                    <p className="mt-1 text-sm text-red-600">{emailError}</p>
+                                )}
                             </div>
 
                             <div>
@@ -511,11 +678,33 @@ export function OnboardingModal({ userId, onComplete }: OnboardingModalProps) {
                                 <input
                                     type="tel"
                                     value={formData.phone}
-                                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                                    className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all"
-                                    placeholder="+33 1 23 45 67 89"
+                                    onChange={(e) => {
+                                        const value = e.target.value;
+                                        setFormData({ ...formData, phone: value });
+                                        setPhoneError('');
+                                    }}
+                                    onBlur={(e) => {
+                                        if (e.target.value) {
+                                            if (validatePhone(e.target.value)) {
+                                                // Formater automatiquement
+                                                setFormData({ ...formData, phone: formatPhone(e.target.value) });
+                                            } else {
+                                                setPhoneError('Format invalide (ex: 06 12 34 56 78 ou +33 6 12 34 56 78)');
+                                            }
+                                        }
+                                    }}
+                                    className={`w-full px-4 py-3 bg-white border rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all ${
+                                        phoneError ? 'border-red-500' : 'border-gray-300'
+                                    }`}
+                                    placeholder="06 12 34 56 78"
                                     required
                                 />
+                                {phoneError && (
+                                    <p className="mt-1 text-sm text-red-600">{phoneError}</p>
+                                )}
+                                <p className="mt-1 text-xs text-gray-500">
+                                    Format: 06 12 34 56 78 ou +33 6 12 34 56 78
+                                </p>
                             </div>
                         </div>
                     )}

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { Users, Check, Star, AlertCircle, CheckCircle, Download, Trash2, RefreshCw, Mail } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useToast } from './Toast';
 
 interface SubscriptionData {
     id: string;
@@ -28,6 +29,7 @@ interface EmailAccount {
     subscription_status?: string;
     cancel_at_period_end?: boolean;
     company_name?: string;
+    isSlot?: boolean; // Slot payé mais non configuré
 }
 
 interface Invoice {
@@ -44,6 +46,7 @@ interface Invoice {
 export function Subscription() {
     const router = useRouter();
     const searchParams = useSearchParams();
+    const { showToast, ToastComponent } = useToast();
     const [isLoading, setIsLoading] = useState(false);
     const [isInitialLoading, setIsInitialLoading] = useState(true);
     const [subscriptions, setSubscriptions] = useState<SubscriptionData[]>([]);
@@ -63,11 +66,12 @@ export function Subscription() {
     const [basePlanPrice, setBasePlanPrice] = useState(29);
     const [userPrice, setUserPrice] = useState(19);
     const [isSyncing, setIsSyncing] = useState(false);
+    const [paidAdditionalAccounts, setPaidAdditionalAccounts] = useState(0);
 
     const premierSubscription = subscriptions.find(sub => sub.subscription_type === 'premier');
     const additionalAccountSubscriptions = subscriptions.filter(sub => sub.subscription_type === 'additional_account');
     const subscription = premierSubscription;
-    const additionalAccounts = Math.max(0, emailAccountsCount - 1);
+    const additionalAccounts = paidAdditionalAccounts; // Utiliser le nombre d'emails PAYÉS
     const totalPrice = basePlanPrice + (additionalAccounts * userPrice);
 
     const nextBillingDate = new Date();
@@ -80,7 +84,8 @@ export function Subscription() {
                 fetchSubscription(),
                 fetchEmailAccountsCount(),
                 fetchInvoices(),
-                fetchStripePrices()
+                fetchStripePrices(),
+                fetchPaidAdditionalAccounts()
             ]);
             setIsInitialLoading(false);
         };
@@ -95,6 +100,7 @@ export function Subscription() {
             const pollInterval = setInterval(() => {
                 fetchSubscription();
                 fetchEmailAccountsCount();
+                fetchPaidAdditionalAccounts();
             }, 2000);
 
             setTimeout(() => {
@@ -186,9 +192,51 @@ export function Subscription() {
                 });
             }
 
+            // Récupérer le nombre total de slots payés
+            console.log('🔍 [Subscription] Récupération des slots payés pour user:', user.id);
+            
+            const { data: allSubs } = await supabase
+                .from('stripe_user_subscriptions')
+                .select('subscription_type, status, subscription_id')
+                .eq('user_id', user.id)
+                .in('status', ['active', 'trialing'])
+                .is('deleted_at', null);
+
+            console.log('📊 [Subscription] Subscriptions récupérées:', allSubs);
+
+            let totalPaidSlots = 0;
+            if (allSubs && allSubs.length > 0) {
+                const premierCount = allSubs.filter(s => s.subscription_type === 'premier').length;
+                const additionalCount = allSubs.filter(s => s.subscription_type === 'additional_account').length;
+                totalPaidSlots = premierCount > 0 ? 1 + additionalCount : 0;
+                
+                console.log('✅ [Subscription] Premier:', premierCount, '| Additionnels:', additionalCount, '| Total:', totalPaidSlots);
+            } else {
+                console.log('⚠️ [Subscription] Aucune subscription trouvée');
+            }
+
+            // Ajouter des slots vides pour les emails payés mais non configurés
+            const configuredCount = accounts.length;
+            const slotsToAdd = totalPaidSlots - configuredCount;
+
+            console.log('📧 [Subscription] Comptes configurés:', configuredCount, '| Slots à ajouter:', slotsToAdd);
+
+            if (slotsToAdd > 0) {
+                for (let i = 0; i < slotsToAdd; i++) {
+                    accounts.push({
+                        id: `slot-${i}`,
+                        email: `Email #${configuredCount + i + 1}`,
+                        provider: 'slot',
+                        is_primary: false,
+                        is_active: true,
+                        isSlot: true,
+                    });
+                }
+                console.log('✅ [Subscription] Slots vides ajoutés:', slotsToAdd);
+            }
+
             setEmailAccounts(accounts);
-            const activeAccountsCount = accounts.filter(a => a.is_active).length;
-            setEmailAccountsCount(activeAccountsCount);
+            setEmailAccountsCount(totalPaidSlots); // Utiliser le total payé au lieu des actifs
         } catch (error) {
             console.error('Error fetching email accounts count:', error);
         }
@@ -220,6 +268,38 @@ export function Subscription() {
             }
         } catch (error) {
             console.error('Error fetching Stripe prices:', error);
+        }
+    };
+
+    const fetchPaidAdditionalAccounts = async () => {
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) return;
+
+            // Récupérer le customer_id de l'utilisateur
+            const { data: customerData } = await supabase
+                .from('stripe_customers')
+                .select('customer_id')
+                .eq('user_id', user.id)
+                .is('deleted_at', null)
+                .maybeSingle();
+
+            if (!customerData) return;
+
+            // Récupérer le nombre d'emails additionnels payés
+            const { data: subscriptionData } = await supabase
+                .from('stripe_subscriptions')
+                .select('additional_accounts')
+                .eq('customer_id', customerData.customer_id)
+                .in('status', ['active', 'trialing'])
+                .is('deleted_at', null)
+                .maybeSingle();
+
+            if (subscriptionData) {
+                setPaidAdditionalAccounts(subscriptionData.additional_accounts || 0);
+            }
+        } catch (error) {
+            console.error('Error fetching paid additional accounts:', error);
         }
     };
 
@@ -269,7 +349,6 @@ export function Subscription() {
 
             if (response.ok) {
                 const result = await response.json();
-                console.log('Invoices synced:', result);
                 const { data: { user } } = await supabase.auth.getUser();
                 if (!user) return;
 
@@ -297,7 +376,7 @@ export function Subscription() {
             if (accountToDelete.isPrimary) {
                 const { data: { session } } = await supabase.auth.getSession();
                 if (!session) {
-                    alert('Vous devez être connecté');
+                    showToast('Vous devez être connecté', 'error');
                     return;
                 }
 
@@ -315,7 +394,7 @@ export function Subscription() {
                 const data = await response.json();
 
                 if (data.error) {
-                    alert(`Erreur: ${data.error}`);
+                    showToast(`Erreur: ${data.error}`, 'error');
                     return;
                 }
 
@@ -337,7 +416,7 @@ export function Subscription() {
             } else {
                 const { data: { user } } = await supabase.auth.getUser();
                 if (!user) {
-                    alert('Vous devez être connecté');
+                    showToast('Vous devez être connecté', 'error');
                     return;
                 }
 
@@ -353,18 +432,16 @@ export function Subscription() {
                     .maybeSingle();
 
                 if (!subscriptionData?.subscription_id) {
-                    alert('Aucun abonnement actif trouvé pour ce compte additionnel.');
+                    showToast('Aucun abonnement actif trouvé pour ce compte additionnel.', 'error');
                     console.error('No subscription found for email_configuration_id:', accountToDelete.id);
                     setShowDeleteModal(false);
                     setAccountToDelete(null);
                     return;
                 }
 
-                console.log('Canceling subscription for account:', accountToDelete.email, 'subscription_id:', subscriptionData.subscription_id);
-
                 const { data: { session } } = await supabase.auth.getSession();
                 if (!session) {
-                    alert('Vous devez être connecté');
+                    showToast('Vous devez être connecté', 'error');
                     return;
                 }
 
@@ -386,7 +463,7 @@ export function Subscription() {
                 const data = await response.json();
 
                 if (data.error) {
-                    alert(`Erreur: ${data.error}`);
+                    showToast(`Erreur: ${data.error}`, 'error');
                     return;
                 }
 
@@ -408,7 +485,7 @@ export function Subscription() {
             }
         } catch (error: any) {
             console.error('Error deleting account:', error);
-            alert(`Erreur lors de la suppression du compte: ${error.message || 'Erreur inconnue'}`);
+            showToast(`Erreur lors de la suppression du compte: ${error.message || 'Erreur inconnue'}`, 'error');
         } finally {
             setDeletingAccount(null);
         }
@@ -424,7 +501,7 @@ export function Subscription() {
         try {
             const { data: { session } } = await supabase.auth.getSession();
             if (!session) {
-                alert('Vous devez être connecté');
+                showToast('Vous devez être connecté', 'error');
                 return;
             }
 
@@ -448,10 +525,10 @@ export function Subscription() {
 
             await fetchEmailAccountsCount();
             await fetchSubscription();
-            alert('Synchronisation réussie !');
+            showToast('Synchronisation réussie !', 'success');
         } catch (error: any) {
             console.error('Error syncing:', error);
-            alert('Erreur lors de la synchronisation');
+            showToast('Erreur lors de la synchronisation', 'error');
         } finally {
             setIsSyncing(false);
         }
@@ -463,7 +540,7 @@ export function Subscription() {
         try {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) {
-                alert('Vous devez être connecté');
+                showToast('Vous devez être connecté', 'error');
                 return;
             }
 
@@ -476,13 +553,13 @@ export function Subscription() {
 
             if (error) {
                 console.error('Reactivation error:', error);
-                alert(`Erreur lors de la réactivation: ${error.message}`);
+                showToast(`Erreur lors de la réactivation: ${error.message}`, 'error');
                 return;
             }
 
             if (!data || data.length === 0) {
                 console.error('No rows updated - account not found or not owned by user');
-                alert('Erreur: Impossible de réactiver ce compte');
+                showToast('Erreur: Impossible de réactiver ce compte', 'error');
                 return;
             }
 
@@ -520,7 +597,7 @@ export function Subscription() {
             await fetchSubscription();
         } catch (error: any) {
             console.error('Error reactivating account:', error);
-            alert(`Erreur lors de la réactivation du compte: ${error.message || 'Erreur inconnue'}`);
+            showToast(`Erreur lors de la réactivation du compte: ${error.message || 'Erreur inconnue'}`, 'error');
         } finally {
             setDeletingAccount(null);
         }
@@ -531,7 +608,7 @@ export function Subscription() {
         try {
             const { data: { session } } = await supabase.auth.getSession();
             if (!session) {
-                alert('Vous devez être connecté');
+                showToast('Vous devez être connecté', 'error');
                 return;
             }
 
@@ -560,7 +637,7 @@ export function Subscription() {
             document.body.removeChild(a);
         } catch (error) {
             console.error('Error downloading invoice:', error);
-            alert('Erreur lors du téléchargement de la facture');
+            showToast('Erreur lors du téléchargement de la facture', 'error');
         } finally {
             setDownloadingInvoice(null);
         }
@@ -571,7 +648,7 @@ export function Subscription() {
         try {
             const { data: { session } } = await supabase.auth.getSession();
             if (!session) {
-                alert('Vous devez être connecté');
+                showToast('Vous devez être connecté', 'error');
                 return;
             }
 
@@ -579,7 +656,7 @@ export function Subscription() {
             const additionalAccountPriceId = process.env.NEXT_PUBLIC_STRIPE_ADDITIONAL_ACCOUNT_PRICE_ID;
 
             if (!basePlanPriceId || !additionalAccountPriceId) {
-                alert('Configuration Stripe manquante');
+                showToast('Configuration Stripe manquante', 'error');
                 return;
             }
 
@@ -615,7 +692,7 @@ export function Subscription() {
             }
         } catch (error) {
             console.error('Erreur lors de la création du checkout:', error);
-            alert('Une erreur est survenue');
+            showToast('Une erreur est survenue', 'error');
         } finally {
             setIsLoading(false);
         }
@@ -630,7 +707,7 @@ export function Subscription() {
         try {
             const { data: { session } } = await supabase.auth.getSession();
             if (!session) {
-                alert('Vous devez être connecté');
+                showToast('Vous devez être connecté', 'error');
                 return;
             }
 
@@ -667,7 +744,7 @@ export function Subscription() {
             }
         } catch (error) {
             console.error('Erreur lors de l\'annulation de l\'abonnement:', error);
-            alert('Une erreur est survenue');
+            showToast('Une erreur est survenue', 'error');
         } finally {
             setIsCanceling(false);
         }
@@ -691,7 +768,7 @@ export function Subscription() {
         try {
             const { data: { session } } = await supabase.auth.getSession();
             if (!session) {
-                alert('Vous devez être connecté');
+                showToast('Vous devez être connecté', 'error');
                 return;
             }
 
@@ -737,7 +814,7 @@ export function Subscription() {
             }
         } catch (error) {
             console.error('Erreur lors de la réactivation de l\'abonnement:', error);
-            alert('Une erreur est survenue');
+            showToast('Une erreur est survenue', 'error');
         } finally {
             setIsLoading(false);
         }
@@ -884,6 +961,54 @@ export function Subscription() {
                 <div className="space-y-0">
                     {emailAccounts.length > 0 ? (
                         emailAccounts.map((account, index) => {
+                            // Slot non configuré
+                            if (account.isSlot) {
+                                const price = index === 0 ? '29€ HT/mois' : '+19€ HT/mois';
+                                
+                                return (
+                                    <div key={account.id}>
+                                        <div className="grid grid-cols-4 gap-6 items-center py-6 opacity-60">
+                                            {/* Colonne 1: Logo + Nom */}
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-5 h-5 flex items-center justify-center flex-shrink-0">
+                                                    <Mail className="w-6 h-6 text-gray-400" />
+                                                </div>
+                                                <span className="font-medium text-gray-500">
+                                                    Email non configuré
+                                                </span>
+                                            </div>
+
+                                            {/* Colonne 2: Numéro du slot */}
+                                            <div className="text-sm text-gray-400">
+                                                {account.email}
+                                            </div>
+
+                                            {/* Colonne 3: Prix avec bg-gray */}
+                                            <div className='flex items-center justify-center'>
+                                                <span className="px-3 py-1.5 bg-gray-100 border border-gray-300 text-gray-500 text-xs font-medium rounded-full inline-block">
+                                                    {price}
+                                                </span>
+                                            </div>
+
+                                            {/* Colonne 4: Bouton Configurer */}
+                                            <div className="flex items-center justify-end gap-2">
+                                                <button
+                                                    onClick={() => router.push('/settings')}
+                                                    className="flex items-center gap-2 text-orange-600 hover:text-orange-700 transition-colors"
+                                                >
+                                                    <Mail className="w-5 h-5" />
+                                                    <span className="text-sm font-medium">Configurer</span>
+                                                </button>
+                                            </div>
+                                        </div>
+                                        {index < emailAccounts.length - 1 && (
+                                            <hr className="border-gray-200" />
+                                        )}
+                                    </div>
+                                );
+                            }
+
+                            // Email configuré normal
                             const isPrimary = account.is_primary === true;
                             const isAccountActive = account.is_active !== false;
                             const isCanceled = account.cancel_at_period_end === true;

@@ -354,15 +354,39 @@ async function syncCustomerFromStripe(customerId: string) {
       return sub.metadata?.type !== 'additional_account' && firstPriceId !== additionalAccountPriceId;
     }) || subscriptions.data[0];
 
-    // Calculate the number of additional accounts from old format
+    // Calculate the number of additional accounts from ALL subscriptions
     let additionalAccounts = 0;
-    if (additionalAccountPriceId && premierSubscription) {
-      const additionalAccountItem = premierSubscription.items.data.find(
-        item => item.price.id === additionalAccountPriceId
-      );
-      if (additionalAccountItem) {
-        additionalAccounts = additionalAccountItem.quantity || 0;
+    if (additionalAccountPriceId) {
+      // 1. Compter les line items additionnels dans la subscription premier
+      if (premierSubscription) {
+        const additionalAccountItem = premierSubscription.items.data.find(
+          item => item.price.id === additionalAccountPriceId
+        );
+        if (additionalAccountItem) {
+          additionalAccounts += additionalAccountItem.quantity || 0;
+          console.info(`Found ${additionalAccountItem.quantity} additional accounts in premier subscription`);
+        }
       }
+      
+      // 2. Compter TOUTES les subscriptions de type "additional_account"
+      const additionalSubscriptions = subscriptions.data.filter(sub => {
+        const firstPriceId = sub.items.data[0]?.price.id;
+        return (sub.metadata?.type === 'additional_account' || firstPriceId === additionalAccountPriceId) 
+               && ['active', 'trialing'].includes(sub.status);
+      });
+      
+      console.info(`Found ${additionalSubscriptions.length} additional account subscriptions`);
+      
+      // Sommer les quantités de toutes les subscriptions additionnelles
+      for (const sub of additionalSubscriptions) {
+        const item = sub.items.data.find(item => item.price.id === additionalAccountPriceId);
+        if (item) {
+          additionalAccounts += item.quantity || 0;
+          console.info(`Added ${item.quantity} accounts from subscription ${sub.id}`);
+        }
+      }
+      
+      console.info(`Total additional accounts calculated: ${additionalAccounts}`);
     }
 
     const { error: subError } = await supabase.from('stripe_subscriptions').upsert(

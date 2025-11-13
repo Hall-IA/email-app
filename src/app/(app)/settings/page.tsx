@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Plus, Edit, Trash2, FileText, Globe, Share2, X, Check, Lock, ChevronRight, Eye, EyeOff, Edit2Icon, Mail } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../../../../context/AuthContext';
 import { CheckoutModal } from '@/components/CheckoutModal';
 import { ConfirmationModal } from '@/components/ConfirmationModal';
@@ -11,6 +11,7 @@ import { DeleteAccountModal } from '@/components/DeleteAccountModal';
 import { HowItWorks } from '@/components/HowItWork';
 import Container from '@/components/Container';
 import { motion, AnimatePresence } from 'motion/react';
+import { useToast } from '@/components/Toast';
 
 interface EmailAccount {
     id: string;
@@ -28,7 +29,9 @@ interface Document {
 
 export default function Settings() {
     const router = useRouter();
+    const searchParams = useSearchParams();
     const { user } = useAuth();
+    const { showToast, ToastComponent } = useToast();
     const [accounts, setAccounts] = useState<EmailAccount[]>([]);
     const [documents, setDocuments] = useState<Document[]>([]);
     const [selectedAccount, setSelectedAccount] = useState<EmailAccount | null>(null);
@@ -79,6 +82,7 @@ export default function Settings() {
     const [showEditActivityModal, setShowEditActivityModal] = useState(false);
     const [showEditSignatureModal, setShowEditSignatureModal] = useState(false);
     const [editTempValue, setEditTempValue] = useState('');
+    const [totalPaidSlots, setTotalPaidSlots] = useState(0); // Nombre total d'emails payés (base + additionnels)
 
     useEffect(() => {
         loadAccounts();
@@ -86,6 +90,7 @@ export default function Settings() {
         checkCompanyInfo();
         checkSubscription();
     }, [user]);
+
 
     useEffect(() => {
         if (selectedAccount) {
@@ -103,14 +108,65 @@ export default function Settings() {
                 checkSubscription();
                 setShowAddAccountModal(false);
                 setAccountMissingInfo(event.data.email || '');
-                setShowCompanyInfoModal(true);
+                // Toujours commencer à l'étape 1 pour un nouveau compte
                 setCompanyInfoStep(1);
+                setCompanyFormData({
+                    company_name: '',
+                    activity_description: '',
+                    services_offered: '',
+                });
+                setShowCompanyInfoModal(true);
             }
         };
 
         window.addEventListener('message', handleOAuthMessage);
         return () => window.removeEventListener('message', handleOAuthMessage);
     }, []);
+
+    // Détecter le retour du paiement Stripe
+    useEffect(() => {
+        const upgraded = searchParams.get('upgrade');
+        
+        if (upgraded === 'success') {
+            router.replace('/settings');
+            handleUpgradeReturn();
+        }
+    }, [searchParams]);
+
+    const handleUpgradeReturn = async () => {
+        // Forcer la synchronisation avec Stripe
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session) {
+                await fetch(
+                    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/stripe-force-sync`,
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${session.access_token}`,
+                            'Content-Type': 'application/json',
+                        },
+                    }
+                );
+            }
+        } catch (error) {
+            console.error('Error syncing with Stripe:', error);
+        }
+        
+        // Rafraîchir les données
+        await fetchPaidEmailSlots();
+        await checkSubscription();
+        await loadAccounts();
+        
+        // Polling pendant 10 secondes
+        const pollInterval = setInterval(async () => {
+            await fetchPaidEmailSlots();
+        }, 2000);
+        
+        setTimeout(() => {
+            clearInterval(pollInterval);
+        }, 10000);
+    };
 
     const checkSubscription = async () => {
         if (!user) return;
@@ -148,8 +204,55 @@ export default function Settings() {
                 setCurrentAdditionalAccounts(0);
                 setAllowedAccounts(1);
             }
+
+            // Récupérer le nombre d'emails payés depuis stripe_subscriptions
+            await fetchPaidEmailSlots();
         } catch (error) {
             console.error('Error checking subscription:', error);
+        }
+    };
+
+    const fetchPaidEmailSlots = async () => {
+        if (!user) return;
+
+        try {
+            console.log('🔍 Récupération des slots payés pour user:', user.id);
+            
+            // Compter DIRECTEMENT depuis stripe_user_subscriptions (pas stripe_subscriptions)
+            const { data: allSubs, error: subsError } = await supabase
+                .from('stripe_user_subscriptions')
+                .select('subscription_type, status, subscription_id')
+                .eq('user_id', user.id)
+                .in('status', ['active', 'trialing'])
+                .is('deleted_at', null);
+
+            console.log('📊 Subscriptions récupérées:', allSubs);
+            console.log('❌ Erreur Supabase:', subsError);
+
+            if (subsError) {
+                console.error('Erreur lors de la récupération:', subsError);
+                setTotalPaidSlots(0);
+                return;
+            }
+
+            if (!allSubs || allSubs.length === 0) {
+                console.log('⚠️ Aucune subscription trouvée');
+                setTotalPaidSlots(0);
+                return;
+            }
+
+            // Compter : 1 pour le plan de base + 1 pour chaque subscription additionnelle
+            const premierCount = allSubs.filter(s => s.subscription_type === 'premier').length;
+            const additionalCount = allSubs.filter(s => s.subscription_type === 'additional_account').length;
+            
+            const total = premierCount > 0 ? 1 + additionalCount : 0;
+            
+            console.log('✅ Premier:', premierCount, '| Additionnels:', additionalCount, '| Total:', total);
+            
+            setTotalPaidSlots(total);
+        } catch (error) {
+            console.error('Error fetching paid email slots:', error);
+            setTotalPaidSlots(0);
         }
     };
 
@@ -164,29 +267,47 @@ export default function Settings() {
             return;
         }
 
-        try {
-            const { count } = await supabase
-                .from('email_configurations')
-                .select('*', { count: 'exact', head: true })
-                .eq('user_id', user?.id);
-
-            const configuredAccounts = count || 0;
-
-            if (configuredAccounts >= allowedAccounts) {
-                setShowUpgradeModal(true);
-                return;
-            }
-
-            setShowAddAccountModal(true);
-        } catch (error) {
-            console.error('Error checking account count:', error);
-            setShowAddAccountModal(true);
-        }
+        // Ouvrir directement le modal de paiement pour ajouter un compte additionnel
+        setShowUpgradeModal(true);
     };
 
     const handleUpgrade = async () => {
         setShowUpgradeModal(false);
-        await checkSubscription();
+        
+        // Forcer la synchronisation avec Stripe immédiatement
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session) {
+                await fetch(
+                    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/stripe-force-sync`,
+                    {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${session.access_token}`,
+                            'Content-Type': 'application/json',
+                        },
+                    }
+                );
+            }
+        } catch (error) {
+            console.error('Error syncing with Stripe:', error);
+        }
+        
+        // Attendre un peu puis rafraîchir
+        setTimeout(async () => {
+            await fetchPaidEmailSlots();
+            await checkSubscription();
+            await loadAccounts();
+        }, 2000);
+        
+        // Polling pour vérifier les changements toutes les 2 secondes pendant 10 secondes
+        const pollInterval = setInterval(async () => {
+            await fetchPaidEmailSlots();
+        }, 2000);
+        
+        setTimeout(() => {
+            clearInterval(pollInterval);
+        }, 10000);
     };
 
     const handleSubscribe = async () => {
@@ -194,7 +315,7 @@ export default function Settings() {
         try {
             const { data: { session } } = await supabase.auth.getSession();
             if (!session) {
-                alert('Vous devez être connecté');
+                showToast('Vous devez être connecté', 'error');
                 setIsCheckoutLoading(false);
                 return;
             }
@@ -202,7 +323,7 @@ export default function Settings() {
             const basePlanPriceId = process.env.NEXT_PUBLIC_STRIPE_BASE_PLAN_PRICE_ID;
 
             if (!basePlanPriceId) {
-                alert('Configuration Stripe manquante');
+                showToast('Configuration Stripe manquante', 'error');
                 setIsCheckoutLoading(false);
                 return;
             }
@@ -230,7 +351,7 @@ export default function Settings() {
             const data = await response.json();
 
             if (data.error) {
-                alert(`Erreur: ${data.error}`);
+                showToast(`Erreur: ${data.error}`, 'error');
                 setIsCheckoutLoading(false);
                 return;
             }
@@ -240,7 +361,7 @@ export default function Settings() {
             }
         } catch (error) {
             console.error('Error creating checkout session:', error);
-            alert('Erreur lors de la création de la session de paiement');
+            showToast('Erreur lors de la création de la session de paiement', 'error');
             setIsCheckoutLoading(false);
         }
     };
@@ -388,23 +509,25 @@ export default function Settings() {
 
         if (accountWithoutInfo) {
             setAccountMissingInfo(accountWithoutInfo.email);
-            setShowCompanyInfoModal(true);
-
-            if (accountWithoutInfo.company_name && !accountWithoutInfo.activity_description) {
-                setCompanyInfoStep(2);
-                setCompanyFormData({
-                    company_name: accountWithoutInfo.company_name,
-                    activity_description: '',
-                    services_offered: '',
-                });
-            } else {
-                setCompanyInfoStep(1);
-                setCompanyFormData({
-                    company_name: accountWithoutInfo.company_name || '',
-                    activity_description: '',
-                    services_offered: '',
-                });
+            
+            // Déterminer l'étape de départ en fonction des champs remplis
+            let startStep = 1;
+            if (!accountWithoutInfo.company_name) {
+                startStep = 1;
+            } else if (!accountWithoutInfo.activity_description) {
+                startStep = 2;
+            } else if (!accountWithoutInfo.services_offered) {
+                startStep = 3;
             }
+            
+            setCompanyInfoStep(startStep);
+            setCompanyFormData({
+                company_name: accountWithoutInfo.company_name || '',
+                activity_description: accountWithoutInfo.activity_description || '',
+                services_offered: accountWithoutInfo.services_offered || '',
+            });
+            
+            setShowCompanyInfoModal(true);
         }
     };
 
@@ -460,7 +583,7 @@ export default function Settings() {
         try {
             const { data: { session } } = await supabase.auth.getSession();
             if (!session) {
-                alert('Vous devez être connecté');
+                showToast('Vous devez être connecté', 'error');
                 return;
             }
 
@@ -482,7 +605,7 @@ export default function Settings() {
 
             if (!response.ok || data.error) {
                 console.error('Erreur lors de la suppression du compte:', data.error);
-                alert(data.error || 'Erreur lors de la suppression du compte');
+                showToast(data.error || 'Erreur lors de la suppression du compte', 'error');
                 return;
             }
 
@@ -494,7 +617,7 @@ export default function Settings() {
             checkSubscription();
         } catch (error) {
             console.error('Erreur lors de la suppression du compte:', error);
-            alert('Une erreur est survenue lors de la suppression');
+            showToast('Une erreur est survenue lors de la suppression', 'error');
         }
     };
 
@@ -516,7 +639,7 @@ export default function Settings() {
         try {
             const { data: { session } } = await supabase.auth.getSession();
             if (!session) {
-                alert('Vous devez être connecté');
+                showToast('Vous devez être connecté', 'error');
                 return;
             }
 
@@ -537,29 +660,53 @@ export default function Settings() {
                 await supabase.auth.signOut();
                 router.push('/');
             } else {
-                alert('Erreur lors de la suppression du compte: ' + data.error);
+                showToast('Erreur lors de la suppression du compte: ' + data.error, 'error');
             }
         } catch (error) {
             console.error('Erreur lors de la suppression du compte:', error);
-            alert('Une erreur est survenue lors de la suppression du compte');
+            showToast('Une erreur est survenue lors de la suppression du compte', 'error');
         } finally {
             setIsDeletingUser(false);
         }
     };
 
-    const handleCompanyInfoNext = () => {
+    const handleCompanyInfoNext = async () => {
         if (companyInfoStep === 1 && !companyFormData.company_name) {
-            alert('Veuillez entrer le nom de votre entreprise');
+            showToast('Veuillez entrer le nom de votre entreprise', 'warning');
             return;
         }
         if (companyInfoStep === 2 && !companyFormData.activity_description) {
-            alert('Veuillez décrire votre activité');
+            showToast('Veuillez décrire votre activité', 'warning');
             return;
         }
+
+        // Sauvegarder automatiquement après chaque étape
+        await saveCompanyInfoProgress();
+
         if (companyInfoStep < 3) {
             setCompanyInfoStep(companyInfoStep + 1);
         } else {
             handleCompanyInfoSubmit();
+        }
+    };
+
+    const saveCompanyInfoProgress = async () => {
+        try {
+            const emailToUpdate = accountMissingInfo || selectedAccount?.email;
+            if (!emailToUpdate) return;
+
+            await supabase
+                .from('email_configurations')
+                .update({
+                    company_name: companyFormData.company_name || null,
+                    activity_description: companyFormData.activity_description || null,
+                    services_offered: companyFormData.services_offered || null,
+                    updated_at: new Date().toISOString(),
+                })
+                .eq('user_id', user?.id)
+                .eq('email', emailToUpdate);
+        } catch (err) {
+            console.error('Erreur sauvegarde progression:', err);
         }
     };
 
@@ -574,7 +721,7 @@ export default function Settings() {
             const emailToUpdate = accountMissingInfo || selectedAccount?.email;
 
             if (!emailToUpdate) {
-                alert('Aucun compte identifié');
+                showToast('Aucun compte identifié', 'error');
                 return;
             }
 
@@ -647,7 +794,7 @@ export default function Settings() {
             }
         } catch (err) {
             console.error('Erreur lors de l\'enregistrement:', err);
-            alert('Erreur lors de l\'enregistrement des informations');
+                showToast('Erreur lors de l\'enregistrement des informations', 'error');
         }
     };
 
@@ -678,7 +825,7 @@ export default function Settings() {
 
         } catch (err) {
             console.error('Erreur connexion Gmail:', err);
-            alert('Erreur lors de la connexion Gmail');
+            showToast('Erreur lors de la connexion Gmail', 'error');
         }
     };
 
@@ -744,7 +891,7 @@ export default function Settings() {
 
     const handleImapSubmit = async () => {
         if (!imapFormData.email || !imapFormData.password || !imapFormData.imap_host) {
-            alert('Veuillez remplir tous les champs obligatoires');
+            showToast('Veuillez remplir tous les champs obligatoires', 'warning');
             return;
         }
 
@@ -768,12 +915,12 @@ export default function Settings() {
                 email: imapFormData.email,
                 provider: 'smtp_imap',
                 is_connected: true,
+                is_classement: true, // ✅ Tri automatique activé par défaut
                 password: imapFormData.password,
                 imap_host: imapFormData.imap_host,
                 imap_port: parseInt(imapFormData.imap_port),
                 imap_username: imapFormData.email,
                 imap_password: imapFormData.password,
-
             });
 
             if (error) throw error;
@@ -788,17 +935,24 @@ export default function Settings() {
             });
             await loadAccounts();
             setAccountMissingInfo(addedEmail);
-            setShowCompanyInfoModal(true);
+            // Toujours commencer à l'étape 1 pour un nouveau compte
             setCompanyInfoStep(1);
+            setCompanyFormData({
+                company_name: '',
+                activity_description: '',
+                services_offered: '',
+            });
+            setShowCompanyInfoModal(true);
         } catch (err) {
             console.error('Erreur ajout compte IMAP:', err);
-            alert('Erreur lors de l\'ajout du compte');
+            showToast('Erreur lors de l\'ajout du compte', 'error');
         }
     };
 
     return (
         <>
-        
+            <ToastComponent />
+            
             <Container>
             <HowItWorks />
 
@@ -856,7 +1010,7 @@ export default function Settings() {
                             animate={{ opacity: 1, scale: 1, y: 0 }}
                             exit={{ opacity: 0, scale: 0.9, y: 20 }}
                             transition={{ duration: 0.3, type: "spring" }}
-                            className="bg-white rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl font-inter"
+                            className="bg-white rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl font-inter max-h-[90vh] overflow-y-auto"
                         >
                         <div className="mb-6">
                             <h2 className="text-2xl font-bold text-gray-900 mb-2">Ajouter un compte email</h2>
@@ -1019,6 +1173,39 @@ export default function Settings() {
                                     </div>
                                     );
                                 })}
+
+                                {/* Slots d'emails payés mais non configurés */}
+                                {totalPaidSlots > accounts.length && Array.from({ length: totalPaidSlots - accounts.length }).map((_, index) => (
+                                    <motion.button
+                                        key={`slot-${index}`}
+                                        initial={{ opacity: 0, x: -20 }}
+                                        animate={{ opacity: 1, x: 0 }}
+                                        transition={{ duration: 0.3, delay: 0.3 + (accounts.length + index) * 0.1 }}
+                                        onClick={() => setShowAddAccountModal(true)}
+                                        className="w-full px-4 py-3 bg-gray-50 border-2 border-dashed border-gray-300 cursor-pointer hover:bg-gray-100 hover:border-orange-300 transition-all text-left"
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            {/* Icône Mail grisée */}
+                                            <div className="w-10 h-10 flex items-center justify-center bg-gray-200 rounded-full">
+                                                <Mail className="w-5 h-5 text-gray-400" />
+                                            </div>
+                                            
+                                            <div className="flex-1 min-w-0">
+                                                <div className="font-medium text-gray-600">
+                                                    Email #{accounts.length + index + 1}
+                                                </div>
+                                                <div className="text-xs text-gray-500">
+                                                    Cliquez pour configurer
+                                                </div>
+                                            </div>
+
+                                            {/* Badge */}
+                                            <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-full whitespace-nowrap">
+                                                ✓ Payé
+                                            </span>
+                                        </div>
+                                    </motion.button>
+                                ))}
                               
                             </div>
                         </div>
@@ -1401,8 +1588,8 @@ export default function Settings() {
 
             {/* Modal d'information de l'entreprise */}
             {showCompanyInfoModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-2xl p-8 max-w-lg w-full mx-4 shadow-2xl font-inter">
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl p-8 max-w-lg w-full mx-4 shadow-2xl font-inter max-h-[90vh] overflow-y-auto">
                         <div className="flex items-center gap-3 mb-6">
                             {companyInfoStep > 1 && (
                                 <button
@@ -1466,8 +1653,7 @@ export default function Settings() {
                                         value={companyFormData.activity_description}
                                         onChange={(e) => setCompanyFormData({ ...companyFormData, activity_description: e.target.value })}
                                         className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                                        placeholder="Décrivez ce que fait votre entreprise..."
-                                        
+                                        placeholder="Exemple : Nous sommes une agence de marketing digital spécialisée dans la création de contenu et la gestion des réseaux sociaux pour les PME."
                                         rows={4}
                                     />
                                 </div>
@@ -1480,13 +1666,13 @@ export default function Settings() {
                                     <label className="block text-sm font-medium text-gray-900 mb-2">
                                         Signature email
                                     </label>
-                                    <textarea
-                                        value={companyFormData.services_offered}
-                                        onChange={(e) => setCompanyFormData({ ...companyFormData, services_offered: e.target.value })}
-                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                                        placeholder="Votre signature d'email..."
-                                        rows={4}
-                                    />
+                                <textarea
+                                    value={companyFormData.services_offered}
+                                    onChange={(e) => setCompanyFormData({ ...companyFormData, services_offered: e.target.value })}
+                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                    placeholder={`Exemple :\nCordialement,\nJean Dupont\nCEO - Mon Entreprise\nTel: +33 6 12 34 56 78\nEmail: contact@entreprise.fr`}
+                                    rows={4}
+                                />
                                 </div>
                             </div>
                         )}
@@ -1531,8 +1717,8 @@ export default function Settings() {
 
             {/* Modal de succès */}
             {showSuccessModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-2xl p-8 max-w-lg w-full mx-4 shadow-2xl font-inter">
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl p-8 max-w-lg w-full mx-4 shadow-2xl font-inter max-h-[90vh] overflow-y-auto">
                         <div className="mb-6 p-4 bg-green-50 rounded-lg border border-green-200">
                             <p className="text-sm text-green-800 text-center font-medium">
                                 Étape 3/3 - Configuration terminée
@@ -1594,8 +1780,8 @@ export default function Settings() {
 
             {/* Modal IMAP */}
             {showImapModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-2xl p-8 max-w-lg w-full mx-4 shadow-2xl font-inter">
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl p-8 max-w-lg w-full mx-4 shadow-2xl font-inter max-h-[90vh] overflow-y-auto">
                         <div className="mb-6">
                             <h2 className="text-2xl font-bold text-gray-900 mb-2">Ajouter un compte IMAP</h2>
                             <p className="text-gray-600 text-sm">Configurez votre compte email personnalisé</p>
@@ -1794,7 +1980,7 @@ export default function Settings() {
                                 await loadCompanyData();
                             } catch (err) {
                                 console.error('Erreur lors de la mise à jour:', err);
-                                alert('Erreur lors de la mise à jour des informations');
+                                showToast('Erreur lors de la mise à jour des informations', 'error');
                             }
                         }} className="space-y-6">
                             <div>
@@ -1820,7 +2006,7 @@ export default function Settings() {
                                     onChange={(e) => setCompanyFormData({ ...companyFormData, activity_description: e.target.value })}
                                     className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-orange-500 focus:outline-none transition-colors resize-none"
                                     rows={6}
-                                    placeholder="Décrivez en détail votre activité, vos services, votre secteur..."
+                                    placeholder="Exemple : Nous sommes une agence de marketing digital spécialisée dans la création de contenu et la gestion des réseaux sociaux pour les PME. Nous aidons nos clients à développer leur présence en ligne et à atteindre leurs objectifs commerciaux."
                                     required
                                 />
                                 <p className="text-xs text-gray-500 mt-2">
@@ -1837,7 +2023,7 @@ export default function Settings() {
                                     onChange={(e) => setCompanyFormData({ ...companyFormData, services_offered: e.target.value })}
                                     className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-orange-500 focus:outline-none transition-colors resize-none"
                                     rows={4}
-                                    placeholder="Votre signature email habituelle..."
+                                    placeholder={`Exemple :\nCordialement,\nJean Dupont\nCEO - Mon Entreprise\nTel: +33 6 12 34 56 78\nEmail: contact@entreprise.fr`}
                                 />
                             </div>
 
@@ -1875,7 +2061,7 @@ export default function Settings() {
             {/* Modal de suppression de compte utilisateur */}
             {showDeleteUserModal && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden font-inter">
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full overflow-hidden font-inter max-h-[90vh] overflow-y-auto">
                         <div className="bg-gradient-to-br from-red-500 to-red-700 p-6 text-white">
                             <div className="flex items-center justify-between mb-4">
                                 <div className="flex items-center gap-3">
@@ -1957,7 +2143,7 @@ export default function Settings() {
             {/* Modal d'abonnement requis */}
             {showSubscriptionModal && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-8 font-inter">
+                    <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-8 font-inter max-h-[90vh] overflow-y-auto">
                         <div className="text-center mb-6">
                             <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-orange-100 to-orange-50 rounded-full mb-4">
                                 <Lock className="w-8 h-8 text-orange-600" />
@@ -2045,7 +2231,7 @@ export default function Settings() {
             {/* Modal email en double */}
             {showDuplicateEmailModal && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl p-8 max-w-lg w-full shadow-2xl font-inter">
+                    <div className="bg-white rounded-2xl p-8 max-w-lg w-full shadow-2xl font-inter max-h-[90vh] overflow-y-auto">
                         <div className="flex items-center justify-between mb-6">
                             <h2 className="text-2xl font-bold text-gray-900">Compte déjà existant</h2>
                             <button
@@ -2139,7 +2325,7 @@ export default function Settings() {
             {/* Modal d'édition du nom de l'entreprise */}
             {showEditCompanyNameModal && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl p-8 max-w-lg w-full shadow-2xl font-inter">
+                    <div className="bg-white rounded-2xl p-8 max-w-lg w-full shadow-2xl font-inter max-h-[90vh] overflow-y-auto">
                         <div className="flex items-center justify-between mb-6">
                             <h2 className="text-2xl font-bold text-gray-900">Modifier le nom de l'entreprise</h2>
                             <button
@@ -2194,7 +2380,7 @@ export default function Settings() {
                                             setTimeout(() => setShowNotification(false), 3000);
                                         } catch (err) {
                                             console.error('Erreur lors de la mise à jour:', err);
-                                            alert('Erreur lors de la mise à jour');
+                                            showToast('Erreur lors de la mise à jour', 'error');
                                         }
                                     }}
                                     className="flex-1 px-6 py-3 text-white rounded-lg hover:opacity-90 transition-all font-semibold"
@@ -2218,7 +2404,7 @@ export default function Settings() {
             {/* Modal d'édition de la description de l'activité */}
             {showEditActivityModal && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl p-8 max-w-lg w-full shadow-2xl font-inter">
+                    <div className="bg-white rounded-2xl p-8 max-w-lg w-full shadow-2xl font-inter max-h-[90vh] overflow-y-auto">
                         <div className="flex items-center justify-between mb-6">
                             <h2 className="text-2xl font-bold text-gray-900">Modifier la description de l'activité</h2>
                             <button
@@ -2239,7 +2425,7 @@ export default function Settings() {
                                     onChange={(e) => setEditTempValue(e.target.value)}
                                     className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-orange-500 focus:outline-none transition-colors resize-none"
                                     rows={6}
-                                    placeholder="Décrivez en détail votre activité, vos services, votre secteur..."
+                                    placeholder="Exemple : Nous sommes une agence de marketing digital spécialisée dans la création de contenu et la gestion des réseaux sociaux pour les PME. Nous aidons nos clients à développer leur présence en ligne et à atteindre leurs objectifs commerciaux."
                                 />
                                 <p className="text-xs text-gray-500 mt-2">
                                     Cette description sera utilisée par l'IA pour mieux comprendre votre contexte et classer vos e-mails.
@@ -2276,7 +2462,7 @@ export default function Settings() {
                                             setTimeout(() => setShowNotification(false), 3000);
                                         } catch (err) {
                                             console.error('Erreur lors de la mise à jour:', err);
-                                            alert('Erreur lors de la mise à jour');
+                                            showToast('Erreur lors de la mise à jour', 'error');
                                         }
                                     }}
                                     className="flex-1 px-6 py-3 text-white rounded-lg hover:opacity-90 transition-all font-semibold"
@@ -2300,7 +2486,7 @@ export default function Settings() {
             {/* Modal d'édition de la signature email */}
             {showEditSignatureModal && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl p-8 max-w-lg w-full shadow-2xl font-inter">
+                    <div className="bg-white rounded-2xl p-8 max-w-lg w-full shadow-2xl font-inter max-h-[90vh] overflow-y-auto">
                         <div className="flex items-center justify-between mb-6">
                             <h2 className="text-2xl font-bold text-gray-900">Modifier la signature email</h2>
                             <button
@@ -2321,7 +2507,7 @@ export default function Settings() {
                                     onChange={(e) => setEditTempValue(e.target.value)}
                                     className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-orange-500 focus:outline-none transition-colors resize-none"
                                     rows={4}
-                                    placeholder="Votre signature email habituelle..."
+                                    placeholder={`Exemple :\nCordialement,\nJean Dupont\nCEO - Mon Entreprise\nTel: +33 6 12 34 56 78\nEmail: contact@entreprise.fr`}
                                 />
                             </div>
 
@@ -2355,7 +2541,7 @@ export default function Settings() {
                                             setTimeout(() => setShowNotification(false), 3000);
                                         } catch (err) {
                                             console.error('Erreur lors de la mise à jour:', err);
-                                            alert('Erreur lors de la mise à jour');
+                                            showToast('Erreur lors de la mise à jour', 'error');
                                         }
                                     }}
                                     className="flex-1 px-6 py-3 text-white rounded-lg hover:opacity-90 transition-all font-semibold"
@@ -2406,6 +2592,7 @@ export default function Settings() {
                 <CheckoutModal
                     userId={user.id}
                     onComplete={handleUpgrade}
+                    onClose={() => setShowUpgradeModal(false)}
                     isUpgrade={true}
                     currentAdditionalAccounts={currentAdditionalAccounts}
                 />

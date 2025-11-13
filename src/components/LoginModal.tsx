@@ -129,7 +129,7 @@ export function LoginModal({ isOpen, onClose, initialEmail, onSignupSuccess }: L
       <div className="fixed inset-0 z-[101] flex items-center justify-center p-4 pointer-events-none">
         <div
           className={cn(
-            'relative flex flex-col items-start gap-8 w-full max-w-sm p-6 bg-[#F9F7F5] rounded-xl border border-[#F1EDEA] shadow-2xl transform transition-all duration-300 pointer-events-auto overflow-hidden',
+            'relative flex flex-col items-start gap-8 w-full max-w-sm p-6 bg-[#F9F7F5] rounded-xl border border-[#F1EDEA] shadow-2xl transform transition-all duration-300 pointer-events-auto max-h-[90vh] overflow-y-auto',
             isOpen ? 'scale-100 opacity-100 animate-in slide-in-from-bottom-4' : 'scale-95 opacity-0'
           )}
           style={{

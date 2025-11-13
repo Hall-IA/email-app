@@ -4,16 +4,19 @@ import { useState, useEffect } from 'react';
 import { Plus, Minus, CreditCard, Check, X, Star, Mail } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from './Toast';
 
 interface CheckoutModalProps {
     userId: string;
     onComplete: () => void;
+    onClose?: () => void; // Pour fermer le modal sans action
     isUpgrade?: boolean; // true si c'est un upgrade, false si premier abonnement
     currentAdditionalAccounts?: number;
 }
 
-export function CheckoutModal({ userId, onComplete, isUpgrade = false, currentAdditionalAccounts = 0 }: CheckoutModalProps) {
+export function CheckoutModal({ userId, onComplete, onClose, isUpgrade = false, currentAdditionalAccounts = 0 }: CheckoutModalProps) {
     const { user } = useAuth();
+    const { showToast, ToastComponent } = useToast();
     const [loading, setLoading] = useState(false);
     const [showConfirmation, setShowConfirmation] = useState(false);
     const [additionalEmails, setAdditionalEmails] = useState(0);
@@ -59,63 +62,50 @@ export function CheckoutModal({ userId, onComplete, isUpgrade = false, currentAd
     };
 
     const handleInitialClick = () => {
-        console.log('👆 Bouton cliqué - isUpgrade:', isUpgrade);
         if (isUpgrade) {
             // Pour upgrade, afficher confirmation
-            console.log('📋 Affichage confirmation');
             setShowConfirmation(true);
         } else {
             // Pour premier abonnement, payer directement
-            console.log('💳 Appel direct handleCheckout');
             handleCheckout();
         }
     };
 
     const handleCheckout = async () => {
-        console.log('🚀 handleCheckout APPELÉ');
         setLoading(true);
         
         try {
-            console.log('🔑 Récupération session...');
             const { data: { session } } = await supabase.auth.getSession();
-            console.log('Session:', !!session);
             
             if (!session) {
-                alert('Vous devez être connecté');
+                showToast('Vous devez être connecté', 'error');
                 setLoading(false);
                 return;
             }
 
             let endpoint, body;
 
-            console.log('Mode upgrade:', isUpgrade);
-
             if (isUpgrade) {
                 // Upgrade : ajouter des comptes
                 endpoint = 'stripe-add-account-checkout';
                 body = {
                     additional_accounts: additionalEmails + 1, // +1 car on commence à 0
+                    success_url: `${window.location.origin}/settings?upgraded=success`,
+                    cancel_url: `${window.location.origin}/settings?upgraded=cancelled`,
                 };
             } else {
                 // Premier abonnement
                 const basePlanPriceId = process.env.NEXT_PUBLIC_STRIPE_BASE_PLAN_PRICE_ID;
                 const additionalAccountPriceId = process.env.NEXT_PUBLIC_STRIPE_ADDITIONAL_ACCOUNT_PRICE_ID;
                 
-                console.log('🔑 Price IDs:', {
-                    base: basePlanPriceId,
-                    additional: additionalAccountPriceId,
-                    hasAdditional: !!additionalAccountPriceId
-                });
-                
                 if (!basePlanPriceId) {
-                    alert('Configuration Stripe manquante - Plan de base');
+                    showToast('Configuration Stripe manquante - Plan de base', 'error');
                     setLoading(false);
                     return;
                 }
                 
                 if (!additionalAccountPriceId) {
-                    console.warn('⚠️ NEXT_PUBLIC_STRIPE_ADDITIONAL_ACCOUNT_PRICE_ID non défini !');
-                    alert('Configuration Stripe incomplète - Prix additionnel manquant');
+                    showToast('Configuration Stripe incomplète - Prix additionnel manquant', 'error');
                     setLoading(false);
                     return;
                 }
@@ -129,14 +119,6 @@ export function CheckoutModal({ userId, onComplete, isUpgrade = false, currentAd
                     cancel_url: `${window.location.origin}/dashboard?payment=cancelled`,
                     mode: 'subscription',
                 };
-                
-                console.log('💰 Envoi à Stripe:', {
-                    basePrice: '29€',
-                    additionalPrice: '19€',
-                    additionalCount: additionalEmails,
-                    totalCalculé: basePrice + (additionalEmails * additionalPrice) + '€',
-                    body
-                });
             }
 
             const response = await fetch(
@@ -154,7 +136,7 @@ export function CheckoutModal({ userId, onComplete, isUpgrade = false, currentAd
 
             const data = await response.json();
             if (data.error) {
-                alert(`Erreur: ${data.error}`);
+                showToast(`Erreur: ${data.error}`, 'error');
                 setLoading(false);
                 return;
             }
@@ -164,7 +146,7 @@ export function CheckoutModal({ userId, onComplete, isUpgrade = false, currentAd
             }
         } catch (error) {
             console.error('Error:', error);
-            alert('Erreur lors de la création de la session de paiement');
+            showToast('Erreur lors de la création de la session de paiement', 'error');
             setLoading(false);
         }
     };
@@ -176,8 +158,10 @@ export function CheckoutModal({ userId, onComplete, isUpgrade = false, currentAd
         const prixTotal = totalPrice;
         
         return (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full font-inter">
+            <>
+                <ToastComponent />
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full font-inter max-h-[90vh] overflow-y-auto">
                     <div className="p-6">
                         <div className="flex items-center justify-between mb-6">
                             <h2 className="text-2xl font-bold text-gray-900">Confirmer l'upgrade</h2>
@@ -262,14 +246,26 @@ export function CheckoutModal({ userId, onComplete, isUpgrade = false, currentAd
                     </div>
                 </div>
             </div>
+            </>
         );
     }
 
     return (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full font-inter">
+        <>
+            <ToastComponent />
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full font-inter max-h-[90vh] overflow-y-auto">
                 <div className="p-6">
-                    <div className="mb-6">
+                    <div className="mb-6 relative">
+                        {isUpgrade && onClose && (
+                            <button
+                                onClick={onClose}
+                                className="absolute -top-2 -right-2 p-2 hover:bg-gray-100 rounded-full transition-colors"
+                                aria-label="Fermer"
+                            >
+                                <X className="w-5 h-5 text-gray-500" />
+                            </button>
+                        )}
                         <h2 className="text-2xl font-bold text-gray-900 text-center">
                             {isUpgrade ? 'Ajouter un compte' : 'Finaliser l\'abonnement'}
                         </h2>
@@ -393,5 +389,6 @@ export function CheckoutModal({ userId, onComplete, isUpgrade = false, currentAd
                 </div>
             </div>
         </div>
+        </>
     );
 }

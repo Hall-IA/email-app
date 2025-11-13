@@ -136,6 +136,7 @@ Deno.serve(async (req) => {
         email: userInfo.email,
         provider: 'gmail',
         is_connected: true,
+        is_classement: true, // ✅ Tri automatique activé par défaut
         gmail_token_id: tokenData.id,
         last_sync_at: new Date().toISOString()
       });
