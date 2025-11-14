@@ -189,7 +189,7 @@ export default function DashboardLayout({
                 />
             )}
 
-            {showCheckout && user && (
+            {/* {showCheckout && user && (
                 <CheckoutModal
                     userId={user.id}
                     onComplete={() => {
@@ -199,13 +199,7 @@ export default function DashboardLayout({
                 />
             )}
 
-{/* <SetupEmailModal
-                    userId={user.id}
-                    onComplete={() => {
-                        setShowSetupEmail(false);
-                        setHasEmail(true);
-                    }}
-                /> */}
+
             {showSetupEmail && user && (
                 <SetupEmailModal
                     userId={user.id}
@@ -214,7 +208,7 @@ export default function DashboardLayout({
                         setHasEmail(true);
                     }}
                 />
-            )}
+            )} */}
         </div>
     );
 }

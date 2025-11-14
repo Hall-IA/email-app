@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Plus, Edit, Trash2, FileText, Globe, Share2, X, Check, Lock, ChevronRight, Eye, EyeOff, Edit2Icon, Mail } from 'lucide-react';
+import { Plus, Edit, Trash2, FileText, Globe, Share2, X, Check, Lock, ChevronRight, Eye, EyeOff, Edit2Icon, Mail, Upload, Loader2, Download, AlertCircle } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../../../../context/AuthContext';
 import { CheckoutModal } from '@/components/CheckoutModal';
@@ -12,6 +12,7 @@ import { HowItWorks } from '@/components/HowItWork';
 import Container from '@/components/Container';
 import { motion, AnimatePresence } from 'motion/react';
 import { useToast } from '@/components/Toast';
+import { syncKnowledgeBase, fileToBase64, isValidUrl, validatePdfFile } from '@/utils/knowledgeBaseService';
 
 interface EmailAccount {
     id: string;
@@ -35,6 +36,8 @@ export default function Settings() {
     const [accounts, setAccounts] = useState<EmailAccount[]>([]);
     const [documents, setDocuments] = useState<Document[]>([]);
     const [selectedAccount, setSelectedAccount] = useState<EmailAccount | null>(null);
+    const [selectedSlot, setSelectedSlot] = useState<{ index: number; subscription_id: string } | null>(null);
+    const [unlinkedSubscriptions, setUnlinkedSubscriptions] = useState<{ subscription_id: string }[]>([]);
     const [autoSort, setAutoSort] = useState(false);
     const [adFilter, setAdFilter] = useState(true);
     const [showAddAccountModal, setShowAddAccountModal] = useState(false);
@@ -83,6 +86,13 @@ export default function Settings() {
     const [showEditSignatureModal, setShowEditSignatureModal] = useState(false);
     const [editTempValue, setEditTempValue] = useState('');
     const [totalPaidSlots, setTotalPaidSlots] = useState(0); // Nombre total d'emails payés (base + additionnels)
+    
+    // Knowledge base states
+    const [currentConfig, setCurrentConfig] = useState<{ id: string; email: string; knowledge_base_urls: any; knowledge_base_pdfs: any } | null>(null);
+    const [knowledgeUrls, setKnowledgeUrls] = useState<string[]>(['']);
+    const [knowledgePdfFiles, setKnowledgePdfFiles] = useState<File[]>([]);
+    const [knowledgeSaving, setKnowledgeSaving] = useState(false);
+    const [isDraggingPdf, setIsDraggingPdf] = useState(false);
 
     useEffect(() => {
         loadAccounts();
@@ -95,6 +105,7 @@ export default function Settings() {
     useEffect(() => {
         if (selectedAccount) {
             loadCompanyData();
+            loadCurrentConfig();
         }
     }, [selectedAccount, user, showCompanyInfoModal]);
 
@@ -172,11 +183,24 @@ export default function Settings() {
         if (!user) return;
 
         try {
-            const { data: allSubs } = await supabase
+            const { data: allSubs, error } = await supabase
                 .from('stripe_user_subscriptions')
                 .select('subscription_type, status, cancel_at_period_end, current_period_end')
                 .eq('user_id', user.id)
                 .is('deleted_at', null);
+
+            if (error) {
+                // Si la table n'existe pas ou si les colonnes sont manquantes, utiliser des valeurs par défaut
+                if (error.code === '42P01' || error.code === '42703' || error.message?.includes('does not exist') || error.message?.includes('column')) {
+                    console.warn('stripe_user_subscriptions table or columns not found:', error);
+                    setHasEverHadSubscription(false);
+                    setHasActiveSubscription(false);
+                    setCurrentAdditionalAccounts(0);
+                    setAllowedAccounts(1);
+                    return;
+                }
+                throw error;
+            }
 
             const hasAnySubscription = (allSubs?.length || 0) > 0;
             setHasEverHadSubscription(hasAnySubscription);
@@ -209,6 +233,11 @@ export default function Settings() {
             await fetchPaidEmailSlots();
         } catch (error) {
             console.error('Error checking subscription:', error);
+            // En cas d'erreur, utiliser des valeurs par défaut
+            setHasEverHadSubscription(false);
+            setHasActiveSubscription(false);
+            setCurrentAdditionalAccounts(0);
+            setAllowedAccounts(1);
         }
     };
 
@@ -230,6 +259,12 @@ export default function Settings() {
             console.log('❌ Erreur Supabase:', subsError);
 
             if (subsError) {
+                // Si la table n'existe pas ou si les colonnes sont manquantes
+                if (subsError.code === '42P01' || subsError.code === '42703' || subsError.message?.includes('does not exist') || subsError.message?.includes('column')) {
+                    console.warn('stripe_user_subscriptions table or columns not found:', subsError);
+                    setTotalPaidSlots(0);
+                    return;
+                }
                 console.error('Erreur lors de la récupération:', subsError);
                 setTotalPaidSlots(0);
                 return;
@@ -241,13 +276,59 @@ export default function Settings() {
                 return;
             }
 
-            // Compter : 1 pour le plan de base + 1 pour chaque subscription additionnelle
+            // Compter : 1 pour le plan de base + quantité pour chaque subscription additionnelle
             const premierCount = allSubs.filter(s => s.subscription_type === 'premier').length;
-            const additionalCount = allSubs.filter(s => s.subscription_type === 'additional_account').length;
             
-            const total = premierCount > 0 ? 1 + additionalCount : 0;
+            // Récupérer la quantité réelle depuis Stripe pour chaque subscription additionnelle
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) {
+                console.error('⚠️ Pas de session pour récupérer les quantités');
+                const additionalCount = allSubs.filter(s => s.subscription_type === 'additional_account').length;
+                const total = premierCount > 0 ? 1 + additionalCount : 0;
+                setTotalPaidSlots(total);
+                return;
+            }
+
+            // Récupérer les quantités depuis Stripe via une fonction backend
+            let totalAdditionalQuantity = 0;
+            const additionalSubs = allSubs.filter(s => s.subscription_type === 'additional_account');
             
-            console.log('✅ Premier:', premierCount, '| Additionnels:', additionalCount, '| Total:', total);
+            console.log(`🔍 Récupération des quantités pour ${additionalSubs.length} subscription(s) additionnelle(s)...`);
+            
+            for (const sub of additionalSubs) {
+                try {
+                    const response = await fetch(
+                        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/get-subscription-quantity`,
+                        {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': `Bearer ${session.access_token}`,
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                subscription_id: sub.subscription_id
+                            }),
+                        }
+                    );
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        const quantity = data.quantity || 1; // Par défaut 1 si pas de quantité
+                        totalAdditionalQuantity += quantity;
+                        console.log(`✅ Subscription ${sub.subscription_id}: quantité = ${quantity}`);
+                    } else {
+                        console.warn(`⚠️ Impossible de récupérer la quantité pour ${sub.subscription_id}, utilisation de 1 par défaut`);
+                        totalAdditionalQuantity += 1; // Fallback : 1 par défaut
+                    }
+                } catch (error) {
+                    console.error(`❌ Erreur lors de la récupération de la quantité pour ${sub.subscription_id}:`, error);
+                    totalAdditionalQuantity += 1; // Fallback : 1 par défaut
+                }
+            }
+            
+            const total = premierCount > 0 ? 1 + totalAdditionalQuantity : 0;
+            
+            console.log('✅ Premier:', premierCount, '| Additionnels (quantité totale):', totalAdditionalQuantity, '| Total:', total);
             
             setTotalPaidSlots(total);
         } catch (error) {
@@ -457,6 +538,19 @@ export default function Settings() {
 
             setAccounts(sortedAccounts);
 
+            // Récupérer les subscriptions non liées (slots non configurés)
+            const { data: unlinkedSubs } = await supabase
+                .from('stripe_user_subscriptions')
+                .select('subscription_id')
+                .eq('user_id', user.id)
+                .eq('subscription_type', 'additional_account')
+                .is('email_configuration_id', null)
+                .in('status', ['active', 'trialing'])
+                .is('deleted_at', null)
+                .order('created_at', { ascending: true });
+            
+            setUnlinkedSubscriptions(unlinkedSubs || []);
+
             if (allAccounts.length === 0) {
                 setSelectedAccount(null);
                 setCompanyFormData({
@@ -558,6 +652,351 @@ export default function Settings() {
                 services_offered: '',
             });
             setAutoSort(false);
+        }
+    };
+
+    const loadCurrentConfig = async () => {
+        if (!user || !selectedAccount) return;
+
+        try {
+            // Essayer d'abord avec toutes les colonnes (y compris knowledge_base)
+            const { data, error } = await supabase
+                .from('email_configurations')
+                .select('id, email, knowledge_base_urls, knowledge_base_pdfs')
+                .eq('user_id', user.id)
+                .eq('email', selectedAccount.email)
+                .maybeSingle();
+
+            if (error) {
+                // Si erreur 400 (colonnes n'existent pas), essayer sans ces colonnes
+                if (error.code === '42703' || error.message?.includes('column') || error.message?.includes('does not exist')) {
+                    console.warn('Knowledge base columns not found, using basic query');
+                    const { data: basicData } = await supabase
+                        .from('email_configurations')
+                        .select('id, email')
+                        .eq('user_id', user.id)
+                        .eq('email', selectedAccount.email)
+                        .maybeSingle();
+
+                    if (basicData) {
+                        setCurrentConfig({
+                            id: basicData.id,
+                            email: basicData.email,
+                            knowledge_base_urls: null,
+                            knowledge_base_pdfs: null,
+                        });
+                    } else {
+                        setCurrentConfig(null);
+                    }
+                } else {
+                    console.error('Error loading config:', error);
+                    setCurrentConfig(null);
+                }
+                setKnowledgeUrls(['']);
+                return;
+            }
+
+            if (data) {
+                setCurrentConfig({
+                    id: data.id,
+                    email: data.email,
+                    knowledge_base_urls: data.knowledge_base_urls || null,
+                    knowledge_base_pdfs: data.knowledge_base_pdfs || null,
+                });
+                setKnowledgeUrls(['']);
+            } else {
+                setCurrentConfig(null);
+                setKnowledgeUrls(['']);
+            }
+        } catch (err) {
+            console.error('Error in loadCurrentConfig:', err);
+            setCurrentConfig(null);
+            setKnowledgeUrls(['']);
+        }
+    };
+
+    const handleKnowledgeUrlChange = (index: number, value: string) => {
+        const newUrls = [...knowledgeUrls];
+        newUrls[index] = value;
+        setKnowledgeUrls(newUrls);
+    };
+
+    const handleAddKnowledgeUrl = () => {
+        setKnowledgeUrls([...knowledgeUrls, '']);
+    };
+
+    const handleRemoveKnowledgeUrl = (index: number) => {
+        if (knowledgeUrls.length > 1) {
+            setKnowledgeUrls(knowledgeUrls.filter((_, i) => i !== index));
+        }
+    };
+
+    const handleRemoveExistingUrl = async (index: number) => {
+        if (!currentConfig) return;
+
+        const confirmDelete = window.confirm('Êtes-vous sûr de vouloir supprimer cette URL de la base de connaissances ?');
+        if (!confirmDelete) return;
+
+        try {
+            const existingUrls = currentConfig.knowledge_base_urls ?
+                (Array.isArray(currentConfig.knowledge_base_urls) ? currentConfig.knowledge_base_urls : JSON.parse(currentConfig.knowledge_base_urls || '[]')) :
+                [];
+
+            const updatedUrls = existingUrls.filter((_: any, i: number) => i !== index);
+
+            const { error } = await supabase
+                .from('email_configurations')
+                .update({
+                    knowledge_base_urls: JSON.stringify(updatedUrls),
+                    knowledge_base_synced_at: new Date().toISOString(),
+                })
+                .eq('id', currentConfig.id);
+
+            if (error) throw error;
+
+            setCurrentConfig({
+                ...currentConfig,
+                knowledge_base_urls: updatedUrls,
+            });
+
+            setKnowledgeUrls(updatedUrls.length > 0 ? updatedUrls : ['']);
+
+            showToast('URL supprimée avec succès', 'success');
+        } catch (err) {
+            console.error('Error removing URL:', err);
+            showToast('Erreur lors de la suppression de l\'URL', 'error');
+        }
+    };
+
+    const handleKnowledgePdfChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const files = e.target.files;
+        if (!files || files.length === 0) return;
+
+        const newFiles: File[] = [];
+
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            const validation = validatePdfFile(file);
+
+            if (!validation.valid) {
+                showToast(`${file.name}: ${validation.error || 'Fichier invalide'}`, 'error');
+                continue;
+            }
+
+            newFiles.push(file);
+        }
+
+        if (newFiles.length > 0) {
+            setKnowledgePdfFiles([...knowledgePdfFiles, ...newFiles]);
+        }
+
+        e.target.value = '';
+    };
+
+    const handleRemovePdf = (index: number) => {
+        setKnowledgePdfFiles(knowledgePdfFiles.filter((_, i) => i !== index));
+    };
+
+    const handleDownloadPdf = (pdfName: string, pdfBase64: string) => {
+        try {
+            const byteCharacters = atob(pdfBase64);
+            const byteNumbers = new Array(byteCharacters.length);
+            for (let i = 0; i < byteCharacters.length; i++) {
+                byteNumbers[i] = byteCharacters.charCodeAt(i);
+            }
+            const byteArray = new Uint8Array(byteNumbers);
+            const blob = new Blob([byteArray], { type: 'application/pdf' });
+
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = pdfName;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        } catch (error) {
+            console.error('Erreur lors du téléchargement du PDF:', error);
+            showToast('Erreur lors du téléchargement du PDF', 'error');
+        }
+    };
+
+    const handleRemoveExistingPdf = async (index: number) => {
+        if (!currentConfig) return;
+
+        const confirmDelete = window.confirm('Êtes-vous sûr de vouloir supprimer ce PDF de la base de connaissances ?');
+        if (!confirmDelete) return;
+
+        try {
+            const existingPdfs = currentConfig.knowledge_base_pdfs ?
+                (Array.isArray(currentConfig.knowledge_base_pdfs) ? currentConfig.knowledge_base_pdfs : JSON.parse(currentConfig.knowledge_base_pdfs || '[]')) :
+                [];
+
+            const updatedPdfs = existingPdfs.filter((_: any, i: number) => i !== index);
+
+            const { error } = await supabase
+                .from('email_configurations')
+                .update({
+                    knowledge_base_pdfs: JSON.stringify(updatedPdfs),
+                    knowledge_base_synced_at: new Date().toISOString(),
+                })
+                .eq('id', currentConfig.id);
+
+            if (error) throw error;
+
+            setCurrentConfig({
+                ...currentConfig,
+                knowledge_base_pdfs: updatedPdfs,
+            });
+
+            showToast('PDF supprimé avec succès', 'success');
+        } catch (err) {
+            console.error('Error removing PDF:', err);
+            showToast('Erreur lors de la suppression du PDF', 'error');
+        }
+    };
+
+    const handlePdfDragEnter = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDraggingPdf(true);
+    };
+
+    const handlePdfDragLeave = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDraggingPdf(false);
+    };
+
+    const handlePdfDragOver = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+    };
+
+    const handlePdfDrop = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setIsDraggingPdf(false);
+
+        const files = e.dataTransfer.files;
+        if (!files || files.length === 0) return;
+
+        const newFiles: File[] = [];
+
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+
+            if (file.type !== 'application/pdf') {
+                showToast(`${file.name}: Ce fichier n'est pas un PDF`, 'error');
+                continue;
+            }
+
+            const validation = validatePdfFile(file);
+            if (!validation.valid) {
+                showToast(`${file.name}: ${validation.error || 'Fichier invalide'}`, 'error');
+                continue;
+            }
+
+            newFiles.push(file);
+        }
+
+        if (newFiles.length > 0) {
+            setKnowledgePdfFiles([...knowledgePdfFiles, ...newFiles]);
+        }
+    };
+
+    const handleSaveKnowledge = async () => {
+        if (!currentConfig) return;
+
+        const newUrls = knowledgeUrls.filter(url => url.trim() !== '');
+
+        const existingUrls = currentConfig.knowledge_base_urls ?
+            (Array.isArray(currentConfig.knowledge_base_urls) ? currentConfig.knowledge_base_urls : JSON.parse(currentConfig.knowledge_base_urls || '[]')) :
+            [];
+
+        const existingPdfs = currentConfig.knowledge_base_pdfs ?
+            (Array.isArray(currentConfig.knowledge_base_pdfs) ? currentConfig.knowledge_base_pdfs : JSON.parse(currentConfig.knowledge_base_pdfs || '[]')) :
+            [];
+
+        if (newUrls.length === 0 && knowledgePdfFiles.length === 0 && existingUrls.length === 0 && existingPdfs.length === 0) {
+            showToast('Veuillez fournir au moins une URL ou un fichier PDF', 'warning');
+            return;
+        }
+
+        for (const url of newUrls) {
+            if (!isValidUrl(url)) {
+                showToast(`URL invalide: ${url}`, 'error');
+                return;
+            }
+        }
+
+        setKnowledgeSaving(true);
+
+        try {
+            const newPdfsWithBase64: Array<{ name: string; base64: string }> = [];
+
+            for (const file of knowledgePdfFiles) {
+                try {
+                    const base64 = await fileToBase64(file);
+                    newPdfsWithBase64.push({
+                        name: file.name,
+                        base64: base64
+                    });
+                } catch (conversionError) {
+                    throw new Error(`Erreur lors de la conversion de ${file.name}`);
+                }
+            }
+
+            const allUrls = [...existingUrls, ...newUrls];
+            const allPdfs = [...existingPdfs, ...newPdfsWithBase64];
+
+            const result = await syncKnowledgeBase({
+                email: currentConfig.email,
+                id: currentConfig.id,
+                urls: allUrls.length > 0 ? allUrls : undefined,
+                pdfs: allPdfs.length > 0 ? allPdfs : undefined,
+            });
+
+            if (!result.success) {
+                throw new Error(result.error || 'Échec de la synchronisation');
+            }
+
+            const updateData: any = {
+                knowledge_base_synced_at: new Date().toISOString(),
+            };
+
+            if (allUrls.length > 0) {
+                updateData.knowledge_base_urls = JSON.stringify(allUrls);
+            }
+
+            if (allPdfs.length > 0) {
+                updateData.knowledge_base_pdfs = JSON.stringify(allPdfs);
+            }
+
+            const { error: dbError } = await supabase
+                .from('email_configurations')
+                .update(updateData)
+                .eq('id', currentConfig.id);
+
+            if (dbError) {
+                // Si les colonnes n'existent pas encore, informer l'utilisateur
+                if (dbError.code === '42703' || dbError.message?.includes('column') || dbError.message?.includes('does not exist')) {
+                    showToast('Les colonnes de base de connaissances ne sont pas encore créées. Veuillez appliquer la migration.', 'error');
+                    console.error('Knowledge base columns not found. Please run migration:', dbError);
+                } else {
+                    throw dbError;
+                }
+                return;
+            }
+
+            showToast('Base de connaissance enregistrée avec succès !', 'success');
+            await loadCurrentConfig();
+            setKnowledgePdfFiles([]);
+        } catch (err) {
+            console.error('Error saving knowledge base:', err);
+            showToast(err instanceof Error ? err.message : 'Une erreur est survenue', 'error');
+        } finally {
+            setKnowledgeSaving(false);
         }
     };
 
@@ -1112,8 +1551,8 @@ export default function Settings() {
                         transition={{ duration: 0.5, delay: 0.2 }}
                         className="lg:col-span-1"
                     >
-                        <div className="bg-white py-6 shadow-sm border border-gray-200 h-full rounded-bl-xl">
-                            <div className="">
+                        <div className="bg-white shadow-sm border border-gray-200 h-full rounded-bl-xl flex flex-col">
+                            <div>
                                 {accounts.map((account, index) => {
                                     const isDisabled = account.is_active === false || account.cancel_at_period_end === true;
                                     return (
@@ -1124,7 +1563,12 @@ export default function Settings() {
                                         transition={{ duration: 0.3, delay: 0.3 + index * 0.1 }}
                                         // whileHover={!isDisabled ? { scale: 1.02, x: 4 } : {}}
                                         // whileTap={!isDisabled ? { scale: 0.98 } : {}}
-                                        onClick={() => !isDisabled && setSelectedAccount(account)}
+                                        onClick={() => {
+                                            if (!isDisabled) {
+                                                setSelectedAccount(account);
+                                                setSelectedSlot(null); // Désélectionner le slot si un compte est sélectionné
+                                            }
+                                        }}
                                         className={`w-full text-left px-4 py-3 transition-colors ${isDisabled
                                             ? 'bg-gray-100 border-2 border-gray-300 opacity-40 text-gray-200 cursor-not-allowed grayscale'
                                                 : selectedAccount?.id === account.id
@@ -1175,37 +1619,54 @@ export default function Settings() {
                                 })}
 
                                 {/* Slots d'emails payés mais non configurés */}
-                                {totalPaidSlots > accounts.length && Array.from({ length: totalPaidSlots - accounts.length }).map((_, index) => (
-                                    <motion.button
-                                        key={`slot-${index}`}
-                                        initial={{ opacity: 0, x: -20 }}
-                                        animate={{ opacity: 1, x: 0 }}
-                                        transition={{ duration: 0.3, delay: 0.3 + (accounts.length + index) * 0.1 }}
-                                        onClick={() => setShowAddAccountModal(true)}
-                                        className="w-full px-4 py-3 bg-gray-50 border-2 border-dashed border-gray-300 cursor-pointer hover:bg-gray-100 hover:border-orange-300 transition-all text-left"
-                                    >
-                                        <div className="flex items-center gap-3">
-                                            {/* Icône Mail grisée */}
-                                            <div className="w-10 h-10 flex items-center justify-center bg-gray-200 rounded-full">
-                                                <Mail className="w-5 h-5 text-gray-400" />
-                                            </div>
-                                            
-                                            <div className="flex-1 min-w-0">
-                                                <div className="font-medium text-gray-600">
-                                                    Email #{accounts.length + index + 1}
+                                {totalPaidSlots > accounts.length && Array.from({ length: totalPaidSlots - accounts.length }).map((_, index) => {
+                                    const slotSub = unlinkedSubscriptions[index];
+                                    const isSelected = selectedSlot?.index === index;
+                                    
+                                    return (
+                                        <motion.button
+                                            key={`slot-${index}`}
+                                            initial={{ opacity: 0, x: -20 }}
+                                            animate={{ opacity: 1, x: 0 }}
+                                            transition={{ duration: 0.3, delay: 0.3 + (accounts.length + index) * 0.1 }}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                if (slotSub?.subscription_id) {
+                                                    setSelectedSlot({ index, subscription_id: slotSub.subscription_id });
+                                                    setSelectedAccount(null); // Désélectionner le compte configuré
+                                                } else {
+                                                    setShowAddAccountModal(true);
+                                                }
+                                            }}
+                                            className={`w-full px-4 py-3 bg-gray-50 border-2 border-dashed transition-all text-left ${
+                                                isSelected 
+                                                    ? 'bg-orange-50 border-orange-500 shadow-md' 
+                                                    : 'border-gray-300 hover:bg-gray-100 hover:border-orange-300'
+                                            }`}
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                {/* Icône Mail grisée */}
+                                                <div className="w-10 h-10 flex items-center justify-center bg-gray-200 rounded-full">
+                                                    <Mail className="w-5 h-5 text-gray-400" />
                                                 </div>
-                                                <div className="text-xs text-gray-500">
-                                                    Cliquez pour configurer
+                                                
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="font-medium text-gray-600">
+                                                        Email #{accounts.length + index + 1}
+                                                    </div>
+                                                    <div className="text-xs text-gray-500">
+                                                        Non configuré
+                                                    </div>
                                                 </div>
-                                            </div>
 
-                                            {/* Badge */}
-                                            <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-full whitespace-nowrap">
-                                                ✓ Payé
-                                            </span>
-                                        </div>
-                                    </motion.button>
-                                ))}
+                                                {/* Badge */}
+                                                <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded-full whitespace-nowrap">
+                                                    ✓ Payé
+                                                </span>
+                                            </div>
+                                        </motion.button>
+                                    );
+                                })}
                               
                             </div>
                         </div>
@@ -1297,7 +1758,7 @@ export default function Settings() {
                             )}
                         </AnimatePresence>
 
-                        {/* Informations du compte sélectionné */}
+                        {/* Informations du compte sélectionné ou du slot sélectionné */}
                         <AnimatePresence mode="wait">
                             {selectedAccount && (
                                 <motion.div 
@@ -1309,18 +1770,83 @@ export default function Settings() {
                                     className="font-inter bg-white p-6 border-r border-gray-200"
                                 >
                                     <h2 className="text-lg font-semibold text-gray-900">{selectedAccount.email}</h2>
+                                    <p className="text-sm text-gray-500">
+                                      Flux de traitement automatique
+                                    </p>
+                                </motion.div>
+                            )}
+                            {selectedSlot && !selectedAccount && (
+                                <motion.div 
+                                    key={`slot-info-${selectedSlot.index}`}
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: -20 }}
+                                    transition={{ duration: 0.3 }}
+                                    className="font-inter bg-white p-6 border-r border-gray-200"
+                                >
+                                    <div className="flex items-center justify-between mb-4">
+                                        <div>
+                                            <h2 className="text-lg font-semibold text-gray-900">Email #{accounts.length + selectedSlot.index + 1}</h2>
+                                            <p className="text-sm text-gray-500">Non configuré</p>
+                                        </div>
+                                    </div>
+                                    <div className="flex gap-3 mt-4">
+                                        <button
+                                            onClick={() => setShowAddAccountModal(true)}
+                                            className="flex-1 px-4 py-2 bg-gradient-to-br from-[#F35F4F] to-[#FFAD5A] text-white rounded-lg font-medium hover:shadow-lg transition-all"
+                                        >
+                                            Configurer
+                                        </button>
+                                        <button
+                                            onClick={async () => {
+                                                if (!selectedSlot?.subscription_id || !user) return;
+                                                
+                                                if (!confirm('Êtes-vous sûr de vouloir résilier cet abonnement ? Il restera actif jusqu\'à la fin de la période de facturation en cours.')) {
+                                                    return;
+                                                }
 
-                                    
-                                    {/* <button
-                                        onClick={() => handleDeleteAccountClick(selectedAccount.id, selectedAccount.email, selectedAccount.provider)}
-                                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                    >
-                                        <Trash2 className="w-5 h-5" />
-                                    </button> */}
-                              
-                                <p className="text-sm text-gray-500">
-                                  Flux de traitement automatique
-                                </p>
+                                                try {
+                                                    const { data: { session } } = await supabase.auth.getSession();
+                                                    if (!session) {
+                                                        showToast('Vous devez être connecté', 'error');
+                                                        return;
+                                                    }
+
+                                                    const response = await fetch(
+                                                        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/stripe-cancel-subscription`,
+                                                        {
+                                                            method: 'POST',
+                                                            headers: {
+                                                                'Authorization': `Bearer ${session.access_token}`,
+                                                                'Content-Type': 'application/json',
+                                                            },
+                                                            body: JSON.stringify({
+                                                                subscription_id: selectedSlot.subscription_id
+                                                            }),
+                                                        }
+                                                    );
+
+                                                    const data = await response.json();
+
+                                                    if (data.error) {
+                                                        showToast(`Erreur: ${data.error}`, 'error');
+                                                        return;
+                                                    }
+
+                                                    showToast('Abonnement résilié avec succès', 'success');
+                                                    setSelectedSlot(null);
+                                                    loadAccounts();
+                                                    checkSubscription();
+                                                } catch (error: any) {
+                                                    console.error('Error canceling slot:', error);
+                                                    showToast('Une erreur est survenue lors de la résiliation', 'error');
+                                                }
+                                            }}
+                                            className="px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors"
+                                        >
+                                            Résilier
+                                        </button>
+                                    </div>
                                 </motion.div>
                             )}
                         </AnimatePresence>
@@ -1376,6 +1902,284 @@ export default function Settings() {
                                         <p className="font-medium text-gray-900 whitespace-pre-wrap mt-2">{companyFormData.services_offered || 'Non renseignée'}</p>
                                     </div>
                                 </div>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+
+                        {/* Base de connaissances */}
+                        <AnimatePresence mode="wait">
+                            {selectedAccount && (
+                                <motion.div 
+                                    key={`knowledge-${selectedAccount.id}`}
+                                    initial={{ opacity: 0, y: 20 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: -20 }}
+                                    transition={{ duration: 0.3, delay: 0.2 }}
+                                    className="bg-white font-inter p-6 shadow-sm border-r border-b border-gray-200"
+                                >
+                                    <div className="mb-6">
+                                        <h3 className="font-bold text-[#3D2817] text-lg mb-2">Base de connaissances</h3>
+                                        <p className="text-sm text-gray-500">Ajoutez des ressources pour enrichir les réponses de l'IA</p>
+                                    </div>
+
+                                    {currentConfig ? (
+                                        <div className="space-y-6">
+                                            {/* Configuration Info */}
+                                            <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-xl p-4 border border-orange-200">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center">
+                                                        <FileText className="w-5 h-5 text-[#EF6855]" />
+                                                    </div>
+                                                    <div>
+                                                        <div className="text-sm text-gray-600">Configuration pour</div>
+                                                        <div className="font-semibold text-[#3D2817]">{currentConfig.email}</div>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* URLs Section */}
+                                            <div className="space-y-3">
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-2">
+                                                        <Globe className="w-5 h-5 text-[#EF6855]" />
+                                                        <label className="block text-sm font-semibold text-gray-700">
+                                                            URLs de la base de connaissance
+                                                        </label>
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={handleAddKnowledgeUrl}
+                                                        className="flex items-center gap-1 px-3 py-1 text-sm text-[#EF6855] hover:bg-orange-50 rounded-lg transition-colors"
+                                                    >
+                                                        <Plus className="w-4 h-4" />
+                                                        Ajouter
+                                                    </button>
+                                                </div>
+
+                                                {/* Display existing URLs */}
+                                                {(() => {
+                                                    const existingUrls = currentConfig?.knowledge_base_urls ? 
+                                                        (Array.isArray(currentConfig.knowledge_base_urls) ? currentConfig.knowledge_base_urls : JSON.parse(currentConfig.knowledge_base_urls || '[]')) : 
+                                                        [];
+                                                    
+                                                    return existingUrls.length > 0 && (
+                                                        <div className="space-y-2 mb-3">
+                                                            {existingUrls.map((url: string, index: number) => (
+                                                                <div key={`existing-url-${index}`} className="flex items-center gap-3 p-3 bg-green-50 rounded-lg border border-green-200">
+                                                                    <Globe className="w-5 h-5 text-green-600 flex-shrink-0" />
+                                                                    <div className="flex-1 min-w-0">
+                                                                        <a 
+                                                                            href={url}
+                                                                            target="_blank"
+                                                                            rel="noopener noreferrer"
+                                                                            className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline truncate block"
+                                                                            title={url}
+                                                                        >
+                                                                            {url}
+                                                                        </a>
+                                                                    </div>
+                                                                    <button
+                                                                        onClick={() => handleRemoveExistingUrl(index)}
+                                                                        className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-100 rounded-lg transition-colors flex-shrink-0"
+                                                                        title="Supprimer cette URL"
+                                                                    >
+                                                                        <X className="w-4 h-4" />
+                                                                    </button>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    );
+                                                })()}
+
+                                                {/* Add new URLs */}
+                                                <div className="space-y-2">
+                                                    {knowledgeUrls.map((url, index) => (
+                                                        <div key={index} className="flex gap-2">
+                                                            <input
+                                                                type="url"
+                                                                value={url}
+                                                                onChange={(e) => handleKnowledgeUrlChange(index, e.target.value)}
+                                                                className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#EF6855] focus:border-transparent"
+                                                                placeholder="https://example.com/documentation"
+                                                            />
+                                                            {knowledgeUrls.length > 1 && (
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={() => handleRemoveKnowledgeUrl(index)}
+                                                                    className="p-3 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                                                    title="Supprimer cette URL"
+                                                                >
+                                                                    <Trash2 className="w-5 h-5" />
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                                
+                                                <p className="text-xs text-gray-500">
+                                                    URLs de sites web contenant des informations sur votre entreprise
+                                                </p>
+                                            </div>
+
+                                            {/* Divider */}
+                                            <div className="relative">
+                                                <div className="absolute inset-0 flex items-center">
+                                                    <div className="w-full border-t border-gray-300"></div>
+                                                </div>
+                                                <div className="relative flex justify-center text-sm">
+                                                    <span className="px-4 bg-white text-gray-500 font-medium">ET/OU</span>
+                                                </div>
+                                            </div>
+
+                                            {/* PDF Section */}
+                                            <div className="space-y-3">
+                                                <div className="flex items-center gap-2">
+                                                    <Upload className="w-5 h-5 text-[#EF6855]" />
+                                                    <label className="block text-sm font-semibold text-gray-700">
+                                                        Documents PDF
+                                                    </label>
+                                                </div>
+
+                                                {/* Display existing and new PDFs */}
+                                                {(() => {
+                                                    const existingPdfs = currentConfig?.knowledge_base_pdfs ? 
+                                                        (Array.isArray(currentConfig.knowledge_base_pdfs) ? currentConfig.knowledge_base_pdfs : JSON.parse(currentConfig.knowledge_base_pdfs || '[]')) : 
+                                                        [];
+                                                    
+                                                    return (existingPdfs.length > 0 || knowledgePdfFiles.length > 0) && (
+                                                        <div className="space-y-2">
+                                                            {/* Existing PDFs */}
+                                                            {existingPdfs.map((pdf: any, index: number) => (
+                                                                <div key={`existing-${index}`} className="flex items-center gap-3 p-3 bg-green-50 rounded-lg border border-green-200">
+                                                                    <FileText className="w-5 h-5 text-green-600 flex-shrink-0" />
+                                                                    <div className="flex-1 min-w-0">
+                                                                        <button
+                                                                            onClick={() => handleDownloadPdf(pdf.name, pdf.base64)}
+                                                                            className="text-sm font-medium text-blue-600 hover:text-blue-800 hover:underline text-left truncate block w-full"
+                                                                            title={`Cliquer pour télécharger ${pdf.name}`}
+                                                                        >
+                                                                            {pdf.name}
+                                                                        </button>
+                                                                    </div>
+                                                                    <button
+                                                                        onClick={() => handleDownloadPdf(pdf.name, pdf.base64)}
+                                                                        className="p-1.5 text-blue-600 hover:text-blue-800 hover:bg-blue-100 rounded-lg transition-colors flex-shrink-0"
+                                                                        title="Télécharger le PDF"
+                                                                    >
+                                                                        <Download className="w-4 h-4" />
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => handleRemoveExistingPdf(index)}
+                                                                        className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-100 rounded-lg transition-colors flex-shrink-0"
+                                                                        title="Supprimer ce PDF"
+                                                                    >
+                                                                        <X className="w-4 h-4" />
+                                                                    </button>
+                                                                </div>
+                                                            ))}
+                                                            
+                                                            {/* New PDFs to be uploaded */}
+                                                            {knowledgePdfFiles.map((file, index) => (
+                                                                <div key={`new-${index}`} className="flex items-center gap-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                                                                    <FileText className="w-5 h-5 text-blue-600 flex-shrink-0" />
+                                                                    <div className="flex-1">
+                                                                        <div className="text-sm font-medium text-gray-700">{file.name}</div>
+                                                                        <div className="text-xs text-blue-600">
+                                                                            Nouveau - À enregistrer ({(file.size / 1024 / 1024).toFixed(2)} MB)
+                                                                        </div>
+                                                                    </div>
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => handleRemovePdf(index)}
+                                                                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                                                        title="Supprimer"
+                                                                    >
+                                                                        <Trash2 className="w-4 h-4" />
+                                                                    </button>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    );
+                                                })()}
+
+                                                {/* Upload zone */}
+                                                <input
+                                                    id="knowledge-pdf-upload"
+                                                    type="file"
+                                                    accept=".pdf,application/pdf"
+                                                    multiple
+                                                    onChange={handleKnowledgePdfChange}
+                                                    className="hidden"
+                                                />
+                                                <div
+                                                    onDragEnter={handlePdfDragEnter}
+                                                    onDragLeave={handlePdfDragLeave}
+                                                    onDragOver={handlePdfDragOver}
+                                                    onDrop={handlePdfDrop}
+                                                >
+                                                    <label
+                                                        htmlFor="knowledge-pdf-upload"
+                                                        className={`flex flex-col items-center justify-center w-full h-24 border-2 border-dashed rounded-lg cursor-pointer transition-all ${
+                                                            isDraggingPdf
+                                                                ? 'border-[#EF6855] bg-orange-50 scale-[1.02]'
+                                                                : 'border-gray-300 hover:border-[#EF6855] hover:bg-gray-50'
+                                                        }`}
+                                                    >
+                                                        <div className="flex flex-col items-center justify-center py-4 pointer-events-none">
+                                                            {isDraggingPdf ? (
+                                                                <>
+                                                                    <Upload className="w-8 h-8 text-[#EF6855] mb-2 animate-bounce" />
+                                                                    <p className="text-sm text-[#EF6855] font-semibold">
+                                                                        Déposez les fichiers PDF ici
+                                                                    </p>
+                                                                    <p className="text-xs text-gray-500 mt-1">Plusieurs fichiers supportés</p>
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    <Upload className="w-8 h-8 text-gray-400 mb-2" />
+                                                                    <p className="text-sm text-gray-600">
+                                                                        <span className="font-medium text-[#EF6855]">Cliquez pour ajouter</span> ou glissez des fichiers PDF
+                                                                    </p>
+                                                                    <p className="text-xs text-gray-500 mt-1">Plusieurs fichiers supportés (max 10 MB chacun)</p>
+                                                                </>
+                                                            )}
+                                                        </div>
+                                                    </label>
+                                                </div>
+                                                
+                                                <p className="text-xs text-gray-500">
+                                                    Documents PDF contenant des informations sur vos produits/services
+                                                </p>
+                                            </div>
+
+                                            {/* Save Button */}
+                                            <div className="pt-4">
+                                                <button
+                                                    onClick={handleSaveKnowledge}
+                                                    disabled={knowledgeSaving}
+                                                    className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-[#EF6855] to-[#F9A459] text-white py-3 rounded-lg font-semibold hover:shadow-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                                                >
+                                                    {knowledgeSaving ? (
+                                                        <>
+                                                            <Loader2 className="w-5 h-5 animate-spin" />
+                                                            Enregistrement...
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <Check className="w-5 h-5" />
+                                                            Enregistrer la base de connaissance
+                                                        </>
+                                                    )}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="text-center py-12 text-gray-500">
+                                            <Mail className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+                                            <p className="text-sm font-medium">Aucun compte email configuré</p>
+                                            <p className="text-xs mt-2">Veuillez d'abord configurer un compte email</p>
+                                        </div>
+                                    )}
                                 </motion.div>
                             )}
                         </AnimatePresence>

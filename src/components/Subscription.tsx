@@ -80,8 +80,11 @@ export function Subscription() {
     const premierSubscription = subscriptions.find(sub => sub.subscription_type === 'premier');
     const additionalAccountSubscriptions = subscriptions.filter(sub => sub.subscription_type === 'additional_account');
     const subscription = premierSubscription;
-    const additionalAccounts = paidAdditionalAccounts; // Utiliser le nombre d'emails PAYÉS
-    const totalPrice = basePlanPrice + (additionalAccounts * userPrice);
+    
+    // Calculer la quantité réelle d'emails additionnels (sera mis à jour dans fetchPaidAdditionalAccounts)
+    const [totalAdditionalQuantity, setTotalAdditionalQuantity] = useState(0);
+    const additionalAccounts = totalAdditionalQuantity || paidAdditionalAccounts; // Priorité à la quantité réelle
+    const totalPrice = premierSubscription ? basePlanPrice + (additionalAccounts * userPrice) : 0;
 
     const nextBillingDate = new Date();
     nextBillingDate.setMonth(nextBillingDate.getMonth() + 1);
@@ -166,11 +169,22 @@ export function Subscription() {
                 if (!currentUser) return;
 
                 // Récupérer les subscriptions actives ET supprimées pour vérifier le statut de résiliation
-                const { data: allSubs } = await supabase
+                const { data: allSubs, error: subsError } = await supabase
                     .from('stripe_user_subscriptions')
                     .select('subscription_id, status, cancel_at_period_end, subscription_type, email_configuration_id, deleted_at')
                     .eq('user_id', currentUser.id)
                     .order('created_at', { ascending: false });
+
+                if (subsError) {
+                    // Si la table n'existe pas ou si les colonnes sont manquantes
+                    if (subsError.code === '42P01' || subsError.code === '42703' || subsError.message?.includes('does not exist') || subsError.message?.includes('column')) {
+                        console.warn('stripe_user_subscriptions table or columns not found:', subsError);
+                        // Continuer avec un tableau vide
+                    } else {
+                        console.error('Error fetching subscriptions:', subsError);
+                        return;
+                    }
+                }
 
                 // Récupérer uniquement les subscriptions actives pour l'association
                 const activeSubs = allSubs?.filter(s => !s.deleted_at) || [];
@@ -287,10 +301,57 @@ export function Subscription() {
             let totalPaidSlots = 0;
             if (allSubs && allSubs.length > 0) {
                 const premierCount = allSubs.filter(s => s.subscription_type === 'premier').length;
-                const additionalCount = allSubs.filter(s => s.subscription_type === 'additional_account').length;
-                totalPaidSlots = premierCount > 0 ? 1 + additionalCount : 0;
                 
-                console.log('✅ [Subscription] Premier:', premierCount, '| Additionnels:', additionalCount, '| Total:', totalPaidSlots);
+                // Récupérer la quantité réelle depuis Stripe pour chaque subscription additionnelle
+                const { data: { session } } = await supabase.auth.getSession();
+                if (session) {
+                    // Récupérer les quantités réelles depuis Stripe
+                    let totalAdditionalQuantity = 0;
+                    const additionalSubs = allSubs.filter(s => s.subscription_type === 'additional_account');
+                    
+                    console.log(`🔍 [Subscription] Récupération des quantités pour ${additionalSubs.length} subscription(s) additionnelle(s)...`);
+                    
+                    for (const sub of additionalSubs) {
+                        try {
+                            const response = await fetch(
+                                `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/get-subscription-quantity`,
+                                {
+                                    method: 'POST',
+                                    headers: {
+                                        'Authorization': `Bearer ${session.access_token}`,
+                                        'Content-Type': 'application/json',
+                                    },
+                                    body: JSON.stringify({
+                                        subscription_id: sub.subscription_id
+                                    }),
+                                }
+                            );
+
+                            if (response.ok) {
+                                const data = await response.json();
+                                const quantity = data.quantity || 1; // Par défaut 1 si pas de quantité
+                                totalAdditionalQuantity += quantity;
+                                console.log(`✅ [Subscription] Subscription ${sub.subscription_id}: quantité = ${quantity}`);
+                            } else {
+                                console.warn(`⚠️ [Subscription] Impossible de récupérer la quantité pour ${sub.subscription_id}, utilisation de 1 par défaut`);
+                                totalAdditionalQuantity += 1; // Fallback : 1 par défaut
+                            }
+                        } catch (error) {
+                            console.error(`❌ [Subscription] Erreur lors de la récupération de la quantité pour ${sub.subscription_id}:`, error);
+                            totalAdditionalQuantity += 1; // Fallback : 1 par défaut
+                        }
+                    }
+                    
+                    totalPaidSlots = premierCount > 0 ? 1 + totalAdditionalQuantity : 0;
+                    
+                    console.log('✅ [Subscription] Premier:', premierCount, '| Additionnels (quantité totale):', totalAdditionalQuantity, '| Total:', totalPaidSlots);
+                } else {
+                    // Fallback si pas de session : compter les lignes (ancienne méthode)
+                    console.warn('⚠️ [Subscription] Pas de session pour récupérer les quantités, utilisation de la méthode de comptage par lignes');
+                    const additionalCount = allSubs.filter(s => s.subscription_type === 'additional_account').length;
+                    totalPaidSlots = premierCount > 0 ? 1 + additionalCount : 0;
+                    console.log('✅ [Subscription] Premier:', premierCount, '| Additionnels (lignes):', additionalCount, '| Total:', totalPaidSlots);
+                }
             } else {
                 console.log('⚠️ [Subscription] Aucune subscription trouvée');
             }
@@ -356,28 +417,66 @@ export function Subscription() {
             const { data: { user } } = await supabase.auth.getUser();
             if (!user) return;
 
-            // Récupérer le customer_id de l'utilisateur
-            const { data: customerData } = await supabase
-                .from('stripe_customers')
-                .select('customer_id')
+            // Récupérer toutes les subscriptions additionnelles avec leurs quantités réelles
+            const { data: allSubs } = await supabase
+                .from('stripe_user_subscriptions')
+                .select('subscription_type, status, subscription_id')
                 .eq('user_id', user.id)
-                .is('deleted_at', null)
-                .maybeSingle();
-
-            if (!customerData) return;
-
-            // Récupérer le nombre d'emails additionnels payés
-            const { data: subscriptionData } = await supabase
-                .from('stripe_subscriptions')
-                .select('additional_accounts')
-                .eq('customer_id', customerData.customer_id)
+                .eq('subscription_type', 'additional_account')
                 .in('status', ['active', 'trialing'])
-                .is('deleted_at', null)
-                .maybeSingle();
+                .is('deleted_at', null);
 
-            if (subscriptionData) {
-                setPaidAdditionalAccounts(subscriptionData.additional_accounts || 0);
+            if (!allSubs || allSubs.length === 0) {
+                setTotalAdditionalQuantity(0);
+                setPaidAdditionalAccounts(0);
+                return;
             }
+
+            // Récupérer la quantité réelle depuis Stripe pour chaque subscription additionnelle
+            const { data: { session } } = await supabase.auth.getSession();
+            if (!session) {
+                console.warn('⚠️ [Subscription] Pas de session pour récupérer les quantités additionnelles');
+                setTotalAdditionalQuantity(allSubs.length); // Fallback : nombre de lignes
+                setPaidAdditionalAccounts(allSubs.length);
+                return;
+            }
+
+            let totalQuantity = 0;
+            
+            for (const sub of allSubs) {
+                try {
+                    const response = await fetch(
+                        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/get-subscription-quantity`,
+                        {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': `Bearer ${session.access_token}`,
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                subscription_id: sub.subscription_id
+                            }),
+                        }
+                    );
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        const quantity = data.quantity || 1;
+                        totalQuantity += quantity;
+                        console.log(`✅ [Subscription] Subscription additionnelle ${sub.subscription_id}: quantité = ${quantity}`);
+                    } else {
+                        console.warn(`⚠️ [Subscription] Impossible de récupérer la quantité pour ${sub.subscription_id}, utilisation de 1 par défaut`);
+                        totalQuantity += 1; // Fallback
+                    }
+                } catch (error) {
+                    console.error(`❌ [Subscription] Erreur lors de la récupération de la quantité pour ${sub.subscription_id}:`, error);
+                    totalQuantity += 1; // Fallback
+                }
+            }
+            
+            console.log(`✅ [Subscription] Total quantité additionnelle calculée: ${totalQuantity}`);
+            setTotalAdditionalQuantity(totalQuantity);
+            setPaidAdditionalAccounts(totalQuantity);
         } catch (error) {
             console.error('Error fetching paid additional accounts:', error);
         }
@@ -1280,7 +1379,12 @@ export function Subscription() {
                     </div>
                 )}
 
-                <div className="space-y-0">
+                <div className={`space-y-0 ${emailAccounts.length > 7 ? 'overflow-y-auto max-h-[600px] pr-2' : ''}`}
+                    style={emailAccounts.length > 7 ? {
+                        scrollbarWidth: 'thin',
+                        scrollbarColor: '#d1d5db #f3f4f6'
+                    } as React.CSSProperties : undefined}
+                >
                     {emailAccounts.length > 0 ? (
                         emailAccounts.map((account, index) => {
                             // Slot non configuré
@@ -1428,15 +1532,39 @@ export function Subscription() {
                     <h3 className="font-bold text-gray-900 mb-6">Résumé de facturation</h3>
 
                     <div className="space-y-0">
-                        {/* Ligne 1 : Total des comptes */}
+                        {/* Ligne 1 : Premier compte */}
+                        {premierSubscription && (
+                            <>
+                                <div className="grid grid-cols-3 gap-6 items-center py-4">
+                                    <span className="text-sm font-medium text-gray-900">Premier compte</span>
+                                    <span className="text-sm text-gray-700">1 compte</span>
+                                    <span className="text-sm text-gray-900 font-medium text-right">{basePlanPrice}€ HT</span>
+                                </div>
+                                <hr className="border-gray-200" />
+                            </>
+                        )}
+
+                        {/* Ligne 2 : Comptes additionnels */}
+                        {additionalAccounts > 0 && (
+                            <>
+                                <div className="grid grid-cols-3 gap-6 items-center py-4">
+                                    <span className="text-sm font-medium text-gray-900">Compte{additionalAccounts > 1 ? 's' : ''} additionnel{additionalAccounts > 1 ? 's' : ''}</span>
+                                    <span className="text-sm text-gray-700">{additionalAccounts} × {userPrice}€</span>
+                                    <span className="text-sm text-gray-900 font-medium text-right">{(additionalAccounts * userPrice).toFixed(2)}€ HT</span>
+                                </div>
+                                <hr className="border-gray-200" />
+                            </>
+                        )}
+
+                        {/* Ligne 3 : Total HT */}
                         <div className="grid grid-cols-3 gap-6 items-center py-4">
-                            <span className="text-sm font-medium text-gray-900">Total des comptes</span>
+                            <span className="text-sm font-medium text-gray-900">Total HT</span>
                             <span className="text-sm text-gray-700">{emailAccountsCount} compte{emailAccountsCount > 1 ? 's' : ''}</span>
-                            <span className="text-sm text-gray-900 font-medium text-right">{totalPrice}€ HT</span>
+                            <span className="text-sm text-gray-900 font-medium text-right">{totalPrice.toFixed(2)}€ HT</span>
                         </div>
                         <hr className="border-gray-200" />
 
-                        {/* Ligne 2 : TVA */}
+                        {/* Ligne 4 : TVA */}
                         <div className="grid grid-cols-3 gap-6 items-center py-4">
                             <span className="text-sm font-medium text-gray-900">TVA</span>
                             <span className="text-sm text-gray-700">20%</span>
@@ -1444,10 +1572,10 @@ export function Subscription() {
                         </div>
                         <hr className="border-gray-200" />
 
-                        {/* Ligne 3 : Total final */}
+                        {/* Ligne 5 : Total final TTC */}
                         <div className="grid grid-cols-3 gap-6 items-center py-4">
-                            <span className="text-base font-bold text-gray-900">Total</span>
-                            <span className="text-sm font-bold text-gray-900">Email</span>
+                            <span className="text-base font-bold text-gray-900">Total TTC</span>
+                            <span className="text-sm font-bold text-gray-900">Mensuel</span>
                             <span className="text-base font-bold text-gray-900 text-right">{(totalPrice * 1.2).toFixed(2)}€</span>
                         </div>
                     </div>
