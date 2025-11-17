@@ -65,6 +65,7 @@ export default function Settings() {
         company_name: '',
         activity_description: '',
         services_offered: '',
+        signature_image_base64: '',
     });
     const [imapFormData, setImapFormData] = useState({
         email: '',
@@ -84,6 +85,7 @@ export default function Settings() {
     const [showEditCompanyNameModal, setShowEditCompanyNameModal] = useState(false);
     const [showEditActivityModal, setShowEditActivityModal] = useState(false);
     const [showEditSignatureModal, setShowEditSignatureModal] = useState(false);
+    const [showEditLogoModal, setShowEditLogoModal] = useState(false);
     const [editTempValue, setEditTempValue] = useState('');
     const [totalPaidSlots, setTotalPaidSlots] = useState(0); // Nombre total d'emails payés (base + additionnels)
     
@@ -93,6 +95,7 @@ export default function Settings() {
     const [knowledgePdfFiles, setKnowledgePdfFiles] = useState<File[]>([]);
     const [knowledgeSaving, setKnowledgeSaving] = useState(false);
     const [isDraggingPdf, setIsDraggingPdf] = useState(false);
+    const [isDraggingLogo, setIsDraggingLogo] = useState(false);
 
     useEffect(() => {
         loadAccounts();
@@ -125,6 +128,7 @@ export default function Settings() {
                     company_name: '',
                     activity_description: '',
                     services_offered: '',
+                    signature_image_base64: '',
                 });
                 setShowCompanyInfoModal(true);
             }
@@ -592,7 +596,7 @@ export default function Settings() {
 
         const { data: allConfigs } = await supabase
             .from('email_configurations')
-            .select('email, company_name, activity_description, services_offered')
+            .select('email, company_name, activity_description, services_offered, signature_image_base64')
             .eq('user_id', user.id);
 
         if (!allConfigs || allConfigs.length === 0) return;
@@ -619,6 +623,7 @@ export default function Settings() {
                 company_name: accountWithoutInfo.company_name || '',
                 activity_description: accountWithoutInfo.activity_description || '',
                 services_offered: accountWithoutInfo.services_offered || '',
+                signature_image_base64: accountWithoutInfo.signature_image_base64 || '',
             });
             
             setShowCompanyInfoModal(true);
@@ -633,7 +638,7 @@ export default function Settings() {
 
         const { data: config } = await supabase
             .from('email_configurations')
-            .select('company_name, activity_description, services_offered, is_classement')
+            .select('company_name, activity_description, services_offered, is_classement, signature_image_base64')
             .eq('user_id', user.id)
             .eq('email', emailToLoad)
             .maybeSingle();
@@ -643,6 +648,7 @@ export default function Settings() {
                 company_name: config.company_name || '',
                 activity_description: config.activity_description || '',
                 services_offered: config.services_offered || '',
+                signature_image_base64: config.signature_image_base64 || '',
             });
             setAutoSort(config.is_classement ?? false);
         } else {
@@ -650,6 +656,7 @@ export default function Settings() {
                 company_name: '',
                 activity_description: '',
                 services_offered: '',
+                signature_image_base64: '',
             });
             setAutoSort(false);
         }
@@ -1122,7 +1129,7 @@ export default function Settings() {
         // Sauvegarder automatiquement après chaque étape
         await saveCompanyInfoProgress();
 
-        if (companyInfoStep < 3) {
+        if (companyInfoStep < 4) {
             setCompanyInfoStep(companyInfoStep + 1);
         } else {
             handleCompanyInfoSubmit();
@@ -1140,6 +1147,7 @@ export default function Settings() {
                     company_name: companyFormData.company_name || null,
                     activity_description: companyFormData.activity_description || null,
                     services_offered: companyFormData.services_offered || null,
+                    signature_image_base64: companyFormData.signature_image_base64 || null,
                     updated_at: new Date().toISOString(),
                 })
                 .eq('user_id', user?.id)
@@ -1178,6 +1186,7 @@ export default function Settings() {
                         company_name: companyFormData.company_name,
                         activity_description: companyFormData.activity_description,
                         services_offered: companyFormData.services_offered,
+                        signature_image_base64: companyFormData.signature_image_base64 || null,
                         updated_at: new Date().toISOString(),
                     })
                     .eq('id', existingConfig.id);
@@ -1380,6 +1389,7 @@ export default function Settings() {
                 company_name: '',
                 activity_description: '',
                 services_offered: '',
+                signature_image_base64: '',
             });
             setShowCompanyInfoModal(true);
         } catch (err) {
@@ -1719,9 +1729,15 @@ export default function Settings() {
                                             const newValue = !autoSort;
                                             setAutoSort(newValue);
 
+                                            // Préparer les données à mettre à jour
+                                            const updateData: any = { is_classement: newValue };
+                                            if (newValue) {
+                                                updateData.is_classement_activated_at = new Date().toISOString();
+                                            }
+
                                             const { error } = await supabase
                                                 .from('email_configurations')
-                                                .update({ is_classement: newValue })
+                                                .update(updateData)
                                                 .eq('user_id', user.id)
                                                 .eq('email', selectedAccount.email);
 
@@ -1900,6 +1916,23 @@ export default function Settings() {
                                         </button>
                                         </div>
                                         <p className="font-medium text-gray-900 whitespace-pre-wrap mt-2">{companyFormData.services_offered || 'Non renseignée'}</p>
+                                    </div>
+                                    <div>
+                                        <div className="flex items-center justify-between ">    
+                                        <span className="text-gray-500 mb-2">Logo de signature:</span>
+                                        <button onClick={() => setShowEditLogoModal(true)}>
+                                            <Edit2Icon className='w-5 h-5 text-blue-500 hover:text-blue-700 cursor-pointer' />
+                                        </button>
+                                        </div>
+                                        {companyFormData.signature_image_base64 ? (
+                                            <img
+                                                src={companyFormData.signature_image_base64}
+                                                alt="Logo de signature"
+                                                className="max-h-24 max-w-full object-contain mt-2"
+                                            />
+                                        ) : (
+                                            <p className="font-medium text-gray-900 mt-2">Non renseigné</p>
+                                        )}
                                     </div>
                                 </div>
                                 </motion.div>
@@ -2422,10 +2455,11 @@ export default function Settings() {
 
                         <div className="mb-6 p-4 bg-orange-50 rounded-lg border border-orange-200">
                             <p className="text-sm text-orange-800">
-                                <span className="font-semibold">Étape {companyInfoStep}/3</span> - {
+                                <span className="font-semibold">Étape {companyInfoStep}/4</span> - {
                                     companyInfoStep === 1 ? 'Nom de l\'entreprise' :
                                         companyInfoStep === 2 ? 'Description de l\'activité' :
-                                            'Services proposés'
+                                            companyInfoStep === 3 ? 'Signature email' :
+                                                'Logo de signature'
                                 }
                             </p>
                         </div>
@@ -2481,13 +2515,125 @@ export default function Settings() {
                             </div>
                         )}
 
+                        {companyInfoStep === 4 && (
+                            <div className="space-y-4 mb-6">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-900 mb-2">
+                                        Logo de signature (optionnel)
+                                    </label>
+                                    <p className="text-xs text-gray-500 mb-3">
+                                        Logo de votre entreprise ou signature manuscrite scannée
+                                    </p>
+                                    
+                                    <div 
+                                        className={`border-2 border-dashed rounded-lg p-6 text-center transition-all ${
+                                            isDraggingLogo 
+                                                ? 'border-orange-500 bg-orange-50' 
+                                                : 'border-gray-300 hover:border-orange-400'
+                                        }`}
+                                        onDragOver={(e) => {
+                                            e.preventDefault();
+                                            setIsDraggingLogo(true);
+                                        }}
+                                        onDragLeave={(e) => {
+                                            e.preventDefault();
+                                            setIsDraggingLogo(false);
+                                        }}
+                                        onDrop={(e) => {
+                                            e.preventDefault();
+                                            setIsDraggingLogo(false);
+                                            
+                                            const file = e.dataTransfer.files?.[0];
+                                            if (file && file.type.startsWith('image/')) {
+                                                if (file.size > 2 * 1024 * 1024) {
+                                                    showToast('L\'image ne doit pas dépasser 2MB', 'error');
+                                                    return;
+                                                }
+                                                
+                                                const reader = new FileReader();
+                                                reader.onload = (event) => {
+                                                    const base64 = event.target?.result as string;
+                                                    setCompanyFormData({ ...companyFormData, signature_image_base64: base64 });
+                                                };
+                                                reader.readAsDataURL(file);
+                                            } else {
+                                                showToast('Veuillez déposer une image valide', 'error');
+                                            }
+                                        }}
+                                    >
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            onChange={async (e) => {
+                                                const file = e.target.files?.[0];
+                                                if (file) {
+                                                    if (file.size > 2 * 1024 * 1024) {
+                                                        showToast('L\'image ne doit pas dépasser 2MB', 'error');
+                                                        return;
+                                                    }
+                                                    
+                                                    const reader = new FileReader();
+                                                    reader.onload = (event) => {
+                                                        const base64 = event.target?.result as string;
+                                                        setCompanyFormData({ ...companyFormData, signature_image_base64: base64 });
+                                                    };
+                                                    reader.readAsDataURL(file);
+                                                }
+                                            }}
+                                            className="hidden"
+                                            id="signature-logo-upload"
+                                        />
+                                        <label
+                                            htmlFor="signature-logo-upload"
+                                            className="cursor-pointer flex flex-col items-center"
+                                        >
+                                            {companyFormData.signature_image_base64 ? (
+                                                <div className="space-y-3">
+                                                    <img
+                                                        src={companyFormData.signature_image_base64}
+                                                        alt="Logo de signature"
+                                                        className="max-h-32 max-w-full object-contain mx-auto"
+                                                    />
+                                                    <p className="text-sm text-green-600 font-medium">✓ Logo téléchargé</p>
+                                                    <p className="text-xs text-gray-500">Cliquez ou glissez pour changer</p>
+                                                </div>
+                                            ) : (
+                                                <div className="space-y-3">
+                                                    <Upload className="w-12 h-12 text-gray-400 mx-auto" />
+                                                    <div>
+                                                        <p className="text-sm font-medium text-gray-700">
+                                                            Cliquez ou glissez pour télécharger
+                                                        </p>
+                                                        <p className="text-xs text-gray-500 mt-1">
+                                                            PNG, JPG jusqu'à 2MB
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </label>
+                                    </div>
+                                    
+                                    {companyFormData.signature_image_base64 && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setCompanyFormData({ ...companyFormData, signature_image_base64: '' })}
+                                            className="mt-2 text-sm text-red-600 hover:text-red-700 flex items-center gap-1"
+                                        >
+                                            <X className="w-4 h-4" />
+                                            Supprimer le logo
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
                         <div className="flex gap-3">
                             <button
                                 onClick={handleCompanyInfoNext}
                                 className="group relative flex-1 inline-flex cursor-pointer items-center justify-center gap-2 overflow-hidden rounded-full bg-gradient-to-br from-[#F35F4F] to-[#FFAD5A] py-3 font-medium text-white shadow-lg transition-all duration-300 ease-out hover:shadow-xl"
                             >
                                 <span className="relative z-10 transition-transform duration-300 group-hover:-translate-x-1">
-                                    {companyInfoStep === 3 ? 'Terminer' : 'Continuer'}
+                                    {companyInfoStep === 4 ? 'Terminer' : 'Continuer'}
                                 </span>
                                 <svg
                                     className="relative z-10 h-5 w-5 -translate-x-2 opacity-0 transition-all duration-300 group-hover:translate-x-0 group-hover:opacity-100"
@@ -2508,6 +2654,7 @@ export default function Settings() {
                                         company_name: '',
                                         activity_description: '',
                                         services_offered: '',
+                                        signature_image_base64: '',
                                     });
                                 }}
                                 className="px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-full hover:bg-gray-50 transition-colors font-medium"
@@ -2525,7 +2672,7 @@ export default function Settings() {
                     <div className="bg-white rounded-2xl p-8 max-w-lg w-full mx-4 shadow-2xl font-inter max-h-[90vh] overflow-y-auto">
                         <div className="mb-6 p-4 bg-green-50 rounded-lg border border-green-200">
                             <p className="text-sm text-green-800 text-center font-medium">
-                                Étape 3/3 - Configuration terminée
+                                Étape 4/4 - Configuration terminée
                             </p>
                         </div>
 
@@ -3354,6 +3501,186 @@ export default function Settings() {
                                             setCompanyFormData({ ...companyFormData, services_offered: editTempValue });
                                             setShowEditSignatureModal(false);
                                             setNotificationMessage('Signature email mise à jour');
+                                            setShowNotification(true);
+                                            setTimeout(() => setShowNotification(false), 3000);
+                                        } catch (err) {
+                                            console.error('Erreur lors de la mise à jour:', err);
+                                            showToast('Erreur lors de la mise à jour', 'error');
+                                        }
+                                    }}
+                                    className="flex-1 px-6 py-3 text-white rounded-lg hover:opacity-90 transition-all font-semibold"
+                                    style={{background:`conic-gradient(
+                                        from 195.77deg at 84.44% -1.66%,
+                                        #FE9736 0deg,
+                                        #F4664C 76.15deg,
+                                        #F97E41 197.31deg,
+                                        #E3AB8D 245.77deg,
+                                        #FE9736 360deg
+                                    )`}}
+                                >
+                                    Enregistrer
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal d'édition du logo de signature */}
+            {showEditLogoModal && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl p-8 max-w-lg w-full shadow-2xl font-inter max-h-[90vh] overflow-y-auto">
+                        <div className="flex items-center justify-between mb-6">
+                            <h2 className="text-2xl font-bold text-gray-900">Modifier le logo de signature</h2>
+                            <button
+                                onClick={() => {
+                                    setShowEditLogoModal(false);
+                                    setIsDraggingLogo(false);
+                                }}
+                                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                            >
+                                <X className="w-5 h-5 text-gray-600" />
+                            </button>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                    Logo de signature (optionnel)
+                                </label>
+                                <p className="text-xs text-gray-500 mb-3">
+                                    Logo de votre entreprise ou signature manuscrite scannée
+                                </p>
+                                
+                                <div 
+                                    className={`border-2 border-dashed rounded-lg p-6 text-center transition-all ${
+                                        isDraggingLogo 
+                                            ? 'border-orange-500 bg-orange-50' 
+                                            : 'border-gray-300 hover:border-orange-400'
+                                    }`}
+                                    onDragOver={(e) => {
+                                        e.preventDefault();
+                                        setIsDraggingLogo(true);
+                                    }}
+                                    onDragLeave={(e) => {
+                                        e.preventDefault();
+                                        setIsDraggingLogo(false);
+                                    }}
+                                    onDrop={(e) => {
+                                        e.preventDefault();
+                                        setIsDraggingLogo(false);
+                                        
+                                        const file = e.dataTransfer.files?.[0];
+                                        if (file && file.type.startsWith('image/')) {
+                                            if (file.size > 2 * 1024 * 1024) {
+                                                showToast('L\'image ne doit pas dépasser 2MB', 'error');
+                                                return;
+                                            }
+                                            
+                                            const reader = new FileReader();
+                                            reader.onload = (event) => {
+                                                const base64 = event.target?.result as string;
+                                                setCompanyFormData({ ...companyFormData, signature_image_base64: base64 });
+                                            };
+                                            reader.readAsDataURL(file);
+                                        } else {
+                                            showToast('Veuillez déposer une image valide', 'error');
+                                        }
+                                    }}
+                                >
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        onChange={(e) => {
+                                            const file = e.target.files?.[0];
+                                            if (file) {
+                                                if (file.size > 2 * 1024 * 1024) {
+                                                    showToast('L\'image ne doit pas dépasser 2MB', 'error');
+                                                    return;
+                                                }
+                                                
+                                                const reader = new FileReader();
+                                                reader.onload = (event) => {
+                                                    const base64 = event.target?.result as string;
+                                                    setCompanyFormData({ ...companyFormData, signature_image_base64: base64 });
+                                                };
+                                                reader.readAsDataURL(file);
+                                            }
+                                        }}
+                                        className="hidden"
+                                        id="edit-signature-logo-upload"
+                                    />
+                                    <label
+                                        htmlFor="edit-signature-logo-upload"
+                                        className="cursor-pointer flex flex-col items-center"
+                                    >
+                                        {companyFormData.signature_image_base64 ? (
+                                            <div className="space-y-3">
+                                                <img
+                                                    src={companyFormData.signature_image_base64}
+                                                    alt="Logo de signature"
+                                                    className="max-h-32 max-w-full object-contain mx-auto"
+                                                />
+                                                <p className="text-sm text-green-600 font-medium">✓ Logo téléchargé</p>
+                                                <p className="text-xs text-gray-500">Cliquez ou glissez pour changer</p>
+                                            </div>
+                                        ) : (
+                                            <div className="space-y-3">
+                                                <Upload className="w-12 h-12 text-gray-400 mx-auto" />
+                                                <div>
+                                                    <p className="text-sm font-medium text-gray-700">
+                                                        Cliquez ou glissez pour télécharger
+                                                    </p>
+                                                    <p className="text-xs text-gray-500 mt-1">
+                                                        PNG, JPG jusqu'à 2MB
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </label>
+                                </div>
+                                
+                                {companyFormData.signature_image_base64 && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setCompanyFormData({ ...companyFormData, signature_image_base64: '' })}
+                                        className="mt-2 text-sm text-red-600 hover:text-red-700 flex items-center gap-1"
+                                    >
+                                        <X className="w-4 h-4" />
+                                        Supprimer le logo
+                                    </button>
+                                )}
+                            </div>
+
+                            <div className="flex gap-3 pt-4">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setShowEditLogoModal(false);
+                                        setIsDraggingLogo(false);
+                                    }}
+                                    className="flex-1 px-6 py-3 border-2 border-gray-300 rounded-lg hover:bg-gray-50 transition-colors font-semibold text-gray-700"
+                                >
+                                    Annuler
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={async () => {
+                                        if (!selectedAccount || !user) return;
+                                        try {
+                                            const { error } = await supabase
+                                                .from('email_configurations')
+                                                .update({
+                                                    signature_image_base64: companyFormData.signature_image_base64 || null,
+                                                    updated_at: new Date().toISOString(),
+                                                })
+                                                .eq('id', selectedAccount.id);
+
+                                            if (error) throw error;
+
+                                            setShowEditLogoModal(false);
+                                            setIsDraggingLogo(false);
+                                            setNotificationMessage('Logo de signature mis à jour');
                                             setShowNotification(true);
                                             setTimeout(() => setShowNotification(false), 3000);
                                         } catch (err) {
