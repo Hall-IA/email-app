@@ -1,9 +1,9 @@
 # Configuration Netlify pour Next.js
-# Configuration manuelle avec output standalone
+# Laisser le plugin Next.js gérer automatiquement le répertoire de publication
 
 [build]
   command = "npm run build"
-  publish = ".next/standalone"
+  # Ne pas spécifier 'publish' - le plugin Next.js le gère automatiquement
 
 [build.environment]
   NODE_VERSION = "20"
@@ -12,7 +12,6 @@
 # Configuration de la branche de déploiement
 [context.deploy]
   command = "npm run build"
-  publish = ".next/standalone"
 
 [functions]
   node_bundler = "esbuild"

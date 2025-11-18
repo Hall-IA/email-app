@@ -2,8 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
-  // Configuration pour Netlify sans plugin
-  output: 'standalone',
+  // Pas besoin de 'standalone' - le plugin Netlify gère automatiquement
 };
 
 export default nextConfig;
