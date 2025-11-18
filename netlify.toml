@@ -1,9 +1,9 @@
 # Configuration Netlify pour Next.js
-# Configuration manuelle sans plugin (le plugin cause des problèmes avec publish directory)
+# Configuration manuelle avec output standalone
 
 [build]
   command = "npm run build"
-  publish = ".next"
+  publish = ".next/standalone"
 
 [build.environment]
   NODE_VERSION = "20"
@@ -12,7 +12,7 @@
 # Configuration de la branche de déploiement
 [context.deploy]
   command = "npm run build"
-  publish = ".next"
+  publish = ".next/standalone"
 
 [functions]
   node_bundler = "esbuild"
