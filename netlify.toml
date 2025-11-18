@@ -1,0 +1,22 @@
+# Configuration Netlify pour Next.js
+# Le plugin @netlify/plugin-nextjs gère automatiquement le build et le répertoire de publication
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+[build]
+  command = "npm run build"
+  # Ne pas spécifier 'publish' - le plugin Next.js le gère automatiquement
+
+[build.environment]
+  NODE_VERSION = "20"
+  NPM_FLAGS = "--legacy-peer-deps"
+
+# Configuration de la branche de déploiement
+# Netlify déploiera uniquement la branche "deploy"
+[context.deploy]
+  command = "npm run build"
+
+[functions]
+  node_bundler = "esbuild"
+
