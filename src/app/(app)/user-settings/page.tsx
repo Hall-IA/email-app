@@ -361,7 +361,7 @@ export default function UserSettingsPage() {
                         <motion.button
                             
                             onClick={() => setActiveSection('personal')}
-                            className={`flex items-center gap-2 px-6 py-4 font-medium transition-all ${
+                            className={`flex items-center gap-2 px-6 py-4 font-medium transition-all border-2 border-black rounded-lg ${
                                 activeSection === 'personal'
                                     ? 'text-blue-600 border-b-2 border-blue-600'
                                     : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'

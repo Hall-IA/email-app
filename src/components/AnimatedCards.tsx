@@ -1,8 +1,9 @@
+'use client';
 
+import { Mail } from 'lucide-react';
 
 export default function AnimatedCards() {
     return (
-
         <section className="flex flex-row flex-wrap gap-4">
             <div className="w-full sm:w-[280px] md:w-[300px] relative overflow-hidden">
                 <img 
@@ -10,6 +11,32 @@ export default function AnimatedCards() {
                     alt="Card background"
                     className="w-full h-full object-contain"
                 />
+                {/* Zone d'animation des enveloppes - en haut de la carte, au-dessus du "1" et du titre */}
+                <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 20 }}>
+                    <div className="relative w-full h-full overflow-hidden">
+                        <Mail 
+                            className="envelope-slide-1 absolute w-17 h-17  text-white/90" 
+                            style={{ 
+                                top: '25%',
+                                left: '0',
+                            }}
+                        />
+                        <Mail 
+                            className="envelope-slide-2 absolute w-17 h-17 text-white/90" 
+                            style={{ 
+                                top: '25%',
+                                left: '0',
+                            }}
+                        />
+                        <Mail 
+                            className="envelope-slide-3 absolute w-17 h-17 text-white/90" 
+                            style={{ 
+                                top: '25%',
+                                left: '0',
+                            }}
+                        />
+                    </div>
+                </div>
                 <div className="absolute inset-0 flex items-end">
                     <div className="flex items-end gap-2 w-full -mb-5 pr-4">
                         <div className="flex items-center gap-2">

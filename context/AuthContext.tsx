@@ -21,9 +21,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     useEffect(() => {
         supabase.auth.getSession().then(async ({ data: { session }, error }) => {
-            console.log('📦 Session récupérée:', session);
-            console.log('🔑 Access Token:', session?.access_token);
-            console.log('👤 User:', session?.user);
             if (error) {
                 console.error('Session error:', error);
                 await supabase.auth.signOut();

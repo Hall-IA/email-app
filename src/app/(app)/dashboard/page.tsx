@@ -342,7 +342,7 @@ export default function Dashboard() {
     };
 
     return (
-        <div className="font-inter space-y-4 md:space-y-8 px-4 md:px-0 max-md:w-full">
+        <div className="font-inter space-y-6 md:space-y-10 px-4 md:px-0 max-md:w-full">
             {/* Ajout du style pour les animations */}
             <style jsx>{`
     @keyframes spin-slow {
@@ -436,200 +436,6 @@ export default function Dashboard() {
     }
 `}</style>
 
-            {/* Flux de traitement */}
-            <motion.div 
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5 }}
-                className="bg-white rounded-xl shadow-sm border border-gray-200 w-full"
-            >
-                <div className="flex flex-col lg:flex-row items-center justify-between gap-6 ">
-                    {/* Section Toggle et Informations */}
-                    <motion.div 
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ duration: 0.5, delay: 0.1 }}
-                        className="flex flex-col gap-6 py-6 md:py-8 px-4 md:px-6 border-gray-200 w-full lg:w-[30%] border-b lg:border-b-0 lg:border-r"
-                    >
-                        <div className='flex flex-col sm:flex-row justify-between gap-3'>
-                            <button
-                                disabled={hasEverHadSubscription && !hasActiveSubscription}
-                                onClick={handleToggleAutoSort}
-                                className={`relative w-14 h-8 rounded-full transition-colors ${hasEverHadSubscription && !hasActiveSubscription
-                                    ? 'bg-gray-200 cursor-not-allowed'
-                                    : autoSort
-                                        ? 'bg-green-500'
-                                        : 'bg-gray-300'
-                                    }`}
-                            >
-                                <div
-                                    className={`absolute top-1 left-1 w-6 h-6 bg-white rounded-full transition-transform ${autoSort ? 'translate-x-6' : 'translate-x-0'
-                                        }`}
-                                />
-                            </button>
-
-                            <div className="flex items-center gap-2 border rounded-md p-1">
-                                <div className="relative flex items-center gap-2">
-                                    {autoSort && (
-                                        <>
-                                            <span className="absolute inline-flex h-3 w-3 rounded-full bg-green-400 opacity-75 animate-ping"></span>
-                                            <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
-                                        </>
-                                    )}
-                                    {!autoSort && (
-                                        <span className="relative inline-flex rounded-full h-3 w-3 bg-gray-400"></span>
-                                    )}
-                                    <span className="text-sm font-medium text-gray-600">État</span>
-                                </div>
-                                <span className={`px-3 py-1 rounded-full text-sm font-medium ${autoSort
-                                    ? 'bg-green-100 text-green-700'
-                                    : 'bg-gray-100 text-gray-600'
-                                    }`}>
-                                    {autoSort ? 'Actif' : 'Inactif'}
-                                </span>
-                            </div>
-                        </div>
-
-                        <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            transition={{ duration: 0.5, delay: 0.2 }}
-                        >
-                            <h3 className="font-bold text-gray-900">Flux de traitement automatique</h3>
-                            <p className="text-sm text-gray-600">Désactivable à tout moment</p>
-                        </motion.div>
-                    </motion.div>
-
-                    {/* Section des icônes de flux */}
-                    <motion.div 
-                        initial={{ opacity: 0, x: 20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ duration: 0.5, delay: 0.2 }}
-                        className="flex flex-col sm:flex-row items-center justify-center gap-3 w-full lg:w-[70%] py-4 md:py-6 px-4 md:px-0"
-                    >
-                        {/* Email Icon */}
-                        <motion.div 
-                            initial={{ opacity: 0, scale: 0.8 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            transition={{ duration: 0.4, delay: 0.3 }}
-                            whileHover={{ scale: 1.05 }}
-                            className={`flex flex-col items-center p-3 md:p-5 bg-blue-200/50 rounded-md gap-2`}
-                        >
-                            <div className="w-10 h-10 md:w-12 md:h-12 flex items-center justify-center bg-transparent relative">
-                                <img 
-                                    src="/assets/icon/icon-email.png" 
-                                    alt="Email"
-                                    className={autoSort ? 'animate-pulse-opacity' : ''}
-                                />
-                                {autoSort && (
-                                    <div className="absolute -top-1 -right-1 w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-bold animate-bounce-alert shadow-md">
-                                        !
-                                    </div>
-                                )}
-                            </div>
-                            <p className="mt-1 text-xs md:text-sm font-medium text-blue-500">Email</p>
-                        </motion.div>
-
-                        {/* Ligne animée 1 */}
-                        <motion.div 
-                            initial={{ opacity: 0, scaleX: 0 }}
-                            animate={{ opacity: 1, scaleX: 1 }}
-                            transition={{ duration: 0.5, delay: 0.5 }}
-                            className="flex-1 py-2 md:px-2 md:py-0 max-w-[80px] md:max-w-[80px] w-full md:w-auto h-full md:h-auto min-h-[40px] md:min-h-0"
-                        >
-                            <div className={`w-0.5 md:w-full md:h-0.5 h-full rounded-full ${!autoSort
-                                ? 'bg-gray-200'
-                                : 'animate-flow-orange-1'
-                                }`} />
-                        </motion.div>
-
-                        {/* Logo IA avec rotation */}
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.95 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            transition={{ duration: 0.5, delay: 0.6, ease: "easeOut" }}
-                            whileHover={{ scale: 1.05, transition: { duration: 0.2 } }}
-                            className={`flex flex-col items-center p-3 md:p-5 rounded-md gap-2 transition-opacity`}
-                            style={{
-                                background: !autoSort ? '#000000' : `conic-gradient(
-                                    from 195.77deg at 84.44% -1.66%,
-                                    #FE9736 0deg,
-                                    #F4664C 76.15deg,
-                                    #F97E41 197.31deg,
-                                    #E3AB8D 245.77deg,
-                                    #FE9736 360deg
-                                )`,
-                            }}
-                        >
-                            <div className={`w-10 h-10 md:w-12 md:h-12 flex items-center justify-center bg-transparent`}>
-                                <span className='border p-1.5 md:p-2 rounded-md'>
-                                    <img 
-                                        src={autoSort ? '/assets/icon/icon-actualise.png' : '/assets/icon/icon-stop.png'} 
-                                        className={autoSort ? 'animate-spin-slow' : ''} 
-                                        alt="IA" 
-                                    />
-                                </span>
-                            </div>
-                            <img
-                                src="/assets/icon/icon-logo.png"
-                                alt="Logo"
-                                className={!autoSort ? 'grayscale' : ''}
-                            />
-                        </motion.div>
-
-                        {/* Ligne animée 2 */}
-                        <motion.div 
-                            initial={{ opacity: 0, scaleX: 0 }}
-                            animate={{ opacity: 1, scaleX: 1 }}
-                            transition={{ duration: 0.5, delay: 0.7 }}
-                            className="flex-1 py-2 md:px-2 md:py-0 max-w-[80px] md:max-w-[80px] w-full md:w-auto h-full md:h-auto min-h-[40px] md:min-h-0"
-                        >
-                            <div className={`w-0.5 md:w-full md:h-0.5 h-full rounded-full ${!autoSort
-                                ? 'bg-gray-200'
-                                : 'animate-flow-orange-2'
-                                }`} />
-                        </motion.div>
-
-                        {/* Traité, Pub, Info - grisés si inactif */}
-                        <motion.div 
-                            initial={{ opacity: 0, scale: 0.8 }}
-                            animate={{ opacity: !autoSort ? 0.4 : 1, scale: 1 }}
-                            transition={{ duration: 0.5, delay: 0.8 }}
-                            className={`flex flex-col sm:flex-row gap-1.5 font-roboto transition-opacity ${!autoSort ? 'opacity-40 grayscale' : ''
-                            }`}
-                        >
-                            <div className="flex flex-col items-center bg-green-200/50 p-3 md:p-5 rounded-t-md sm:rounded-t-none sm:rounded-tl-md sm:rounded-bl-md gap-2">
-                                <div className={`w-9 h-9 md:w-11 md:h-11 rounded-lg flex items-center justify-center shadow-md ${!autoSort
-                                    ? 'bg-gray-300'
-                                    : 'bg-white'
-                                    }`}>
-                                    <img src="assets/icon/icon-check.png" alt="Check" />
-                                </div>
-                                <p className="mt-1 text-xs md:text-sm font-medium text-green-500">Traîté</p>
-                            </div>
-                            <div className="flex flex-col items-center bg-red-200/50 p-3 md:p-5 gap-2">
-                                <div className={`w-9 h-9 md:w-11 md:h-11 rounded-lg flex items-center justify-center shadow-md ${!autoSort
-                                    ? 'bg-gray-300'
-                                    : 'bg-white'
-                                    }`}>
-                                    <img src="/assets/icon/icon-close.png" alt="Croix" />
-                                </div>
-                                <p className="mt-1 text-xs md:text-sm font-medium text-red-500">Pub</p>
-                            </div>
-                            <div className="flex flex-col items-center bg-blue-200/50 p-3 md:p-5 rounded-b-md sm:rounded-b-none sm:rounded-tr-md sm:rounded-br-md gap-2">
-                                <div className={`w-9 h-9 md:w-11 md:h-11 rounded-lg flex items-center justify-center shadow-md ${!autoSort
-                                    ? 'bg-gray-300'
-                                    : 'bg-white'
-                                    }`}>
-                                    <img src="/assets/icon/icon-info.png" alt="Info" />
-                                </div>
-                                <p className="mt-1 text-xs md:text-sm font-medium text-blue-500">Info</p>
-                            </div>
-                        </motion.div>
-                    </motion.div>
-                </div>
-            </motion.div>
-
             {accounts.length === 0 ? (
                 <motion.div 
                     initial={{ opacity: 0, y: 20 }}
@@ -671,11 +477,11 @@ export default function Dashboard() {
                     transition={{ duration: 0.5, delay: 0.3 }}
                     className="bg-white rounded-xl p-4 md:p-6 shadow-sm w-full "
                 >
-                    <div className="flex flex-col gap-4 md:gap-6 mb-4 md:mb-6">
+                    <div className="flex flex-col gap-6 md:gap-8 mb-4 md:mb-6">
                         <div>
-                            <label className="text-sm md:text-md font-roboto font-semibold text-gray-600 mb-2 md:mb-3 block">
+                            <h3 className="text-base md:text-lg font-roboto font-semibold text-black mb-3 md:mb-4">
                                 Compte Email
-                            </label>
+                            </h3>
                             <div className="flex gap-2 md:gap-3 overflow-x-auto">
                                 {accounts.map((account, index) => {
                                     const isDisabled = account.is_active === false || account.cancel_at_period_end === true;
@@ -750,7 +556,209 @@ export default function Dashboard() {
                             </div>
                         </div>
 
-                        <div className="flex flex-col md:flex-row items-start md:items-center gap-3">
+                        {/* Flux de traitement */}
+                        <motion.div 
+                            initial={{ opacity: 0, y: 20 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ duration: 0.5 }}
+                            className="bg-white w-full relative"
+                            style={{
+                                borderTop: '2px solid',
+                                borderBottom: '2px solid',
+                                borderImage: 'linear-gradient(to right, rgba(229, 231, 235, 0) 0%, #E5E7EB 25%, #E5E7EB 75%, rgba(229, 231, 235, 0) 100%) 1',
+                            }}
+                        >
+                            <div className="flex flex-col lg:flex-row items-center justify-between gap-6 ">
+                                {/* Section Toggle et Informations */}
+                                <motion.div 
+                                    initial={{ opacity: 0, x: -20 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    transition={{ duration: 0.5, delay: 0.1 }}
+                                    className="flex flex-col gap-6 py-6 md:py-8 px-4 md:px-6 w-full lg:w-[30%] relative border-b-2 lg:border-b-0 lg:border-r-2"
+                                    style={{
+                                        borderImage: 'linear-gradient(to bottom, rgba(229, 231, 235, 0) 0%, #E5E7EB 10%, #E5E7EB 90%, rgba(229, 231, 235, 0) 100%) 1',
+                                    }}
+                                >
+                                    <div className='flex flex-col sm:flex-row justify-between gap-3'>
+                                        <button
+                                            disabled={hasEverHadSubscription && !hasActiveSubscription}
+                                            onClick={handleToggleAutoSort}
+                                            className={`relative w-14 h-8 rounded-full transition-colors ${hasEverHadSubscription && !hasActiveSubscription
+                                                ? 'bg-gray-200 cursor-not-allowed'
+                                                : autoSort
+                                                    ? 'bg-green-500'
+                                                    : 'bg-gray-300'
+                                                }`}
+                                        >
+                                            <div
+                                                className={`absolute top-1 left-1 w-6 h-6 bg-white rounded-full transition-transform ${autoSort ? 'translate-x-6' : 'translate-x-0'
+                                                    }`}
+                                            />
+                                        </button>
+
+                                        <div className="flex items-center gap-2 border rounded-md p-1">
+                                            <div className="relative flex items-center gap-2">
+                                                {autoSort && (
+                                                    <>
+                                                        <span className="absolute inline-flex h-3 w-3 rounded-full bg-green-400 opacity-75 animate-ping"></span>
+                                                        <span className="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                                                    </>
+                                                )}
+                                                {!autoSort && (
+                                                    <span className="relative inline-flex rounded-full h-3 w-3 bg-gray-400"></span>
+                                                )}
+                                                <span className="text-sm font-medium text-gray-600">État</span>
+                                            </div>
+                                            <span className={`px-3 py-1 rounded-full text-sm font-medium ${autoSort
+                                                ? 'bg-green-100 text-green-700'
+                                                : 'bg-gray-100 text-gray-600'
+                                                }`}>
+                                                {autoSort ? 'Actif' : 'Inactif'}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <motion.div
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                        transition={{ duration: 0.5, delay: 0.2 }}
+                                    >
+                                        <h3 className="text-base md:text-lg font-roboto font-semibold text-black">Flux de traitement automatique</h3>
+                                        <p className="text-sm text-gray-600">Désactivable à tout moment</p>
+                                    </motion.div>
+                                </motion.div>
+
+                                {/* Section des icônes de flux */}
+                                <motion.div 
+                                    initial={{ opacity: 0, x: 20 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    transition={{ duration: 0.5, delay: 0.2 }}
+                                    className="flex flex-col sm:flex-row items-center justify-center gap-3 w-full lg:w-[70%] py-4 md:py-6 px-4 md:px-0"
+                                >
+                                    {/* Email Icon */}
+                                    <motion.div 
+                                        initial={{ opacity: 0, scale: 0.8 }}
+                                        animate={{ opacity: 1, scale: 1 }}
+                                        transition={{ duration: 0.4, delay: 0.3 }}
+                                        whileHover={{ scale: 1.05 }}
+                                        className={`flex flex-col items-center p-3 md:p-5 bg-blue-200/50 rounded-md gap-2`}
+                                    >
+                                        <div className="w-10 h-10 md:w-12 md:h-12 flex items-center justify-center bg-transparent relative">
+                                            <img 
+                                                src="/assets/icon/icon-email.png" 
+                                                alt="Email"
+                                                className={autoSort ? 'animate-pulse-opacity' : ''}
+                                            />
+                                            {autoSort && (
+                                                <div className="absolute -top-1 -right-1 w-4 h-4 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-bold animate-bounce-alert shadow-md">
+                                                    !
+                                                </div>
+                                            )}
+                                        </div>
+                                        <p className="mt-1 text-xs md:text-sm font-medium text-blue-500">Email</p>
+                                    </motion.div>
+
+                                    {/* Ligne animée 1 */}
+                                    <motion.div 
+                                        initial={{ opacity: 0, scaleX: 0 }}
+                                        animate={{ opacity: 1, scaleX: 1 }}
+                                        transition={{ duration: 0.5, delay: 0.5 }}
+                                        className="flex-1 py-2 md:px-2 md:py-0 max-w-[80px] md:max-w-[80px] w-full md:w-auto h-full md:h-auto min-h-[40px] md:min-h-0"
+                                    >
+                                        <div className={`w-0.5 md:w-full md:h-0.5 h-full rounded-full ${!autoSort
+                                            ? 'bg-gray-200'
+                                            : 'animate-flow-orange-1'
+                                            }`} />
+                                    </motion.div>
+
+                                    {/* Logo IA avec rotation */}
+                                    <motion.div
+                                        initial={{ opacity: 0, scale: 0.95 }}
+                                        animate={{ opacity: 1, scale: 1 }}
+                                        transition={{ duration: 0.5, delay: 0.6, ease: "easeOut" }}
+                                        whileHover={{ scale: 1.05, transition: { duration: 0.2 } }}
+                                        className={`flex flex-col items-center p-3 md:p-5 rounded-md gap-2 transition-opacity`}
+                                        style={{
+                                            background: !autoSort ? '#000000' : `conic-gradient(
+                                                from 195.77deg at 84.44% -1.66%,
+                                                #FE9736 0deg,
+                                                #F4664C 76.15deg,
+                                                #F97E41 197.31deg,
+                                                #E3AB8D 245.77deg,
+                                                #FE9736 360deg
+                                            )`,
+                                        }}
+                                    >
+                                        <div className={`w-10 h-10 md:w-12 md:h-12 flex items-center justify-center bg-transparent`}>
+                                            <span className='border p-1.5 md:p-2 rounded-md'>
+                                                <img 
+                                                    src={autoSort ? '/assets/icon/icon-actualise.png' : '/assets/icon/icon-stop.png'} 
+                                                    className={autoSort ? 'animate-spin-slow' : ''} 
+                                                    alt="IA" 
+                                                />
+                                            </span>
+                                        </div>
+                                        <img
+                                            src="/assets/icon/icon-logo.png"
+                                            alt="Logo"
+                                            className={!autoSort ? 'grayscale' : ''}
+                                        />
+                                    </motion.div>
+
+                                    {/* Ligne animée 2 */}
+                                    <motion.div 
+                                        initial={{ opacity: 0, scaleX: 0 }}
+                                        animate={{ opacity: 1, scaleX: 1 }}
+                                        transition={{ duration: 0.5, delay: 0.7 }}
+                                        className="flex-1 py-2 md:px-2 md:py-0 max-w-[80px] md:max-w-[80px] w-full md:w-auto h-full md:h-auto min-h-[40px] md:min-h-0"
+                                    >
+                                        <div className={`w-0.5 md:w-full md:h-0.5 h-full rounded-full ${!autoSort
+                                            ? 'bg-gray-200'
+                                            : 'animate-flow-orange-2'
+                                            }`} />
+                                    </motion.div>
+
+                                    {/* Traité, Pub, Info - grisés si inactif */}
+                                    <motion.div 
+                                        initial={{ opacity: 0, scale: 0.8 }}
+                                        animate={{ opacity: !autoSort ? 0.4 : 1, scale: 1 }}
+                                        transition={{ duration: 0.5, delay: 0.8 }}
+                                        className={`flex flex-col sm:flex-row gap-1.5 font-roboto transition-opacity ${!autoSort ? 'opacity-40 grayscale' : ''
+                                        }`}
+                                    >
+                                        <div className="flex flex-col items-center bg-green-200/50 p-3 md:p-5 rounded-t-md sm:rounded-t-none sm:rounded-tl-md sm:rounded-bl-md gap-2">
+                                            <div className={`w-9 h-9 md:w-11 md:h-11 rounded-lg flex items-center justify-center shadow-md ${!autoSort
+                                                ? 'bg-gray-300'
+                                                : 'bg-white'
+                                                }`}>
+                                                <img src="assets/icon/icon-check.png" alt="Check" />
+                                            </div>
+                                            <p className="mt-1 text-xs md:text-sm font-medium text-green-500">Traîté</p>
+                                        </div>
+                                        <div className="flex flex-col items-center bg-red-200/50 p-3 md:p-5 gap-2">
+                                            <div className={`w-9 h-9 md:w-11 md:h-11 rounded-lg flex items-center justify-center shadow-md ${!autoSort
+                                                ? 'bg-gray-300'
+                                                : 'bg-white'
+                                                }`}>
+                                                <img src="/assets/icon/icon-close.png" alt="Croix" />
+                                            </div>
+                                            <p className="mt-1 text-xs md:text-sm font-medium text-red-500">Pub</p>
+                                        </div>
+                                        <div className="flex flex-col items-center bg-blue-200/50 p-3 md:p-5 rounded-b-md sm:rounded-b-none sm:rounded-tr-md sm:rounded-br-md gap-2">
+                                            <div className={`w-9 h-9 md:w-11 md:h-11 rounded-lg flex items-center justify-center shadow-md ${!autoSort
+                                                ? 'bg-gray-300'
+                                                : 'bg-white'
+                                                }`}>
+                                                <img src="/assets/icon/icon-info.png" alt="Info" />
+                                            </div>
+                                            <p className="mt-1 text-xs md:text-sm font-medium text-blue-500">Info</p>
+                                        </div>
+                                    </motion.div>
+                                </motion.div>
+                            </div>
+                        </motion.div>
+
+                        <div className="flex flex-col md:flex-row items-start md:items-center gap-3 mt-2">
                             <h3 className="text-base md:text-lg font-roboto font-semibold text-black">Statistiques</h3>
                             <div className="flex flex-wrap items-center gap-1.5 md:gap-2 bg-gray-50 p-1 rounded-lg w-full md:w-auto">
                                 <button

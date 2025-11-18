@@ -94,7 +94,7 @@ export function ProductivityCard() {
       
       >
           <h3 className="font-thunder text-center text-6xl! font-semibold text-white sm:text-3xl p-10 pb-20" itemProp="headline">
-          Pourquoi choisir cette solution
+          Pourquoi choisir cette solution ?
          </h3>
          
         <Container>
@@ -253,7 +253,7 @@ export function ProductivityCard() {
                           </div>
                         )}
                         <div className="font-roboto font-semibold text-white">
-                          <h4 className="mb-1 text-lg">{element.title}</h4>
+                          <h4 className="mb-1 text-3xl font-black">{element.title}</h4>
                           <p className="text-base font-normal opacity-90">{element.paragraph}</p>
                         </div>
                       </div>
@@ -282,7 +282,7 @@ export function ProductivityCard() {
                           </div>
                         )}
                         <div className="font-roboto font-semibold text-white">
-                          <h4 className="mb-1 text-lg">{element.title}</h4>
+                          <h4 className="mb-1 text-3xl font-black">{element.title}</h4>
                           <p className="text-base font-normal opacity-90">{element.paragraph}</p>
                         </div>
                       </div>

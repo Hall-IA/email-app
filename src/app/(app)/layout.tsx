@@ -104,6 +104,8 @@ export default function DashboardLayout({
                 setHasEmail(false);
             } else {
                 setHasEmail(true);
+                // Vérifier les étapes obligatoires de description de l'activité
+                checkCompanyInfo();
             }
         } catch (error) {
             console.error('Error checking requirements:', error);
@@ -147,12 +149,39 @@ export default function DashboardLayout({
         } else {
             setShowSetupEmail(false);
             setHasEmail(true);
+            // Vérifier les étapes obligatoires de description de l'activité
+            checkCompanyInfo();
+        }
+    };
+
+    const checkCompanyInfo = async () => {
+        if (!user) return;
+
+        try {
+            const { data: allConfigs } = await supabase
+                .from('email_configurations')
+                .select('email, company_name, activity_description, services_offered, signature_image_base64')
+                .eq('user_id', user.id);
+
+            if (!allConfigs || allConfigs.length === 0) return;
+
+            // Vérifier les 4 champs obligatoires (sans la base de connaissances)
+            const accountWithoutInfo = allConfigs.find(
+                config => !config.company_name || !config.activity_description || !config.services_offered || !config.signature_image_base64
+            );
+
+            if (accountWithoutInfo) {
+                // Rediriger vers settings avec un paramètre pour ouvrir la modal
+                router.push('/settings?companyInfo=required');
+            }
+        } catch (error) {
+            console.error('Error checking company info:', error);
         }
     };
 
     useEffect(() => {
         if (!loading && !user) {
-            router.push('/auth/login');
+            router.push('/');
         }
     }, [user, loading, router]);
 
@@ -189,7 +218,7 @@ export default function DashboardLayout({
                 />
             )}
 
-            {/* {showCheckout && user && (
+            {showCheckout && user && (
                 <CheckoutModal
                     userId={user.id}
                     onComplete={() => {
@@ -206,9 +235,13 @@ export default function DashboardLayout({
                     onComplete={() => {
                         setShowSetupEmail(false);
                         setHasEmail(true);
+                        // Vérifier les étapes obligatoires après la configuration de l'email
+                        setTimeout(() => {
+                            checkCompanyInfo();
+                        }, 1000);
                     }}
                 />
-            )} */}
+            )}
         </div>
     );
 }

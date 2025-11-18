@@ -146,7 +146,6 @@ export function Subscription() {
                 setSubscriptions(subData);
             }
         } catch (error) {
-            console.error('Error fetching subscriptions:', error);
         }
     };
 
@@ -178,10 +177,8 @@ export function Subscription() {
                 if (subsError) {
                     // Si la table n'existe pas ou si les colonnes sont manquantes
                     if (subsError.code === '42P01' || subsError.code === '42703' || subsError.message?.includes('does not exist') || subsError.message?.includes('column')) {
-                        console.warn('stripe_user_subscriptions table or columns not found:', subsError);
                         // Continuer avec un tableau vide
                     } else {
-                        console.error('Error fetching subscriptions:', subsError);
                         return;
                     }
                 }
@@ -287,7 +284,6 @@ export function Subscription() {
             }
 
             // Récupérer le nombre total de slots payés
-            console.log('🔍 [Subscription] Récupération des slots payés pour user:', user.id);
             
             const { data: allSubs } = await supabase
                 .from('stripe_user_subscriptions')
@@ -296,7 +292,6 @@ export function Subscription() {
                 .in('status', ['active', 'trialing'])
                 .is('deleted_at', null);
 
-            console.log('📊 [Subscription] Subscriptions récupérées:', allSubs);
 
             let totalPaidSlots = 0;
             if (allSubs && allSubs.length > 0) {
@@ -309,7 +304,6 @@ export function Subscription() {
                     let totalAdditionalQuantity = 0;
                     const additionalSubs = allSubs.filter(s => s.subscription_type === 'additional_account');
                     
-                    console.log(`🔍 [Subscription] Récupération des quantités pour ${additionalSubs.length} subscription(s) additionnelle(s)...`);
                     
                     for (const sub of additionalSubs) {
                         try {
@@ -331,36 +325,28 @@ export function Subscription() {
                                 const data = await response.json();
                                 const quantity = data.quantity || 1; // Par défaut 1 si pas de quantité
                                 totalAdditionalQuantity += quantity;
-                                console.log(`✅ [Subscription] Subscription ${sub.subscription_id}: quantité = ${quantity}`);
                             } else {
-                                console.warn(`⚠️ [Subscription] Impossible de récupérer la quantité pour ${sub.subscription_id}, utilisation de 1 par défaut`);
                                 totalAdditionalQuantity += 1; // Fallback : 1 par défaut
                             }
                         } catch (error) {
-                            console.error(`❌ [Subscription] Erreur lors de la récupération de la quantité pour ${sub.subscription_id}:`, error);
                             totalAdditionalQuantity += 1; // Fallback : 1 par défaut
                         }
                     }
                     
                     totalPaidSlots = premierCount > 0 ? 1 + totalAdditionalQuantity : 0;
                     
-                    console.log('✅ [Subscription] Premier:', premierCount, '| Additionnels (quantité totale):', totalAdditionalQuantity, '| Total:', totalPaidSlots);
                 } else {
                     // Fallback si pas de session : compter les lignes (ancienne méthode)
-                    console.warn('⚠️ [Subscription] Pas de session pour récupérer les quantités, utilisation de la méthode de comptage par lignes');
                     const additionalCount = allSubs.filter(s => s.subscription_type === 'additional_account').length;
                     totalPaidSlots = premierCount > 0 ? 1 + additionalCount : 0;
-                    console.log('✅ [Subscription] Premier:', premierCount, '| Additionnels (lignes):', additionalCount, '| Total:', totalPaidSlots);
                 }
             } else {
-                console.log('⚠️ [Subscription] Aucune subscription trouvée');
             }
 
             // Ajouter des slots vides pour les emails payés mais non configurés
             const configuredCount = accounts.length;
             const slotsToAdd = totalPaidSlots - configuredCount;
 
-            console.log('📧 [Subscription] Comptes configurés:', configuredCount, '| Slots à ajouter:', slotsToAdd);
 
             if (slotsToAdd > 0) {
                 for (let i = 0; i < slotsToAdd; i++) {
@@ -373,13 +359,11 @@ export function Subscription() {
                         isSlot: true,
                     });
                 }
-                console.log('✅ [Subscription] Slots vides ajoutés:', slotsToAdd);
             }
 
             setEmailAccounts(accounts);
             setEmailAccountsCount(totalPaidSlots); // Utiliser le total payé au lieu des actifs
         } catch (error) {
-            console.error('Error fetching email accounts count:', error);
         }
     };
 
@@ -408,7 +392,6 @@ export function Subscription() {
                 }
             }
         } catch (error) {
-            console.error('Error fetching Stripe prices:', error);
         }
     };
 
@@ -435,7 +418,6 @@ export function Subscription() {
             // Récupérer la quantité réelle depuis Stripe pour chaque subscription additionnelle
             const { data: { session } } = await supabase.auth.getSession();
             if (!session) {
-                console.warn('⚠️ [Subscription] Pas de session pour récupérer les quantités additionnelles');
                 setTotalAdditionalQuantity(allSubs.length); // Fallback : nombre de lignes
                 setPaidAdditionalAccounts(allSubs.length);
                 return;
@@ -463,22 +445,17 @@ export function Subscription() {
                         const data = await response.json();
                         const quantity = data.quantity || 1;
                         totalQuantity += quantity;
-                        console.log(`✅ [Subscription] Subscription additionnelle ${sub.subscription_id}: quantité = ${quantity}`);
                     } else {
-                        console.warn(`⚠️ [Subscription] Impossible de récupérer la quantité pour ${sub.subscription_id}, utilisation de 1 par défaut`);
                         totalQuantity += 1; // Fallback
                     }
                 } catch (error) {
-                    console.error(`❌ [Subscription] Erreur lors de la récupération de la quantité pour ${sub.subscription_id}:`, error);
                     totalQuantity += 1; // Fallback
                 }
             }
             
-            console.log(`✅ [Subscription] Total quantité additionnelle calculée: ${totalQuantity}`);
             setTotalAdditionalQuantity(totalQuantity);
             setPaidAdditionalAccounts(totalQuantity);
         } catch (error) {
-            console.error('Error fetching paid additional accounts:', error);
         }
     };
 
@@ -496,7 +473,6 @@ export function Subscription() {
                 .limit(10);
 
             if (error) {
-                console.error('Error fetching invoices:', error);
                 return;
             }
 
@@ -542,7 +518,6 @@ export function Subscription() {
                 setInvoices(data || []);
             }
         } catch (error) {
-            console.error('Error syncing invoices:', error);
         }
     };
 
@@ -660,7 +635,6 @@ export function Subscription() {
 
                 if (!subscriptionData?.subscription_id) {
                     showToast('Aucun abonnement actif trouvé pour ce compte additionnel.', 'error');
-                    console.error('No subscription found for email_configuration_id:', accountToDelete.id);
                     setShowDeleteModal(false);
                     setAccountToDelete(null);
                     return;
@@ -1421,15 +1395,20 @@ export function Subscription() {
                                             </div>
 
                                             {/* Colonne 4: Bouton Résilier */}
-                                            <div className="flex items-center justify-end gap-2">
+                                            <div className="flex items-center justify-end gap-2 relative group">
                                                 <button
                                                     onClick={() => handleCancelSlot(slotIndex, isFirstSlot)}
-                                                    disabled={deletingAccount === account.id}
-                                                    className="flex items-center gap-2 text-red-600 hover:text-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    disabled={true}
+                                                    className="flex items-center gap-2 text-gray-400 cursor-not-allowed opacity-50 transition-colors"
                                                 >
                                                     <Trash2 className="w-5 h-5" />
                                                     <span className="text-sm font-medium">Résilier</span>
                                                 </button>
+                                                {/* Tooltip */}
+                                                <div className="absolute right-0 top-full mt-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-lg">
+                                                    Vous ne pouvez pas résilier des comptes non configurés
+                                                    <div className="absolute bottom-full right-4 border-4 border-transparent border-b-gray-900"></div>
+                                                </div>
                                             </div>
                                         </div>
                                         {index < emailAccounts.length - 1 && (

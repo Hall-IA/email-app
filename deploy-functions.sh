@@ -56,3 +56,6 @@ echo "   ./configure-supabase-secrets.sh"
 
 
 
+
+
+

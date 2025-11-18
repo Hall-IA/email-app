@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Minus, CreditCard, Check, X, Star, Mail } from 'lucide-react';
+import { Plus, Minus, CreditCard, Check, X, Star, Mail, Info } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from './Toast';
@@ -12,9 +12,10 @@ interface CheckoutModalProps {
     onClose?: () => void; // Pour fermer le modal sans action
     isUpgrade?: boolean; // true si c'est un upgrade, false si premier abonnement
     currentAdditionalAccounts?: number;
+    unlinkedSubscriptionsCount?: number; // Nombre de slots payés mais non configurés
 }
 
-export function CheckoutModal({ userId, onComplete, onClose, isUpgrade = false, currentAdditionalAccounts = 0 }: CheckoutModalProps) {
+export function CheckoutModal({ userId, onComplete, onClose, isUpgrade = false, currentAdditionalAccounts = 0, unlinkedSubscriptionsCount = 0 }: CheckoutModalProps) {
     const { user } = useAuth();
     const { showToast, ToastComponent } = useToast();
     const [loading, setLoading] = useState(false);
@@ -160,7 +161,7 @@ export function CheckoutModal({ userId, onComplete, onClose, isUpgrade = false, 
         return (
             <>
                 <ToastComponent />
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
                 <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full font-inter max-h-[90vh] overflow-y-auto">
                     <div className="p-6">
                         <div className="flex items-center justify-between mb-6">
@@ -219,6 +220,18 @@ export function CheckoutModal({ userId, onComplete, onClose, isUpgrade = false, 
                                     ✓ Sans engagement - Résiliez à tout moment
                                 </p>
                             </div>
+
+                            {/* Avertissement pour les comptes non configurés */}
+                            {unlinkedSubscriptionsCount > 0 && (
+                                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mt-4">
+                                    <div className="flex items-start gap-2">
+                                        <Info className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                                        <p className="text-xs text-amber-800">
+                                            Impossible de résilier un compte non configuré. Configurez-le d'abord dans les paramètres.
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         <div className="flex gap-3">
@@ -259,7 +272,7 @@ export function CheckoutModal({ userId, onComplete, onClose, isUpgrade = false, 
     return (
         <>
             <ToastComponent />
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full font-inter max-h-[90vh] overflow-y-auto">
                 <div className="p-6">
                     <div className="mb-6 relative">
@@ -281,31 +294,31 @@ export function CheckoutModal({ userId, onComplete, onClose, isUpgrade = false, 
                     </div>
 
                     <div className="mb-6">
-                        {/* Features incluses */}
-                        <div className="bg-gray-50 rounded-lg p-4 mb-4">
+                        {/* Informations de prix */}
+                        <div className=" rounded-lg p-4 mb-4">
                             <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                                <Star className="w-4 h-4 text-orange-600" />
-                                Ce qui est inclus :
+                                
+                                Tarification :
                             </h4>
                             <div className="space-y-2">
-                                <div className="flex items-center gap-2">
-                                    <Check className="w-4 h-4 text-green-600" />
+                                <div className="flex items-center justify-between">
                                     <span className="text-sm text-gray-700">
-                                        {isUpgrade ? 'Un compte email supplémentaire' : '1 compte email inclus'}
+                                        {isUpgrade ? 'Compte additionnel' : 'Votre premier email'}
+                                    </span>
+                                    <span className="text-sm font-semibold text-gray-900">
+                                        {isUpgrade ? `${additionalPrice}€` : `${basePrice}€`} HT/mois
                                     </span>
                                 </div>
-                                <div className="flex items-center gap-2">
-                                    <Check className="w-4 h-4 text-green-600" />
-                                    <span className="text-sm text-gray-700">Tri automatique illimité</span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <Check className="w-4 h-4 text-green-600" />
-                                    <span className="text-sm text-gray-700">Réponses automatiques IA</span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <Check className="w-4 h-4 text-green-600" />
-                                    <span className="text-sm text-gray-700">Statistiques détaillées</span>
-                                </div>
+                                {!isUpgrade && (
+                                    <div className="flex items-center justify-between pt-2 border-t border-gray-200">
+                                        <span className="text-sm text-gray-700">
+                                            Les suivants
+                                        </span>
+                                        <span className="text-sm font-semibold text-gray-900">
+                                            {additionalPrice}€ HT/mois
+                                        </span>
+                                    </div>
+                                )}
                             </div>
                         </div>
 
@@ -372,6 +385,18 @@ export function CheckoutModal({ userId, onComplete, onClose, isUpgrade = false, 
                                 ✓ Sans engagement - Résiliez à tout moment
                             </p>
                         </div>
+
+                        {/* Avertissement pour les comptes non configurés */}
+                        {isUpgrade && unlinkedSubscriptionsCount > 0 && (
+                            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mt-4">
+                                <div className="flex items-start gap-2">
+                                    <Info className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                                    <p className="text-xs text-amber-800">
+                                        Impossible de résilier un compte non configuré. Configurez-le d'abord dans les paramètres.
+                                    </p>
+                                </div>
+                            </div>
+                        )}
                     </div>
 
                     {/* Bouton */}

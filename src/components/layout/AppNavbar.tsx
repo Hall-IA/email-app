@@ -48,9 +48,9 @@ export default function AppNavbar() {
                         {/* Dashboard Link */}
                         <Link
                             href="/dashboard"
-                            className={`flex items-center gap-2 pb-5 transition-colors ${isActive('/dashboard')
+                            className={`flex items-center gap-2 pb-5 transition-colors transition-all duration-300 ${isActive('/dashboard')
                                     ? 'text-blue-600 border-b-2 border-blue-600'
-                                    : 'hover:scale-105 ease-in-out'
+                                    : 'hover:border-b-2 border-gray-400'
                                 }`}
                         >
                             <img
@@ -68,7 +68,7 @@ export default function AppNavbar() {
                             href="/settings"
                             className={`flex items-center gap-2 pb-5 transition-colors ${isActive('/settings')
                                     ? 'text-blue-600 border-b-2 border-blue-600'
-                                    : 'hover:scale-105 ease-in-out'
+                                    : 'hover:border-b-2 border-gray-400'
                                 }`}
                         >
                             <img
@@ -86,7 +86,7 @@ export default function AppNavbar() {
                             href="/user-settings"
                             className={`flex items-center gap-2 pb-5 transition-colors ${isActive('/user-settings')
                                     ? 'text-blue-600 border-b-2 border-blue-600'
-                                    : 'hover:scale-105 ease-in-out'
+                                    : 'hover:border-b-2 border-gray-400'
                                 }`}
                         >
                             <img

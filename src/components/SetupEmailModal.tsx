@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Mail, Server, Eye, EyeOff, CheckCircle, ArrowRight, AlertCircle, X } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Mail, Server, Eye, EyeOff, CheckCircle, ArrowRight, AlertCircle, X, RefreshCw } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from './Toast';
@@ -12,6 +13,7 @@ interface SetupEmailModalProps {
 }
 
 export function SetupEmailModal({ userId, onComplete }: SetupEmailModalProps) {
+    const router = useRouter();
     const { user } = useAuth();
     const { showToast, ToastComponent } = useToast();
     const [loading, setLoading] = useState(false);
@@ -174,7 +176,7 @@ export function SetupEmailModal({ userId, onComplete }: SetupEmailModalProps) {
                 provider: 'smtp_imap',
                 is_connected: true,
                 is_primary: true,
-                is_classement: true, // ✅ Tri automatique activé par défaut
+                is_classement: false, // Tri automatique désactivé - sera activé après configuration complète de l'entreprise
                 password: formData.password,
                 imap_host: formData.imapHost,
                 imap_port: typeof formData.imapPort === 'number' ? formData.imapPort : parseInt(formData.imapPort),
@@ -191,7 +193,10 @@ export function SetupEmailModal({ userId, onComplete }: SetupEmailModalProps) {
             localStorage.removeItem('business_pass_email_counter');
             
             showToast('Email configuré avec succès !', 'success');
-            setTimeout(() => onComplete(), 500);
+            // Rediriger vers settings avec un paramètre pour ouvrir la modal de description
+            setTimeout(() => {
+                router.push('/settings?setup=complete');
+            }, 500);
         } catch (err) {
             console.error('Error adding email:', err);
             showToast('Erreur lors de l\'ajout du compte email', 'error');
@@ -209,17 +214,19 @@ export function SetupEmailModal({ userId, onComplete }: SetupEmailModalProps) {
             <div className="fixed inset-0 z-[51] flex items-center justify-center p-4">
                 <div className="relative bg-white rounded-2xl border border-gray-200 shadow-2xl max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto font-inter">
                     
+                    {/* Bouton retour en haut à gauche */}
+                    {step === 2 && (
+                        <button
+                            type="button"
+                            onClick={() => setStep(1)}
+                            className="absolute top-4 left-4 p-2 hover:bg-gray-100 rounded-lg transition-colors z-10 text-gray-600 hover:text-gray-900 flex items-center gap-2"
+                        >
+                            ← Retour
+                        </button>
+                    )}
+                    
                     {/* Header */}
                     <div className="relative px-8 pt-8 pb-4">
-                        {step === 2 && selectedProvider === 'smtp_imap' && (
-                            <button
-                                type="button"
-                                onClick={() => setStep(1)}
-                                className="text-gray-600 hover:text-gray-900 flex items-center gap-2 mb-4"
-                            >
-                                ← Retour
-                            </button>
-                        )}
                         <div className="text-center mb-2">
                             <div className="w-16 h-16 bg-gradient-to-br from-[#F35F4F] to-[#FFAD5A] rounded-full flex items-center justify-center mx-auto mb-4">
                                 <Mail className="w-8 h-8 text-white" />
@@ -268,12 +275,6 @@ export function SetupEmailModal({ userId, onComplete }: SetupEmailModalProps) {
                             </div>
                         ) : selectedProvider === 'gmail' ? (
                             <div className="space-y-6 text-center py-6">
-                                <button
-                                    onClick={() => setStep(1)}
-                                    className="text-gray-600 hover:text-gray-900 flex items-center gap-2 mb-4"
-                                >
-                                    ← Retour
-                                </button>
                                 <div className="inline-flex items-center justify-center w-20 h-20 bg-white rounded-full shadow-lg mb-4">
                                     <img src="/logo/logo-gmail.png" alt="Gmail" className="w-14 h-14" />
                                 </div>
@@ -366,7 +367,7 @@ export function SetupEmailModal({ userId, onComplete }: SetupEmailModalProps) {
                                 </div>
 
                                 {/* Serveur IMAP */}
-                                <div className="grid grid-cols-2 gap-4">
+                                <div className="grid grid-cols-2 gap-4 pb-5">
                                     <div>
                                         <label className="block text-sm font-medium text-gray-900 mb-2">
                                             Serveur IMAP Entrant
@@ -400,12 +401,14 @@ export function SetupEmailModal({ userId, onComplete }: SetupEmailModalProps) {
                                     type="button"
                                     onClick={handleTestConnection}
                                     disabled={testing || !formData.email || !formData.password || !formData.imapHost}
-                                    className={`w-full px-4 py-2.5 border-2 rounded-full font-medium transition-all flex items-center justify-center gap-2 ${
+                                    className={`w-full px-4 py-2.5 border-2 rounded-full font-medium transition-all flex items-center justify-center gap-2 group ${
                                         (testing || !formData.email || !formData.password || !formData.imapHost) 
                                             ? 'opacity-50 cursor-not-allowed border-orange-500 text-orange-600' 
                                             : testResult?.success
-                                                ? 'bg-green-600 border-green-600 text-white hover:bg-green-700 hover:border-green-700'
-                                                : 'border-orange-500 text-orange-600 hover:bg-gradient-to-br hover:from-[#F35F4F] hover:to-[#FFAD5A] hover:text-white hover:border-transparent'
+                                                ? 'bg-green-100 border-green-300 text-green-700 hover:bg-green-200 hover:border-green-400'
+                                                : testResult && !testResult.success
+                                                    ? 'bg-red-100 border-red-300 text-red-700 hover:bg-red-200 hover:border-red-400'
+                                                    : 'border-orange-500 text-orange-600 hover:bg-gradient-to-br hover:from-[#F35F4F] hover:to-[#FFAD5A] hover:text-white hover:border-transparent'
                                     }`}
                                 >
                                     {testing ? (
@@ -423,6 +426,11 @@ export function SetupEmailModal({ userId, onComplete }: SetupEmailModalProps) {
                                             </svg>
                                             Connexion réussie
                                         </>
+                                    ) : testResult && !testResult.success ? (
+                                        <>
+                                            <RefreshCw className="w-5 h-5 group-hover:animate-spin transition-transform" />
+                                            Retester la connexion
+                                        </>
                                     ) : (
                                         <>
                                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -438,17 +446,20 @@ export function SetupEmailModal({ userId, onComplete }: SetupEmailModalProps) {
 
                     {/* Bouton de soumission pour SMTP/IMAP */}
                     {step === 2 && selectedProvider === 'smtp_imap' && (
-                        <div className="px-8 pb-6">
+                        <div className="px-8 pb-6 -mt-4">
                             <div className="flex gap-3">
-                                <button
-                                    type="button"
-                                    onClick={() => handleSmtpImapSubmit()}
-                                    disabled={loading || !tested}
-                                    className={`group relative flex-1 inline-flex cursor-pointer items-center justify-center gap-2 overflow-hidden rounded-full bg-gradient-to-br from-[#F35F4F] to-[#FFAD5A] py-3 font-medium text-white shadow-lg transition-all duration-300 ease-out ${tested
-                                        ? 'hover:shadow-xl cursor-pointer'
-                                        : 'opacity-50 cursor-not-allowed'
+                                <div className="flex-1 relative group/tooltip">
+                                    <button
+                                        type="button"
+                                        onClick={() => handleSmtpImapSubmit()}
+                                        disabled={loading || !tested}
+                                        title={!tested ? "Validez votre connexion avant de terminer la configuration" : ""}
+                                        className={`w-full group relative inline-flex items-center justify-center gap-2 overflow-hidden rounded-full bg-gradient-to-br from-[#F35F4F] to-[#FFAD5A] py-3 font-medium text-white shadow-lg transition-all duration-300 ease-out ${
+                                            tested && !loading
+                                                ? 'hover:shadow-xl cursor-pointer'
+                                                : 'opacity-50 cursor-not-allowed'
                                         }`}
-                                >
+                                    >
                                     {loading ? (
                                         <>
                                             <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -472,7 +483,16 @@ export function SetupEmailModal({ userId, onComplete }: SetupEmailModalProps) {
                                             )}
                                         </>
                                     )}
-                                </button>
+                                    </button>
+                                    {!tested && (
+                                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg whitespace-nowrap opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none z-50">
+                                            Validez votre connexion avant de terminer la configuration
+                                            <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1">
+                                                <div className="border-4 border-transparent border-t-gray-900"></div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     )}

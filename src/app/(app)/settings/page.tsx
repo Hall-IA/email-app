@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Plus, Edit, Trash2, FileText, Globe, Share2, X, Check, Lock, ChevronRight, Eye, EyeOff, Edit2Icon, Mail, Upload, Loader2, Download, AlertCircle } from 'lucide-react';
+import { Plus, Edit, Trash2, FileText, Globe, Share2, X, Check, Lock, ChevronRight, Eye, EyeOff, Edit2Icon, Mail, Upload, Loader2, Download, AlertCircle, HelpCircle } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../../../../context/AuthContext';
 import { CheckoutModal } from '@/components/CheckoutModal';
@@ -64,7 +64,9 @@ export default function Settings() {
     const [companyFormData, setCompanyFormData] = useState({
         company_name: '',
         activity_description: '',
+        services_proposed: '',
         services_offered: '',
+        signature_image_base64: '',
     });
     const [imapFormData, setImapFormData] = useState({
         email: '',
@@ -84,6 +86,7 @@ export default function Settings() {
     const [showEditCompanyNameModal, setShowEditCompanyNameModal] = useState(false);
     const [showEditActivityModal, setShowEditActivityModal] = useState(false);
     const [showEditSignatureModal, setShowEditSignatureModal] = useState(false);
+    const [showEditLogoModal, setShowEditLogoModal] = useState(false);
     const [editTempValue, setEditTempValue] = useState('');
     const [totalPaidSlots, setTotalPaidSlots] = useState(0); // Nombre total d'emails payés (base + additionnels)
     
@@ -93,6 +96,7 @@ export default function Settings() {
     const [knowledgePdfFiles, setKnowledgePdfFiles] = useState<File[]>([]);
     const [knowledgeSaving, setKnowledgeSaving] = useState(false);
     const [isDraggingPdf, setIsDraggingPdf] = useState(false);
+    const [isDraggingLogo, setIsDraggingLogo] = useState(false);
 
     useEffect(() => {
         loadAccounts();
@@ -110,29 +114,42 @@ export default function Settings() {
     }, [selectedAccount, user, showCompanyInfoModal]);
 
     useEffect(() => {
-        const handleOAuthMessage = (event: MessageEvent) => {
+        const handleOAuthMessage = async (event: MessageEvent) => {
             if (event.data.type === 'gmail-duplicate' || event.data.type === 'outlook-duplicate') {
                 setDuplicateEmail(event.data.email);
                 setShowDuplicateEmailModal(true);
             } else if (event.data.type === 'gmail-connected' || event.data.type === 'outlook-connected') {
+                // Rediriger vers settings si on n'y est pas déjà
+                if (window.location.pathname !== '/settings') {
+                    router.push('/settings');
+                }
                 loadAccounts();
                 checkSubscription();
                 setShowAddAccountModal(false);
                 setAccountMissingInfo(event.data.email || '');
                 // Toujours commencer à l'étape 1 pour un nouveau compte
                 setCompanyInfoStep(1);
+                
+                // Charger les données du compte principal pour préremplir
+                const primaryData = await loadPrimaryAccountData();
                 setCompanyFormData({
-                    company_name: '',
-                    activity_description: '',
-                    services_offered: '',
+                    company_name: primaryData?.company_name || '',
+                    activity_description: primaryData?.activity_description || '',
+                    services_proposed: primaryData?.services_proposed || '',
+                    services_offered: primaryData?.services_offered || '',
+                    signature_image_base64: primaryData?.signature_image_base64 || '',
                 });
-                setShowCompanyInfoModal(true);
+                
+                // Attendre un peu pour que la page se charge avant d'ouvrir la modal
+                setTimeout(() => {
+                    setShowCompanyInfoModal(true);
+                }, 300);
             }
         };
 
         window.addEventListener('message', handleOAuthMessage);
         return () => window.removeEventListener('message', handleOAuthMessage);
-    }, []);
+    }, [user, router]);
 
     // Détecter le retour du paiement Stripe
     useEffect(() => {
@@ -143,6 +160,32 @@ export default function Settings() {
             handleUpgradeReturn();
         }
     }, [searchParams]);
+
+    // Détecter la fin de la configuration du premier email
+    useEffect(() => {
+        const setupComplete = searchParams.get('setup');
+        
+        if (setupComplete === 'complete' && user) {
+            router.replace('/settings');
+            // Attendre un peu pour que la page se charge, puis ouvrir la modal de description
+            setTimeout(async () => {
+                await checkCompanyInfo();
+            }, 500);
+        }
+    }, [searchParams, user]);
+
+    // Détecter la demande d'ouverture de la modal depuis le layout
+    useEffect(() => {
+        const companyInfoRequired = searchParams.get('companyInfo');
+        
+        if (companyInfoRequired === 'required' && user) {
+            router.replace('/settings');
+            // Attendre un peu pour que la page se charge, puis ouvrir la modal de description
+            setTimeout(async () => {
+                await checkCompanyInfo();
+            }, 500);
+        }
+    }, [searchParams, user]);
 
     const handleUpgradeReturn = async () => {
         // Forcer la synchronisation avec Stripe
@@ -161,7 +204,6 @@ export default function Settings() {
                 );
             }
         } catch (error) {
-            console.error('Error syncing with Stripe:', error);
         }
         
         // Rafraîchir les données
@@ -192,7 +234,6 @@ export default function Settings() {
             if (error) {
                 // Si la table n'existe pas ou si les colonnes sont manquantes, utiliser des valeurs par défaut
                 if (error.code === '42P01' || error.code === '42703' || error.message?.includes('does not exist') || error.message?.includes('column')) {
-                    console.warn('stripe_user_subscriptions table or columns not found:', error);
                     setHasEverHadSubscription(false);
                     setHasActiveSubscription(false);
                     setCurrentAdditionalAccounts(0);
@@ -232,7 +273,6 @@ export default function Settings() {
             // Récupérer le nombre d'emails payés depuis stripe_subscriptions
             await fetchPaidEmailSlots();
         } catch (error) {
-            console.error('Error checking subscription:', error);
             // En cas d'erreur, utiliser des valeurs par défaut
             setHasEverHadSubscription(false);
             setHasActiveSubscription(false);
@@ -245,7 +285,6 @@ export default function Settings() {
         if (!user) return;
 
         try {
-            console.log('🔍 Récupération des slots payés pour user:', user.id);
             
             // Compter DIRECTEMENT depuis stripe_user_subscriptions (pas stripe_subscriptions)
             const { data: allSubs, error: subsError } = await supabase
@@ -255,8 +294,6 @@ export default function Settings() {
                 .in('status', ['active', 'trialing'])
                 .is('deleted_at', null);
 
-            console.log('📊 Subscriptions récupérées:', allSubs);
-            console.log('❌ Erreur Supabase:', subsError);
 
             if (subsError) {
                 // Si la table n'existe pas ou si les colonnes sont manquantes
@@ -271,7 +308,6 @@ export default function Settings() {
             }
 
             if (!allSubs || allSubs.length === 0) {
-                console.log('⚠️ Aucune subscription trouvée');
                 setTotalPaidSlots(0);
                 return;
             }
@@ -293,7 +329,6 @@ export default function Settings() {
             let totalAdditionalQuantity = 0;
             const additionalSubs = allSubs.filter(s => s.subscription_type === 'additional_account');
             
-            console.log(`🔍 Récupération des quantités pour ${additionalSubs.length} subscription(s) additionnelle(s)...`);
             
             for (const sub of additionalSubs) {
                 try {
@@ -315,7 +350,6 @@ export default function Settings() {
                         const data = await response.json();
                         const quantity = data.quantity || 1; // Par défaut 1 si pas de quantité
                         totalAdditionalQuantity += quantity;
-                        console.log(`✅ Subscription ${sub.subscription_id}: quantité = ${quantity}`);
                     } else {
                         console.warn(`⚠️ Impossible de récupérer la quantité pour ${sub.subscription_id}, utilisation de 1 par défaut`);
                         totalAdditionalQuantity += 1; // Fallback : 1 par défaut
@@ -328,7 +362,6 @@ export default function Settings() {
             
             const total = premierCount > 0 ? 1 + totalAdditionalQuantity : 0;
             
-            console.log('✅ Premier:', premierCount, '| Additionnels (quantité totale):', totalAdditionalQuantity, '| Total:', total);
             
             setTotalPaidSlots(total);
         } catch (error) {
@@ -371,7 +404,6 @@ export default function Settings() {
                 );
             }
         } catch (error) {
-            console.error('Error syncing with Stripe:', error);
         }
         
         // Attendre un peu puis rafraîchir
@@ -556,7 +588,9 @@ export default function Settings() {
                 setCompanyFormData({
                     company_name: '',
                     activity_description: '',
+                    services_proposed: '',
                     services_offered: '',
+                    signature_image_base64: '',
                 });
                 return;
             }
@@ -592,13 +626,14 @@ export default function Settings() {
 
         const { data: allConfigs } = await supabase
             .from('email_configurations')
-            .select('email, company_name, activity_description, services_offered')
+            .select('email, company_name, activity_description, services_offered, signature_image_base64, is_classement')
             .eq('user_id', user.id);
 
         if (!allConfigs || allConfigs.length === 0) return;
 
+        // Vérifier les 4 champs obligatoires (sans la base de connaissances)
         const accountWithoutInfo = allConfigs.find(
-            config => !config.activity_description || !config.company_name
+            config => !config.company_name || !config.activity_description || !config.services_offered || !config.signature_image_base64
         );
 
         if (accountWithoutInfo) {
@@ -612,17 +647,40 @@ export default function Settings() {
                 startStep = 2;
             } else if (!accountWithoutInfo.services_offered) {
                 startStep = 3;
+            } else if (!accountWithoutInfo.signature_image_base64) {
+                startStep = 4;
+            } else {
+                startStep = 5;
             }
             
             setCompanyInfoStep(startStep);
             setCompanyFormData({
                 company_name: accountWithoutInfo.company_name || '',
                 activity_description: accountWithoutInfo.activity_description || '',
+                services_proposed: (accountWithoutInfo as any).services_proposed || '',
                 services_offered: accountWithoutInfo.services_offered || '',
+                signature_image_base64: accountWithoutInfo.signature_image_base64 || '',
             });
             
             setShowCompanyInfoModal(true);
         }
+    };
+
+    const loadPrimaryAccountData = async () => {
+        if (!user) return null;
+
+        // Charger le premier compte avec des informations complètes
+        const { data: allConfigs } = await supabase
+            .from('email_configurations')
+            .select('company_name, activity_description, services_proposed, services_offered, signature_image_base64')
+            .eq('user_id', user.id)
+            .not('company_name', 'is', null)
+            .not('activity_description', 'is', null)
+            .order('created_at', { ascending: true })
+            .limit(1)
+            .maybeSingle();
+
+        return allConfigs;
     };
 
     const loadCompanyData = async () => {
@@ -633,7 +691,7 @@ export default function Settings() {
 
         const { data: config } = await supabase
             .from('email_configurations')
-            .select('company_name, activity_description, services_offered, is_classement')
+            .select('company_name, activity_description, services_offered, is_classement, signature_image_base64')
             .eq('user_id', user.id)
             .eq('email', emailToLoad)
             .maybeSingle();
@@ -642,14 +700,18 @@ export default function Settings() {
             setCompanyFormData({
                 company_name: config.company_name || '',
                 activity_description: config.activity_description || '',
+                services_proposed: (config as any).services_proposed || '',
                 services_offered: config.services_offered || '',
+                signature_image_base64: config.signature_image_base64 || '',
             });
             setAutoSort(config.is_classement ?? false);
         } else {
             setCompanyFormData({
                 company_name: '',
                 activity_description: '',
+                services_proposed: '',
                 services_offered: '',
+                signature_image_base64: '',
             });
             setAutoSort(false);
         }
@@ -981,8 +1043,8 @@ export default function Settings() {
             if (dbError) {
                 // Si les colonnes n'existent pas encore, informer l'utilisateur
                 if (dbError.code === '42703' || dbError.message?.includes('column') || dbError.message?.includes('does not exist')) {
-                    showToast('Les colonnes de base de connaissances ne sont pas encore créées. Veuillez appliquer la migration.', 'error');
                     console.error('Knowledge base columns not found. Please run migration:', dbError);
+                    showToast('Les colonnes de base de connaissances ne sont pas encore créées. Veuillez appliquer la migration.', 'error');
                 } else {
                     throw dbError;
                 }
@@ -1043,19 +1105,16 @@ export default function Settings() {
             const data = await response.json();
 
             if (!response.ok || data.error) {
-                console.error('Erreur lors de la suppression du compte:', data.error);
                 showToast(data.error || 'Erreur lors de la suppression du compte', 'error');
                 return;
             }
 
-            console.log('Compte email supprimé avec succès:', data);
 
             setShowDeleteModal(false);
             setAccountToDelete(null);
             loadAccounts();
             checkSubscription();
         } catch (error) {
-            console.error('Erreur lors de la suppression du compte:', error);
             showToast('Une erreur est survenue lors de la suppression', 'error');
         }
     };
@@ -1102,7 +1161,6 @@ export default function Settings() {
                 showToast('Erreur lors de la suppression du compte: ' + data.error, 'error');
             }
         } catch (error) {
-            console.error('Erreur lors de la suppression du compte:', error);
             showToast('Une erreur est survenue lors de la suppression du compte', 'error');
         } finally {
             setIsDeletingUser(false);
@@ -1110,19 +1168,27 @@ export default function Settings() {
     };
 
     const handleCompanyInfoNext = async () => {
-        if (companyInfoStep === 1 && !companyFormData.company_name) {
+        if (companyInfoStep === 1 && !companyFormData.company_name?.trim()) {
             showToast('Veuillez entrer le nom de votre entreprise', 'warning');
             return;
         }
-        if (companyInfoStep === 2 && !companyFormData.activity_description) {
-            showToast('Veuillez décrire votre activité', 'warning');
+        if (companyInfoStep === 2 && !companyFormData.activity_description?.trim()) {
+            showToast('Veuillez décrire votre activité et les services proposés', 'warning');
+            return;
+        }
+        if (companyInfoStep === 3 && !companyFormData.services_offered?.trim()) {
+            showToast('Veuillez ajouter votre signature email', 'warning');
+            return;
+        }
+        if (companyInfoStep === 4 && !companyFormData.signature_image_base64?.trim()) {
+            showToast('Veuillez ajouter le logo de signature', 'warning');
             return;
         }
 
         // Sauvegarder automatiquement après chaque étape
         await saveCompanyInfoProgress();
 
-        if (companyInfoStep < 3) {
+        if (companyInfoStep < 5) {
             setCompanyInfoStep(companyInfoStep + 1);
         } else {
             handleCompanyInfoSubmit();
@@ -1139,13 +1205,14 @@ export default function Settings() {
                 .update({
                     company_name: companyFormData.company_name || null,
                     activity_description: companyFormData.activity_description || null,
+                    services_proposed: companyFormData.services_proposed || null,
                     services_offered: companyFormData.services_offered || null,
+                    signature_image_base64: companyFormData.signature_image_base64 || null,
                     updated_at: new Date().toISOString(),
                 })
                 .eq('user_id', user?.id)
                 .eq('email', emailToUpdate);
         } catch (err) {
-            console.error('Erreur sauvegarde progression:', err);
         }
     };
 
@@ -1164,6 +1231,18 @@ export default function Settings() {
                 return;
             }
 
+            // Vérifier que les 4 étapes obligatoires sont complètes (sans la base de connaissances)
+            const isMandatoryComplete = 
+                companyFormData.company_name?.trim() &&
+                companyFormData.activity_description?.trim() &&
+                companyFormData.services_offered?.trim() &&
+                companyFormData.signature_image_base64?.trim();
+
+            if (!isMandatoryComplete) {
+                showToast('Veuillez compléter toutes les étapes obligatoires', 'warning');
+                return;
+            }
+
             const { data: existingConfig } = await supabase
                 .from('email_configurations')
                 .select('id')
@@ -1172,17 +1251,44 @@ export default function Settings() {
                 .maybeSingle();
 
             if (existingConfig) {
+                // Activer le flux automatique seulement si les étapes obligatoires sont complètes
                 const { error } = await supabase
                     .from('email_configurations')
                     .update({
                         company_name: companyFormData.company_name,
                         activity_description: companyFormData.activity_description,
+                        services_proposed: companyFormData.services_proposed,
                         services_offered: companyFormData.services_offered,
+                        signature_image_base64: companyFormData.signature_image_base64 || null,
+                        is_classement: isMandatoryComplete ? true : false, // Activer le flux automatique seulement après configuration complète des étapes obligatoires
                         updated_at: new Date().toISOString(),
                     })
                     .eq('id', existingConfig.id);
 
                 if (error) throw error;
+
+                // Mettre à jour les tokens Gmail/Outlook pour activer le flux seulement si les étapes obligatoires sont complètes
+                if (isMandatoryComplete) {
+                    const { data: configData } = await supabase
+                        .from('email_configurations')
+                        .select('gmail_token_id, outlook_token_id')
+                        .eq('id', existingConfig.id)
+                        .maybeSingle();
+
+                    if (configData?.gmail_token_id) {
+                        await supabase
+                            .from('gmail_tokens')
+                            .update({ is_classement: true })
+                            .eq('id', configData.gmail_token_id);
+                    }
+
+                    if (configData?.outlook_token_id) {
+                        await supabase
+                            .from('outlook_tokens')
+                            .update({ is_classement: true })
+                            .eq('id', configData.outlook_token_id);
+                    }
+                }
             } else {
                 let gmail_token_id = null;
                 let outlook_token_id = null;
@@ -1205,6 +1311,13 @@ export default function Settings() {
                     outlook_token_id = outlookToken?.id;
                 }
 
+                // Vérifier que les 4 étapes obligatoires sont complètes (sans la base de connaissances)
+                const isMandatoryCompleteForInsert = 
+                    companyFormData.company_name?.trim() &&
+                    companyFormData.activity_description?.trim() &&
+                    companyFormData.services_offered?.trim() &&
+                    companyFormData.signature_image_base64?.trim();
+
                 const { error } = await supabase
                     .from('email_configurations')
                     .insert({
@@ -1213,14 +1326,34 @@ export default function Settings() {
                         email: selectedAccount?.email,
                         provider: selectedAccount?.provider,
                         is_connected: true,
+                        is_classement: isMandatoryCompleteForInsert ? true : false, // Activer le flux automatique seulement après configuration complète des étapes obligatoires
                         gmail_token_id,
                         outlook_token_id,
                         company_name: companyFormData.company_name,
                         activity_description: companyFormData.activity_description,
+                        services_proposed: companyFormData.services_proposed,
                         services_offered: companyFormData.services_offered,
+                        signature_image_base64: companyFormData.signature_image_base64 || null,
                     });
 
                 if (error) throw error;
+
+                // Mettre à jour les tokens Gmail/Outlook pour activer le flux seulement si les étapes obligatoires sont complètes
+                if (isMandatoryCompleteForInsert) {
+                    if (gmail_token_id) {
+                        await supabase
+                            .from('gmail_tokens')
+                            .update({ is_classement: true })
+                            .eq('id', gmail_token_id);
+                    }
+
+                    if (outlook_token_id) {
+                        await supabase
+                            .from('outlook_tokens')
+                            .update({ is_classement: true })
+                            .eq('id', outlook_token_id);
+                    }
+                }
             }
 
             setShowCompanyInfoModal(false);
@@ -1232,7 +1365,6 @@ export default function Settings() {
                 await loadCompanyData();
             }
         } catch (err) {
-            console.error('Erreur lors de l\'enregistrement:', err);
                 showToast('Erreur lors de l\'enregistrement des informations', 'error');
         }
     };
@@ -1263,7 +1395,6 @@ export default function Settings() {
             window.open(authUrl, 'Gmail OAuth', `width=${width},height=${height},left=${left},top=${top}`);
 
         } catch (err) {
-            console.error('Erreur connexion Gmail:', err);
             showToast('Erreur lors de la connexion Gmail', 'error');
         }
     };
@@ -1321,7 +1452,6 @@ export default function Settings() {
                 setTestError(result.error || 'Échec de la vérification de la connexion');
             }
         } catch (err) {
-            console.error('Erreur vérification:', err);
             setTestError('Impossible de vérifier la connexion au serveur');
         } finally {
             setTestingConnection(false);
@@ -1354,7 +1484,7 @@ export default function Settings() {
                 email: imapFormData.email,
                 provider: 'smtp_imap',
                 is_connected: true,
-                is_classement: true, // ✅ Tri automatique activé par défaut
+                is_classement: false, // Tri automatique désactivé par défaut - sera activé après configuration de l'entreprise
                 password: imapFormData.password,
                 imap_host: imapFormData.imap_host,
                 imap_port: parseInt(imapFormData.imap_port),
@@ -1376,14 +1506,18 @@ export default function Settings() {
             setAccountMissingInfo(addedEmail);
             // Toujours commencer à l'étape 1 pour un nouveau compte
             setCompanyInfoStep(1);
+            
+            // Charger les données du compte principal pour préremplir
+            const primaryData = await loadPrimaryAccountData();
             setCompanyFormData({
-                company_name: '',
-                activity_description: '',
-                services_offered: '',
+                company_name: primaryData?.company_name || '',
+                activity_description: primaryData?.activity_description || '',
+                services_proposed: primaryData?.services_proposed || '',
+                services_offered: primaryData?.services_offered || '',
+                signature_image_base64: primaryData?.signature_image_base64 || '',
             });
             setShowCompanyInfoModal(true);
         } catch (err) {
-            console.error('Erreur ajout compte IMAP:', err);
             showToast('Erreur lors de l\'ajout du compte', 'error');
         }
     };
@@ -1552,7 +1686,7 @@ export default function Settings() {
                         className="lg:col-span-1"
                     >
                         <div className="bg-white shadow-sm border border-gray-200 h-full rounded-bl-xl flex flex-col">
-                            <div>
+                            <div className="flex-1 overflow-y-auto" style={{ maxHeight: '1300px' }}>
                                 {accounts.map((account, index) => {
                                     const isDisabled = account.is_active === false || account.cancel_at_period_end === true;
                                     return (
@@ -1719,9 +1853,15 @@ export default function Settings() {
                                             const newValue = !autoSort;
                                             setAutoSort(newValue);
 
+                                            // Préparer les données à mettre à jour
+                                            const updateData: any = { is_classement: newValue };
+                                            if (newValue) {
+                                                updateData.is_classement_activated_at = new Date().toISOString();
+                                            }
+
                                             const { error } = await supabase
                                                 .from('email_configurations')
-                                                .update({ is_classement: newValue })
+                                                .update(updateData)
                                                 .eq('user_id', user.id)
                                                 .eq('email', selectedAccount.email);
 
@@ -1838,7 +1978,6 @@ export default function Settings() {
                                                     loadAccounts();
                                                     checkSubscription();
                                                 } catch (error: any) {
-                                                    console.error('Error canceling slot:', error);
                                                     showToast('Une erreur est survenue lors de la résiliation', 'error');
                                                 }
                                             }}
@@ -1900,6 +2039,23 @@ export default function Settings() {
                                         </button>
                                         </div>
                                         <p className="font-medium text-gray-900 whitespace-pre-wrap mt-2">{companyFormData.services_offered || 'Non renseignée'}</p>
+                                    </div>
+                                    <div>
+                                        <div className="flex items-center justify-between ">    
+                                        <span className="text-gray-500 mb-2">Logo de signature:</span>
+                                        <button onClick={() => setShowEditLogoModal(true)}>
+                                            <Edit2Icon className='w-5 h-5 text-blue-500 hover:text-blue-700 cursor-pointer' />
+                                        </button>
+                                        </div>
+                                        {companyFormData.signature_image_base64 ? (
+                                            <img
+                                                src={companyFormData.signature_image_base64}
+                                                alt="Logo de signature"
+                                                className="max-h-24 max-w-full object-contain mt-2"
+                                            />
+                                        ) : (
+                                            <p className="font-medium text-gray-900 mt-2">Non renseigné</p>
+                                        )}
                                     </div>
                                 </div>
                                 </motion.div>
@@ -2202,9 +2358,15 @@ export default function Settings() {
                                                 const newValue = !autoSort;
                                                 setAutoSort(newValue);
 
+                                                // Préparer les données à mettre à jour
+                                                const updateData: any = { is_classement: newValue };
+                                                if (newValue) {
+                                                    updateData.is_classement_activated_at = new Date().toISOString();
+                                                }
+
                                                 const { error } = await supabase
                                                     .from('email_configurations')
-                                                    .update({ is_classement: newValue })
+                                                    .update(updateData)
                                                     .eq('user_id', user.id)
                                                     .eq('email', selectedAccount.email);
 
@@ -2392,20 +2554,33 @@ export default function Settings() {
 
             {/* Modal d'information de l'entreprise */}
             {showCompanyInfoModal && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl p-8 max-w-lg w-full mx-4 shadow-2xl font-inter max-h-[90vh] overflow-y-auto">
-                        <div className="flex items-center gap-3 mb-6">
-                            {companyInfoStep > 1 && (
-                                <button
-                                    onClick={handleCompanyInfoBack}
-                                    className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                                >
-                                    <ChevronRight className="w-5 h-5 rotate-180 text-gray-600" />
-                                </button>
-                            )}
-                            <div className="flex-1">
-                                <h2 className="text-2xl font-bold text-gray-900">Description de votre activité</h2>
-                            </div>
+                <div 
+                    className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+                    onClick={(e) => {
+                        // Empêcher la fermeture en cliquant en dehors si les étapes obligatoires ne sont pas complètes
+                        const isMandatoryComplete = 
+                            companyFormData.company_name?.trim() &&
+                            companyFormData.activity_description?.trim() &&
+                            companyFormData.services_offered?.trim() &&
+                            companyFormData.signature_image_base64?.trim();
+                        
+                        if (!isMandatoryComplete && e.target === e.currentTarget) {
+                            showToast('Veuillez compléter toutes les étapes obligatoires avant de fermer', 'warning');
+                        }
+                    }}
+                >
+                    <div className="bg-white rounded-2xl p-8 max-w-2xl w-full mx-4 shadow-2xl font-inter max-h-[95vh] overflow-y-auto relative">
+                        {/* Bouton retour en haut à gauche */}
+                        {companyInfoStep > 1 && (
+                            <button
+                                onClick={handleCompanyInfoBack}
+                                className="absolute top-4 left-4 p-2 hover:bg-gray-100 rounded-lg transition-colors z-10"
+                            >
+                                <ChevronRight className="w-5 h-5 rotate-180 text-gray-600" />
+                            </button>
+                        )}
+                        <div className="mb-6">
+                            <h2 className="text-2xl font-bold text-gray-900">Description de votre activité</h2>
                         </div>
 
                         {accountMissingInfo && (
@@ -2422,10 +2597,12 @@ export default function Settings() {
 
                         <div className="mb-6 p-4 bg-orange-50 rounded-lg border border-orange-200">
                             <p className="text-sm text-orange-800">
-                                <span className="font-semibold">Étape {companyInfoStep}/3</span> - {
+                                <span className="font-semibold">Étape {companyInfoStep}/5</span> - {
                                     companyInfoStep === 1 ? 'Nom de l\'entreprise' :
-                                        companyInfoStep === 2 ? 'Description de l\'activité' :
-                                            'Services proposés'
+                                        companyInfoStep === 2 ? 'Description de l\'activité et des services proposés' :
+                                            companyInfoStep === 3 ? 'Signature email' :
+                                                companyInfoStep === 4 ? 'Logo de signature' :
+                                                    'Base de connaissances'
                                 }
                             </p>
                         </div>
@@ -2451,14 +2628,14 @@ export default function Settings() {
                             <div className="space-y-4 mb-6">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-900 mb-2">
-                                        Description de l'activité
+                                        Description de l'activité et des services
                                     </label>
                                     <textarea
                                         value={companyFormData.activity_description}
                                         onChange={(e) => setCompanyFormData({ ...companyFormData, activity_description: e.target.value })}
                                         className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                                        placeholder="Exemple : Nous sommes une agence de marketing digital spécialisée dans la création de contenu et la gestion des réseaux sociaux pour les PME."
-                                        rows={4}
+                                        placeholder="Exemple : Hall IA développe des outils intelligents pour automatiser la gestion des emails. Nous proposons : classification automatique d'emails (INFO, TRAITÉ, PUB), réponses automatiques par IA, tri intelligent des messages, et optimisation de la productivité email."
+                                        rows={6}
                                     />
                                 </div>
                             </div>
@@ -2475,8 +2652,157 @@ export default function Settings() {
                                     onChange={(e) => setCompanyFormData({ ...companyFormData, services_offered: e.target.value })}
                                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                                     placeholder={`Exemple :\nCordialement,\nJean Dupont\nCEO - Mon Entreprise\nTel: +33 6 12 34 56 78\nEmail: contact@entreprise.fr`}
-                                    rows={4}
+                                    rows={8}
                                 />
+                                </div>
+                            </div>
+                        )}
+
+                        {companyInfoStep === 4 && (
+                            <div className="space-y-4 mb-6">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-900 mb-2">
+                                        Logo de signature (optionnel)
+                                    </label>
+                                    <p className="text-xs text-gray-500 mb-3">
+                                        Logo de votre entreprise ou signature manuscrite scannée
+                                    </p>
+                                    
+                                    <div 
+                                        className={`border-2 border-dashed rounded-lg p-6 text-center transition-all ${
+                                            isDraggingLogo 
+                                                ? 'border-orange-500 bg-orange-50' 
+                                                : 'border-gray-300 hover:border-orange-400'
+                                        }`}
+                                        onDragOver={(e) => {
+                                            e.preventDefault();
+                                            setIsDraggingLogo(true);
+                                        }}
+                                        onDragLeave={(e) => {
+                                            e.preventDefault();
+                                            setIsDraggingLogo(false);
+                                        }}
+                                        onDrop={(e) => {
+                                            e.preventDefault();
+                                            setIsDraggingLogo(false);
+                                            
+                                            const file = e.dataTransfer.files?.[0];
+                                            if (file && file.type.startsWith('image/')) {
+                                                if (file.size > 2 * 1024 * 1024) {
+                                                    showToast('L\'image ne doit pas dépasser 2MB', 'error');
+                                                    return;
+                                                }
+                                                
+                                                const reader = new FileReader();
+                                                reader.onload = (event) => {
+                                                    const base64 = event.target?.result as string;
+                                                    setCompanyFormData({ ...companyFormData, signature_image_base64: base64 });
+                                                };
+                                                reader.readAsDataURL(file);
+                                            } else {
+                                                showToast('Veuillez déposer une image valide', 'error');
+                                            }
+                                        }}
+                                    >
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            onChange={(e) => {
+                                                const file = e.target.files?.[0];
+                                                if (file) {
+                                                    if (file.size > 2 * 1024 * 1024) {
+                                                        showToast('L\'image ne doit pas dépasser 2MB', 'error');
+                                                        return;
+                                                    }
+                                                    
+                                                    const reader = new FileReader();
+                                                    reader.onload = (event) => {
+                                                        const base64 = event.target?.result as string;
+                                                        setCompanyFormData({ ...companyFormData, signature_image_base64: base64 });
+                                                    };
+                                                    reader.readAsDataURL(file);
+                                                }
+                                            }}
+                                            className="hidden"
+                                            id="signature-logo-upload"
+                                        />
+                                        <label
+                                            htmlFor="signature-logo-upload"
+                                            className="cursor-pointer flex flex-col items-center"
+                                        >
+                                            {companyFormData.signature_image_base64 ? (
+                                                <div className="space-y-3">
+                                                    <img
+                                                        src={companyFormData.signature_image_base64}
+                                                        alt="Logo de signature"
+                                                        className="max-h-32 max-w-full object-contain mx-auto"
+                                                    />
+                                                    <p className="text-sm text-green-600 font-medium">✓ Logo téléchargé</p>
+                                                    <p className="text-xs text-gray-500">Cliquez ou glissez pour changer</p>
+                                                </div>
+                                            ) : (
+                                                <div className="space-y-3">
+                                                    <Upload className="w-12 h-12 text-gray-400 mx-auto" />
+                                                    <div>
+                                                        <p className="text-sm font-medium text-gray-700">
+                                                            Cliquez ou glissez pour télécharger
+                                                        </p>
+                                                        <p className="text-xs text-gray-500 mt-1">
+                                                            PNG, JPG jusqu'à 2MB
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </label>
+                                    </div>
+                                    
+                                    {companyFormData.signature_image_base64 && (
+                                        <button
+                                            type="button"
+                                            onClick={() => setCompanyFormData({ ...companyFormData, signature_image_base64: '' })}
+                                            className="mt-2 text-sm text-red-600 hover:text-red-700 flex items-center gap-1"
+                                        >
+                                            <X className="w-4 h-4" />
+                                            Supprimer le logo
+                                        </button>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {companyInfoStep === 5 && (
+                            <div className="space-y-4 mb-6">
+                                <div className="flex items-start gap-2 mb-4">
+                                    <HelpCircle className="w-5 h-5 text-gray-600 flex-shrink-0 mt-0.5" />
+                                    <p className="text-sm text-gray-700">
+                                        La base de connaissances permet de faire performer l'IA en enrichissant ses réponses avec des informations spécifiques à votre entreprise. Vous pourrez la configurer plus tard dans les paramètres.
+                                    </p>
+                                </div>
+                                <div className="space-y-3">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-900 mb-2">
+                                            URLs de sites web (optionnel)
+                                        </label>
+                                        <input
+                                            type="url"
+                                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                                            placeholder="https://example.com/documentation"
+                                        />
+                                        <p className="text-xs text-gray-500 mt-1">
+                                            URLs de sites web contenant des informations sur votre entreprise
+                                        </p>
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-900 mb-2">
+                                            Documents PDF (optionnel)
+                                        </label>
+                                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                                            <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                                            <p className="text-sm text-gray-600">
+                                                Vous pourrez ajouter des PDFs dans les paramètres
+                                            </p>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         )}
@@ -2487,7 +2813,7 @@ export default function Settings() {
                                 className="group relative flex-1 inline-flex cursor-pointer items-center justify-center gap-2 overflow-hidden rounded-full bg-gradient-to-br from-[#F35F4F] to-[#FFAD5A] py-3 font-medium text-white shadow-lg transition-all duration-300 ease-out hover:shadow-xl"
                             >
                                 <span className="relative z-10 transition-transform duration-300 group-hover:-translate-x-1">
-                                    {companyInfoStep === 3 ? 'Terminer' : 'Continuer'}
+                                    {companyInfoStep === 5 ? 'Terminer' : 'Continuer'}
                                 </span>
                                 <svg
                                     className="relative z-10 h-5 w-5 -translate-x-2 opacity-0 transition-all duration-300 group-hover:translate-x-0 group-hover:opacity-100"
@@ -2501,13 +2827,27 @@ export default function Settings() {
                             </button>
                             <button
                                 onClick={() => {
+                                    // Vérifier que les étapes obligatoires sont complètes avant de permettre la fermeture
+                                    const isMandatoryComplete = 
+                                        companyFormData.company_name?.trim() &&
+                                        companyFormData.activity_description?.trim() &&
+                                        companyFormData.services_offered?.trim() &&
+                                        companyFormData.signature_image_base64?.trim();
+                                    
+                                    if (!isMandatoryComplete) {
+                                        showToast('Veuillez compléter toutes les étapes obligatoires avant de fermer', 'warning');
+                                        return;
+                                    }
+                                    
                                     setShowCompanyInfoModal(false);
                                     setCompanyInfoStep(1);
                                     setAccountMissingInfo('');
                                     setCompanyFormData({
                                         company_name: '',
                                         activity_description: '',
+                                        services_proposed: '',
                                         services_offered: '',
+                                        signature_image_base64: '',
                                     });
                                 }}
                                 className="px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-full hover:bg-gray-50 transition-colors font-medium"
@@ -2525,7 +2865,7 @@ export default function Settings() {
                     <div className="bg-white rounded-2xl p-8 max-w-lg w-full mx-4 shadow-2xl font-inter max-h-[90vh] overflow-y-auto">
                         <div className="mb-6 p-4 bg-green-50 rounded-lg border border-green-200">
                             <p className="text-sm text-green-800 text-center font-medium">
-                                Étape 3/3 - Configuration terminée
+                                Étape 4/4 - Configuration terminée
                             </p>
                         </div>
 
@@ -2796,7 +3136,6 @@ export default function Settings() {
                                 setTimeout(() => setShowNotification(false), 3000);
                                 await loadCompanyData();
                             } catch (err) {
-                                console.error('Erreur lors de la mise à jour:', err);
                                 showToast('Erreur lors de la mise à jour des informations', 'error');
                             }
                         }} className="space-y-6">
@@ -3196,7 +3535,6 @@ export default function Settings() {
                                             setShowNotification(true);
                                             setTimeout(() => setShowNotification(false), 3000);
                                         } catch (err) {
-                                            console.error('Erreur lors de la mise à jour:', err);
                                             showToast('Erreur lors de la mise à jour', 'error');
                                         }
                                     }}
@@ -3278,7 +3616,185 @@ export default function Settings() {
                                             setShowNotification(true);
                                             setTimeout(() => setShowNotification(false), 3000);
                                         } catch (err) {
-                                            console.error('Erreur lors de la mise à jour:', err);
+                                            showToast('Erreur lors de la mise à jour', 'error');
+                                        }
+                                    }}
+                                    className="flex-1 px-6 py-3 text-white rounded-lg hover:opacity-90 transition-all font-semibold"
+                                    style={{background:`conic-gradient(
+                                        from 195.77deg at 84.44% -1.66%,
+                                        #FE9736 0deg,
+                                        #F4664C 76.15deg,
+                                        #F97E41 197.31deg,
+                                        #E3AB8D 245.77deg,
+                                        #FE9736 360deg
+                                    )`}}
+                                >
+                                    Enregistrer
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Modal d'édition du logo de signature */}
+            {showEditLogoModal && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-2xl p-8 max-w-lg w-full shadow-2xl font-inter max-h-[90vh] overflow-y-auto">
+                        <div className="flex items-center justify-between mb-6">
+                            <h2 className="text-2xl font-bold text-gray-900">Modifier le logo de signature</h2>
+                            <button
+                                onClick={() => {
+                                    setShowEditLogoModal(false);
+                                    setIsDraggingLogo(false);
+                                }}
+                                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                            >
+                                <X className="w-5 h-5 text-gray-600" />
+                            </button>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                    Logo de signature (optionnel)
+                                </label>
+                                <p className="text-xs text-gray-500 mb-3">
+                                    Logo de votre entreprise ou signature manuscrite scannée
+                                </p>
+                                
+                                <div 
+                                    className={`border-2 border-dashed rounded-lg p-6 text-center transition-all ${
+                                        isDraggingLogo 
+                                            ? 'border-orange-500 bg-orange-50' 
+                                            : 'border-gray-300 hover:border-orange-400'
+                                    }`}
+                                    onDragOver={(e) => {
+                                        e.preventDefault();
+                                        setIsDraggingLogo(true);
+                                    }}
+                                    onDragLeave={(e) => {
+                                        e.preventDefault();
+                                        setIsDraggingLogo(false);
+                                    }}
+                                    onDrop={(e) => {
+                                        e.preventDefault();
+                                        setIsDraggingLogo(false);
+                                        
+                                        const file = e.dataTransfer.files?.[0];
+                                        if (file && file.type.startsWith('image/')) {
+                                            if (file.size > 2 * 1024 * 1024) {
+                                                showToast('L\'image ne doit pas dépasser 2MB', 'error');
+                                                return;
+                                            }
+                                            
+                                            const reader = new FileReader();
+                                            reader.onload = (event) => {
+                                                const base64 = event.target?.result as string;
+                                                setCompanyFormData({ ...companyFormData, signature_image_base64: base64 });
+                                            };
+                                            reader.readAsDataURL(file);
+                                        } else {
+                                            showToast('Veuillez déposer une image valide', 'error');
+                                        }
+                                    }}
+                                >
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        onChange={(e) => {
+                                            const file = e.target.files?.[0];
+                                            if (file) {
+                                                if (file.size > 2 * 1024 * 1024) {
+                                                    showToast('L\'image ne doit pas dépasser 2MB', 'error');
+                                                    return;
+                                                }
+                                                
+                                                const reader = new FileReader();
+                                                reader.onload = (event) => {
+                                                    const base64 = event.target?.result as string;
+                                                    setCompanyFormData({ ...companyFormData, signature_image_base64: base64 });
+                                                };
+                                                reader.readAsDataURL(file);
+                                            }
+                                        }}
+                                        className="hidden"
+                                        id="edit-signature-logo-upload"
+                                    />
+                                    <label
+                                        htmlFor="edit-signature-logo-upload"
+                                        className="cursor-pointer flex flex-col items-center"
+                                    >
+                                        {companyFormData.signature_image_base64 ? (
+                                            <div className="space-y-3">
+                                                <img
+                                                    src={companyFormData.signature_image_base64}
+                                                    alt="Logo de signature"
+                                                    className="max-h-32 max-w-full object-contain mx-auto"
+                                                />
+                                                <p className="text-sm text-green-600 font-medium">✓ Logo téléchargé</p>
+                                                <p className="text-xs text-gray-500">Cliquez ou glissez pour changer</p>
+                                            </div>
+                                        ) : (
+                                            <div className="space-y-3">
+                                                <Upload className="w-12 h-12 text-gray-400 mx-auto" />
+                                                <div>
+                                                    <p className="text-sm font-medium text-gray-700">
+                                                        Cliquez ou glissez pour télécharger
+                                                    </p>
+                                                    <p className="text-xs text-gray-500 mt-1">
+                                                        PNG, JPG jusqu'à 2MB
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </label>
+                                </div>
+                                
+                                {companyFormData.signature_image_base64 && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setCompanyFormData({ ...companyFormData, signature_image_base64: '' })}
+                                        className="mt-2 text-sm text-red-600 hover:text-red-700 flex items-center gap-1"
+                                    >
+                                        <X className="w-4 h-4" />
+                                        Supprimer le logo
+                                    </button>
+                                )}
+                            </div>
+
+                            <div className="flex gap-3 pt-4">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setShowEditLogoModal(false);
+                                        setIsDraggingLogo(false);
+                                    }}
+                                    className="flex-1 px-6 py-3 border-2 border-gray-300 rounded-lg hover:bg-gray-50 transition-colors font-semibold text-gray-700"
+                                >
+                                    Annuler
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={async () => {
+                                        if (!selectedAccount || !user) return;
+                                        try {
+                                            const { error } = await supabase
+                                                .from('email_configurations')
+                                                .update({
+                                                    signature_image_base64: companyFormData.signature_image_base64 || null,
+                                                    updated_at: new Date().toISOString(),
+                                                })
+                                                .eq('id', selectedAccount.id);
+
+                                            if (error) throw error;
+
+                                            setShowEditLogoModal(false);
+                                            setIsDraggingLogo(false);
+                                            setNotificationMessage('Logo de signature mis à jour');
+                                            setShowNotification(true);
+                                            setTimeout(() => setShowNotification(false), 3000);
+                                        } catch (err) {
                                             showToast('Erreur lors de la mise à jour', 'error');
                                         }
                                     }}
@@ -3357,7 +3873,6 @@ export default function Settings() {
                                             setShowNotification(true);
                                             setTimeout(() => setShowNotification(false), 3000);
                                         } catch (err) {
-                                            console.error('Erreur lors de la mise à jour:', err);
                                             showToast('Erreur lors de la mise à jour', 'error');
                                         }
                                     }}
@@ -3412,6 +3927,7 @@ export default function Settings() {
                     onClose={() => setShowUpgradeModal(false)}
                     isUpgrade={true}
                     currentAdditionalAccounts={currentAdditionalAccounts}
+                    unlinkedSubscriptionsCount={unlinkedSubscriptions.length}
                 />
             )}
         </>

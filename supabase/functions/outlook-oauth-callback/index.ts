@@ -143,6 +143,7 @@ Deno.serve(async (req) => {
         refresh_token: tokens.refresh_token,
         token_expiry: expiryDate.toISOString(),
         email: userEmail,
+        is_classement: false, // Tri automatique désactivé par défaut - sera activé après configuration de l'entreprise
         updated_at: new Date().toISOString()
       })
       .select()
@@ -158,7 +159,7 @@ Deno.serve(async (req) => {
         email: userEmail,
         provider: 'outlook',
         is_connected: true,
-        is_classement: true, // ✅ Tri automatique activé par défaut
+        is_classement: false, // Tri automatique désactivé par défaut - sera activé après configuration de l'entreprise
         outlook_token_id: tokenData.id,
         last_sync_at: new Date().toISOString()
       });

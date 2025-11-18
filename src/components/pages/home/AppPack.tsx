@@ -30,7 +30,7 @@ export default function AppPack() {
 
     return (
         <>
-            <section className="flex relative flex-col items-center overflow-hidden bg-[#F4F1EE] w-full px-4">
+            <section className="flex relative flex-col items-center overflow-hidden bg-[#F4F1EE] w-full px-4 max-md:py-10">
                 <Image
                     src={'/assets/img/shape-yellow.png'}
                     alt=""
@@ -41,7 +41,7 @@ export default function AppPack() {
                     loading="lazy"
                 />
 
-                <h2 className="font-thunder font-black text-7xl mb-16 text-center lg:mt-20">
+                <h2 className="font-thunder font-black text-7xl mb-16 text-center lg:mt-20 max-md:text-5xl">
                     Essayer, et commencez aujourd'hui
                 </h2>
 

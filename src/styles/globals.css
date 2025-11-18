@@ -355,3 +355,104 @@ a {
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
+/* Animation carrousel circulaire pour les enveloppes */
+@keyframes carouselSlide {
+  /* 
+    Position 1 (GAUCHE) - L'enveloppe reste ici pendant 30% du temps total
+    0%, 30% = de 0s à 1.8s (si animation = 6s)
+    translateX(0) = pas de déplacement, position de départ
+    opacity: 1 = totalement visible
+  */
+  0%, 30% {
+    transform: translateX(-25px);
+    opacity: 1;
+  }
+  
+  /* 
+    Position 2 (CENTRE) - L'enveloppe glisse au centre et reste ici
+    35%, 65% = de 2.1s à 3.9s
+    translateX(130px) = déplace de 130px vers la droite (change cette valeur pour ajuster l'espacement)
+    Si tu mets 100px = enveloppes plus rapprochées
+    Si tu mets 150px = enveloppes plus espacées
+  */
+  35%, 65% {
+    transform: translateX(100px);
+    opacity: 1;
+  }
+  
+  /* 
+    Position 3 (DROITE) - L'enveloppe glisse à droite et disparaît
+    70%, 100% = de 4.2s à 6s
+    translateX(260px) = déplace de 260px (2 fois 130px = 2 pas complets)
+    Cette valeur doit être = 2 × la valeur de la position 2
+  */
+  70%, 100% {
+    transform: translateX(200px);
+    opacity: 1;
+  }
+}
+
+/*
+  Enveloppe 1 - Commence immédiatement
+  animation: carouselSlide 6s ease-in-out infinite;
+    - carouselSlide = nom de l'animation définie ci-dessus
+    - 6s = durée totale d'un cycle (change pour accélérer/ralentir tout)
+    - ease-in-out = mouvement doux (démarre lentement, accélère, puis ralentit)
+      Alternatives: 
+        - linear = vitesse constante (pas doux)
+        - ease = démarre vite puis ralentit
+        - ease-in = démarre lentement
+        - ease-out = ralentit à la fin
+    - infinite = boucle infinie
+  left: 10px = position de départ (change pour déplacer toute l'animation)
+  animation-delay: 0s = commence immédiatement
+*/
+.envelope-slide-1 {
+  animation: carouselSlide 6s ease-in-out infinite;
+  left: 10px !important;
+  animation-delay: 0s;
+}
+
+/*
+  Enveloppe 2 - Commence 2 secondes après la 1ère
+  animation-delay: 2s = attend 2 secondes avant de démarrer
+  Exemple: si tu changes à 1s, l'enveloppe 2 sera plus proche de la 1
+*/
+.envelope-slide-2 {
+  animation: carouselSlide 6s ease-in-out infinite;
+  left: 10px !important;
+  animation-delay: 2s;
+}
+
+/*
+  Enveloppe 3 - Commence 4 secondes après la 1ère (2s après la 2ème)
+  animation-delay: 4s = attend 4 secondes
+  Les delays doivent être espacés régulièrement: si durée = 6s et 3 enveloppes
+  → delay = 0s, 2s, 4s (6s ÷ 3 = 2s entre chaque)
+*/
+.envelope-slide-3 {
+  animation: carouselSlide 6s ease-in-out infinite;
+  left: 10px !important;
+  animation-delay: 4s;
+}
+
+/* 
+  RÉSUMÉ DES AJUSTEMENTS POSSIBLES:
+  
+  1. Pour changer la VITESSE globale:
+     - Change "6s" dans toutes les classes (ex: 4s = plus rapide, 8s = plus lent)
+     - Ajuste les animation-delay proportionnellement (durée ÷ 3)
+  
+  2. Pour changer l'ESPACEMENT entre enveloppes:
+     - Change translateX(130px) → ex: translateX(100px) = plus rapproché
+     - N'oublie pas de doubler la valeur pour la position 3 !
+  
+  3. Pour un mouvement PLUS DOUX:
+     - Change "ease-in-out" → "ease" ou ajoute une durée de transition plus longue
+     - Réduis l'écart entre les % (ex: 35% au lieu de 30%)
+  
+  4. Pour changer la DURÉE des PAUSES:
+     - 0%, 30% = pause de 30% du temps (1.8s si durée = 6s)
+     - Change à 0%, 35% = pause plus longue (2.1s)
+     - Change à 0%, 25% = pause plus courte (1.5s)
+*/
