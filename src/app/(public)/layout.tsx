@@ -1,3 +1,8 @@
+'use client';
+
+import { useRouter } from 'next/navigation';
+import { useEffect } from 'react';
+import { useAuth } from '../../../context/AuthContext';
 import NavBar from '@/components/layout/NavBar';
 import Footer from '@/components/layout/Footer';
 
@@ -6,6 +11,32 @@ export default function PublicLayout({
 }: {
     children: React.ReactNode;
 }) {
+    const { user, loading } = useAuth();
+    const router = useRouter();
+
+    useEffect(() => {
+        if (!loading && user) {
+            router.push('/dashboard');
+        }
+    }, [user, loading, router]);
+
+    // Afficher un loader pendant le chargement de l'authentification
+    if (loading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center">
+                <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-orange-600 mx-auto"></div>
+                    <p className="mt-4 text-gray-600">Chargement...</p>
+                </div>
+            </div>
+        );
+    }
+
+    // Si l'utilisateur est connecté, ne rien afficher (redirection en cours)
+    if (user) {
+        return null;
+    }
+
     return (
         <>
             <NavBar />

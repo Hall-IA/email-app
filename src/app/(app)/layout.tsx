@@ -172,7 +172,7 @@ export default function DashboardLayout({
 
             if (accountWithoutInfo) {
                 // Rediriger vers settings avec un paramètre pour ouvrir la modal
-                router.push('/settings?companyInfo=required');
+                // router.push('/settings?companyInfo=required');
             }
         } catch (error) {
             console.error('Error checking company info:', error);

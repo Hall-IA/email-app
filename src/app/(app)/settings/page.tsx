@@ -42,9 +42,7 @@ export default function Settings() {
     const [adFilter, setAdFilter] = useState(true);
     const [showAddAccountModal, setShowAddAccountModal] = useState(false);
     const [showImapModal, setShowImapModal] = useState(false);
-    const [showCompanyInfoModal, setShowCompanyInfoModal] = useState(false);
     const [showEditCompanyModal, setShowEditCompanyModal] = useState(false);
-    const [companyInfoStep, setCompanyInfoStep] = useState(1);
     const [showSuccessModal, setShowSuccessModal] = useState(false);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [accountToDelete, setAccountToDelete] = useState<{ id: string; email: string; provider: string } | null>(null);
@@ -52,7 +50,6 @@ export default function Settings() {
     const [docToDelete, setDocToDelete] = useState<string | null>(null);
     const [showDuplicateEmailModal, setShowDuplicateEmailModal] = useState(false);
     const [duplicateEmail, setDuplicateEmail] = useState<string>('');
-    const [accountMissingInfo, setAccountMissingInfo] = useState<string>('');
     const [showNotification, setShowNotification] = useState(false);
     const [notificationMessage, setNotificationMessage] = useState('');
     const [showUpgradeModal, setShowUpgradeModal] = useState(false);
@@ -101,7 +98,6 @@ export default function Settings() {
     useEffect(() => {
         loadAccounts();
         loadDocuments();
-        checkCompanyInfo();
         checkSubscription();
     }, [user]);
 
@@ -111,7 +107,7 @@ export default function Settings() {
             loadCompanyData();
             loadCurrentConfig();
         }
-    }, [selectedAccount, user, showCompanyInfoModal]);
+    }, [selectedAccount, user]);
 
     useEffect(() => {
         const handleOAuthMessage = async (event: MessageEvent) => {
@@ -126,24 +122,6 @@ export default function Settings() {
                 loadAccounts();
                 checkSubscription();
                 setShowAddAccountModal(false);
-                setAccountMissingInfo(event.data.email || '');
-                // Toujours commencer à l'étape 1 pour un nouveau compte
-                setCompanyInfoStep(1);
-                
-                // Charger les données du compte principal pour préremplir
-                const primaryData = await loadPrimaryAccountData();
-                setCompanyFormData({
-                    company_name: primaryData?.company_name || '',
-                    activity_description: primaryData?.activity_description || '',
-                    services_proposed: primaryData?.services_proposed || '',
-                    services_offered: primaryData?.services_offered || '',
-                    signature_image_base64: primaryData?.signature_image_base64 || '',
-                });
-                
-                // Attendre un peu pour que la page se charge avant d'ouvrir la modal
-                setTimeout(() => {
-                    setShowCompanyInfoModal(true);
-                }, 300);
             }
         };
 
@@ -161,31 +139,6 @@ export default function Settings() {
         }
     }, [searchParams]);
 
-    // Détecter la fin de la configuration du premier email
-    useEffect(() => {
-        const setupComplete = searchParams.get('setup');
-        
-        if (setupComplete === 'complete' && user) {
-            router.replace('/settings');
-            // Attendre un peu pour que la page se charge, puis ouvrir la modal de description
-            setTimeout(async () => {
-                await checkCompanyInfo();
-            }, 500);
-        }
-    }, [searchParams, user]);
-
-    // Détecter la demande d'ouverture de la modal depuis le layout
-    useEffect(() => {
-        const companyInfoRequired = searchParams.get('companyInfo');
-        
-        if (companyInfoRequired === 'required' && user) {
-            router.replace('/settings');
-            // Attendre un peu pour que la page se charge, puis ouvrir la modal de description
-            setTimeout(async () => {
-                await checkCompanyInfo();
-            }, 500);
-        }
-    }, [searchParams, user]);
 
     const handleUpgradeReturn = async () => {
         // Forcer la synchronisation avec Stripe
@@ -621,50 +574,6 @@ export default function Settings() {
         }
     };
 
-    const checkCompanyInfo = async () => {
-        if (!user) return;
-
-        const { data: allConfigs } = await supabase
-            .from('email_configurations')
-            .select('email, company_name, activity_description, services_offered, signature_image_base64, is_classement')
-            .eq('user_id', user.id);
-
-        if (!allConfigs || allConfigs.length === 0) return;
-
-        // Vérifier les 4 champs obligatoires (sans la base de connaissances)
-        const accountWithoutInfo = allConfigs.find(
-            config => !config.company_name || !config.activity_description || !config.services_offered || !config.signature_image_base64
-        );
-
-        if (accountWithoutInfo) {
-            setAccountMissingInfo(accountWithoutInfo.email);
-            
-            // Déterminer l'étape de départ en fonction des champs remplis
-            let startStep = 1;
-            if (!accountWithoutInfo.company_name) {
-                startStep = 1;
-            } else if (!accountWithoutInfo.activity_description) {
-                startStep = 2;
-            } else if (!accountWithoutInfo.services_offered) {
-                startStep = 3;
-            } else if (!accountWithoutInfo.signature_image_base64) {
-                startStep = 4;
-            } else {
-                startStep = 5;
-            }
-            
-            setCompanyInfoStep(startStep);
-            setCompanyFormData({
-                company_name: accountWithoutInfo.company_name || '',
-                activity_description: accountWithoutInfo.activity_description || '',
-                services_proposed: (accountWithoutInfo as any).services_proposed || '',
-                services_offered: accountWithoutInfo.services_offered || '',
-                signature_image_base64: accountWithoutInfo.signature_image_base64 || '',
-            });
-            
-            setShowCompanyInfoModal(true);
-        }
-    };
 
     const loadPrimaryAccountData = async () => {
         if (!user) return null;
@@ -686,7 +595,7 @@ export default function Settings() {
     const loadCompanyData = async () => {
         if (!user) return;
 
-        const emailToLoad = accountMissingInfo || selectedAccount?.email;
+        const emailToLoad = selectedAccount?.email;
         if (!emailToLoad) return;
 
         const { data: config } = await supabase
@@ -1167,207 +1076,6 @@ export default function Settings() {
         }
     };
 
-    const handleCompanyInfoNext = async () => {
-        if (companyInfoStep === 1 && !companyFormData.company_name?.trim()) {
-            showToast('Veuillez entrer le nom de votre entreprise', 'warning');
-            return;
-        }
-        if (companyInfoStep === 2 && !companyFormData.activity_description?.trim()) {
-            showToast('Veuillez décrire votre activité et les services proposés', 'warning');
-            return;
-        }
-        if (companyInfoStep === 3 && !companyFormData.services_offered?.trim()) {
-            showToast('Veuillez ajouter votre signature email', 'warning');
-            return;
-        }
-        if (companyInfoStep === 4 && !companyFormData.signature_image_base64?.trim()) {
-            showToast('Veuillez ajouter le logo de signature', 'warning');
-            return;
-        }
-
-        // Sauvegarder automatiquement après chaque étape
-        await saveCompanyInfoProgress();
-
-        if (companyInfoStep < 5) {
-            setCompanyInfoStep(companyInfoStep + 1);
-        } else {
-            handleCompanyInfoSubmit();
-        }
-    };
-
-    const saveCompanyInfoProgress = async () => {
-        try {
-            const emailToUpdate = accountMissingInfo || selectedAccount?.email;
-            if (!emailToUpdate) return;
-
-            await supabase
-                .from('email_configurations')
-                .update({
-                    company_name: companyFormData.company_name || null,
-                    activity_description: companyFormData.activity_description || null,
-                    services_proposed: companyFormData.services_proposed || null,
-                    services_offered: companyFormData.services_offered || null,
-                    signature_image_base64: companyFormData.signature_image_base64 || null,
-                    updated_at: new Date().toISOString(),
-                })
-                .eq('user_id', user?.id)
-                .eq('email', emailToUpdate);
-        } catch (err) {
-        }
-    };
-
-    const handleCompanyInfoBack = () => {
-        if (companyInfoStep > 1) {
-            setCompanyInfoStep(companyInfoStep - 1);
-        }
-    };
-
-    const handleCompanyInfoSubmit = async () => {
-        try {
-            const emailToUpdate = accountMissingInfo || selectedAccount?.email;
-
-            if (!emailToUpdate) {
-                showToast('Aucun compte identifié', 'error');
-                return;
-            }
-
-            // Vérifier que les 4 étapes obligatoires sont complètes (sans la base de connaissances)
-            const isMandatoryComplete = 
-                companyFormData.company_name?.trim() &&
-                companyFormData.activity_description?.trim() &&
-                companyFormData.services_offered?.trim() &&
-                companyFormData.signature_image_base64?.trim();
-
-            if (!isMandatoryComplete) {
-                showToast('Veuillez compléter toutes les étapes obligatoires', 'warning');
-                return;
-            }
-
-            const { data: existingConfig } = await supabase
-                .from('email_configurations')
-                .select('id')
-                .eq('user_id', user?.id)
-                .eq('email', emailToUpdate)
-                .maybeSingle();
-
-            if (existingConfig) {
-                // Activer le flux automatique seulement si les étapes obligatoires sont complètes
-                const { error } = await supabase
-                    .from('email_configurations')
-                    .update({
-                        company_name: companyFormData.company_name,
-                        activity_description: companyFormData.activity_description,
-                        services_proposed: companyFormData.services_proposed,
-                        services_offered: companyFormData.services_offered,
-                        signature_image_base64: companyFormData.signature_image_base64 || null,
-                        is_classement: isMandatoryComplete ? true : false, // Activer le flux automatique seulement après configuration complète des étapes obligatoires
-                        updated_at: new Date().toISOString(),
-                    })
-                    .eq('id', existingConfig.id);
-
-                if (error) throw error;
-
-                // Mettre à jour les tokens Gmail/Outlook pour activer le flux seulement si les étapes obligatoires sont complètes
-                if (isMandatoryComplete) {
-                    const { data: configData } = await supabase
-                        .from('email_configurations')
-                        .select('gmail_token_id, outlook_token_id')
-                        .eq('id', existingConfig.id)
-                        .maybeSingle();
-
-                    if (configData?.gmail_token_id) {
-                        await supabase
-                            .from('gmail_tokens')
-                            .update({ is_classement: true })
-                            .eq('id', configData.gmail_token_id);
-                    }
-
-                    if (configData?.outlook_token_id) {
-                        await supabase
-                            .from('outlook_tokens')
-                            .update({ is_classement: true })
-                            .eq('id', configData.outlook_token_id);
-                    }
-                }
-            } else {
-                let gmail_token_id = null;
-                let outlook_token_id = null;
-
-                if (selectedAccount?.provider === 'gmail') {
-                    const { data: gmailToken } = await supabase
-                        .from('gmail_tokens')
-                        .select('id')
-                        .eq('user_id', user?.id)
-                        .eq('email', selectedAccount.email)
-                        .maybeSingle();
-                    gmail_token_id = gmailToken?.id;
-                } else if (selectedAccount?.provider === 'outlook') {
-                    const { data: outlookToken } = await supabase
-                        .from('outlook_tokens')
-                        .select('id')
-                        .eq('user_id', user?.id)
-                        .eq('email', selectedAccount.email)
-                        .maybeSingle();
-                    outlook_token_id = outlookToken?.id;
-                }
-
-                // Vérifier que les 4 étapes obligatoires sont complètes (sans la base de connaissances)
-                const isMandatoryCompleteForInsert = 
-                    companyFormData.company_name?.trim() &&
-                    companyFormData.activity_description?.trim() &&
-                    companyFormData.services_offered?.trim() &&
-                    companyFormData.signature_image_base64?.trim();
-
-                const { error } = await supabase
-                    .from('email_configurations')
-                    .insert({
-                        user_id: user?.id,
-                        name: selectedAccount?.email,
-                        email: selectedAccount?.email,
-                        provider: selectedAccount?.provider,
-                        is_connected: true,
-                        is_classement: isMandatoryCompleteForInsert ? true : false, // Activer le flux automatique seulement après configuration complète des étapes obligatoires
-                        gmail_token_id,
-                        outlook_token_id,
-                        company_name: companyFormData.company_name,
-                        activity_description: companyFormData.activity_description,
-                        services_proposed: companyFormData.services_proposed,
-                        services_offered: companyFormData.services_offered,
-                        signature_image_base64: companyFormData.signature_image_base64 || null,
-                    });
-
-                if (error) throw error;
-
-                // Mettre à jour les tokens Gmail/Outlook pour activer le flux seulement si les étapes obligatoires sont complètes
-                if (isMandatoryCompleteForInsert) {
-                    if (gmail_token_id) {
-                        await supabase
-                            .from('gmail_tokens')
-                            .update({ is_classement: true })
-                            .eq('id', gmail_token_id);
-                    }
-
-                    if (outlook_token_id) {
-                        await supabase
-                            .from('outlook_tokens')
-                            .update({ is_classement: true })
-                            .eq('id', outlook_token_id);
-                    }
-                }
-            }
-
-            setShowCompanyInfoModal(false);
-            setShowSuccessModal(true);
-            setCompanyInfoStep(1);
-            setAccountMissingInfo('');
-            await checkCompanyInfo();
-            if (!showCompanyInfoModal) {
-                await loadCompanyData();
-            }
-        } catch (err) {
-                showToast('Erreur lors de l\'enregistrement des informations', 'error');
-        }
-    };
 
     const connectGmail = async () => {
         try {
@@ -1503,20 +1211,6 @@ export default function Settings() {
                 imap_port: '993',
             });
             await loadAccounts();
-            setAccountMissingInfo(addedEmail);
-            // Toujours commencer à l'étape 1 pour un nouveau compte
-            setCompanyInfoStep(1);
-            
-            // Charger les données du compte principal pour préremplir
-            const primaryData = await loadPrimaryAccountData();
-            setCompanyFormData({
-                company_name: primaryData?.company_name || '',
-                activity_description: primaryData?.activity_description || '',
-                services_proposed: primaryData?.services_proposed || '',
-                services_offered: primaryData?.services_offered || '',
-                signature_image_base64: primaryData?.signature_image_base64 || '',
-            });
-            setShowCompanyInfoModal(true);
         } catch (err) {
             showToast('Erreur lors de l\'ajout du compte', 'error');
         }
@@ -2552,312 +2246,6 @@ export default function Settings() {
 </motion.div> 
 </Container>
 
-            {/* Modal d'information de l'entreprise */}
-            {showCompanyInfoModal && (
-                <div 
-                    className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-                    onClick={(e) => {
-                        // Empêcher la fermeture en cliquant en dehors si les étapes obligatoires ne sont pas complètes
-                        const isMandatoryComplete = 
-                            companyFormData.company_name?.trim() &&
-                            companyFormData.activity_description?.trim() &&
-                            companyFormData.services_offered?.trim() &&
-                            companyFormData.signature_image_base64?.trim();
-                        
-                        if (!isMandatoryComplete && e.target === e.currentTarget) {
-                            showToast('Veuillez compléter toutes les étapes obligatoires avant de fermer', 'warning');
-                        }
-                    }}
-                >
-                    <div className="bg-white rounded-2xl p-8 max-w-2xl w-full mx-4 shadow-2xl font-inter max-h-[95vh] overflow-y-auto relative">
-                        {/* Bouton retour en haut à gauche */}
-                        {companyInfoStep > 1 && (
-                            <button
-                                onClick={handleCompanyInfoBack}
-                                className="absolute top-4 left-4 p-2 hover:bg-gray-100 rounded-lg transition-colors z-10"
-                            >
-                                <ChevronRight className="w-5 h-5 rotate-180 text-gray-600" />
-                            </button>
-                        )}
-                        <div className="mb-6">
-                            <h2 className="text-2xl font-bold text-gray-900">Description de votre activité</h2>
-                        </div>
-
-                        {accountMissingInfo && (
-                            <div className="mb-4 p-4 bg-orange-50 rounded-lg border border-orange-200">
-                                <p className="text-sm text-gray-800">
-                                    <span className="font-semibold text-orange-600">Compte concerné :</span>{' '}
-                                    <span className="font-medium">{accountMissingInfo}</span>
-                                </p>
-                                <p className="text-xs text-gray-600 mt-1">
-                                    Ce compte nécessite des informations supplémentaires pour fonctionner correctement.
-                                </p>
-                            </div>
-                        )}
-
-                        <div className="mb-6 p-4 bg-orange-50 rounded-lg border border-orange-200">
-                            <p className="text-sm text-orange-800">
-                                <span className="font-semibold">Étape {companyInfoStep}/5</span> - {
-                                    companyInfoStep === 1 ? 'Nom de l\'entreprise' :
-                                        companyInfoStep === 2 ? 'Description de l\'activité et des services proposés' :
-                                            companyInfoStep === 3 ? 'Signature email' :
-                                                companyInfoStep === 4 ? 'Logo de signature' :
-                                                    'Base de connaissances'
-                                }
-                            </p>
-                        </div>
-
-                        {companyInfoStep === 1 && (
-                            <div className="space-y-4 mb-6">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-900 mb-2">
-                                        Nom de l'entreprise
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={companyFormData.company_name}
-                                        onChange={(e) => setCompanyFormData({ ...companyFormData, company_name: e.target.value })}
-                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                                        placeholder="Ex: Hall IA"
-                                    />
-                                </div>
-                            </div>
-                        )}
-
-                        {companyInfoStep === 2 && (
-                            <div className="space-y-4 mb-6">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-900 mb-2">
-                                        Description de l'activité et des services
-                                    </label>
-                                    <textarea
-                                        value={companyFormData.activity_description}
-                                        onChange={(e) => setCompanyFormData({ ...companyFormData, activity_description: e.target.value })}
-                                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                                        placeholder="Exemple : Hall IA développe des outils intelligents pour automatiser la gestion des emails. Nous proposons : classification automatique d'emails (INFO, TRAITÉ, PUB), réponses automatiques par IA, tri intelligent des messages, et optimisation de la productivité email."
-                                        rows={6}
-                                    />
-                                </div>
-                            </div>
-                        )}
-
-                        {companyInfoStep === 3 && (
-                            <div className="space-y-4 mb-6">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-900 mb-2">
-                                        Signature email
-                                    </label>
-                                <textarea
-                                    value={companyFormData.services_offered}
-                                    onChange={(e) => setCompanyFormData({ ...companyFormData, services_offered: e.target.value })}
-                                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                                    placeholder={`Exemple :\nCordialement,\nJean Dupont\nCEO - Mon Entreprise\nTel: +33 6 12 34 56 78\nEmail: contact@entreprise.fr`}
-                                    rows={8}
-                                />
-                                </div>
-                            </div>
-                        )}
-
-                        {companyInfoStep === 4 && (
-                            <div className="space-y-4 mb-6">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-900 mb-2">
-                                        Logo de signature (optionnel)
-                                    </label>
-                                    <p className="text-xs text-gray-500 mb-3">
-                                        Logo de votre entreprise ou signature manuscrite scannée
-                                    </p>
-                                    
-                                    <div 
-                                        className={`border-2 border-dashed rounded-lg p-6 text-center transition-all ${
-                                            isDraggingLogo 
-                                                ? 'border-orange-500 bg-orange-50' 
-                                                : 'border-gray-300 hover:border-orange-400'
-                                        }`}
-                                        onDragOver={(e) => {
-                                            e.preventDefault();
-                                            setIsDraggingLogo(true);
-                                        }}
-                                        onDragLeave={(e) => {
-                                            e.preventDefault();
-                                            setIsDraggingLogo(false);
-                                        }}
-                                        onDrop={(e) => {
-                                            e.preventDefault();
-                                            setIsDraggingLogo(false);
-                                            
-                                            const file = e.dataTransfer.files?.[0];
-                                            if (file && file.type.startsWith('image/')) {
-                                                if (file.size > 2 * 1024 * 1024) {
-                                                    showToast('L\'image ne doit pas dépasser 2MB', 'error');
-                                                    return;
-                                                }
-                                                
-                                                const reader = new FileReader();
-                                                reader.onload = (event) => {
-                                                    const base64 = event.target?.result as string;
-                                                    setCompanyFormData({ ...companyFormData, signature_image_base64: base64 });
-                                                };
-                                                reader.readAsDataURL(file);
-                                            } else {
-                                                showToast('Veuillez déposer une image valide', 'error');
-                                            }
-                                        }}
-                                    >
-                                        <input
-                                            type="file"
-                                            accept="image/*"
-                                            onChange={(e) => {
-                                                const file = e.target.files?.[0];
-                                                if (file) {
-                                                    if (file.size > 2 * 1024 * 1024) {
-                                                        showToast('L\'image ne doit pas dépasser 2MB', 'error');
-                                                        return;
-                                                    }
-                                                    
-                                                    const reader = new FileReader();
-                                                    reader.onload = (event) => {
-                                                        const base64 = event.target?.result as string;
-                                                        setCompanyFormData({ ...companyFormData, signature_image_base64: base64 });
-                                                    };
-                                                    reader.readAsDataURL(file);
-                                                }
-                                            }}
-                                            className="hidden"
-                                            id="signature-logo-upload"
-                                        />
-                                        <label
-                                            htmlFor="signature-logo-upload"
-                                            className="cursor-pointer flex flex-col items-center"
-                                        >
-                                            {companyFormData.signature_image_base64 ? (
-                                                <div className="space-y-3">
-                                                    <img
-                                                        src={companyFormData.signature_image_base64}
-                                                        alt="Logo de signature"
-                                                        className="max-h-32 max-w-full object-contain mx-auto"
-                                                    />
-                                                    <p className="text-sm text-green-600 font-medium">✓ Logo téléchargé</p>
-                                                    <p className="text-xs text-gray-500">Cliquez ou glissez pour changer</p>
-                                                </div>
-                                            ) : (
-                                                <div className="space-y-3">
-                                                    <Upload className="w-12 h-12 text-gray-400 mx-auto" />
-                                                    <div>
-                                                        <p className="text-sm font-medium text-gray-700">
-                                                            Cliquez ou glissez pour télécharger
-                                                        </p>
-                                                        <p className="text-xs text-gray-500 mt-1">
-                                                            PNG, JPG jusqu'à 2MB
-                                                        </p>
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </label>
-                                    </div>
-                                    
-                                    {companyFormData.signature_image_base64 && (
-                                        <button
-                                            type="button"
-                                            onClick={() => setCompanyFormData({ ...companyFormData, signature_image_base64: '' })}
-                                            className="mt-2 text-sm text-red-600 hover:text-red-700 flex items-center gap-1"
-                                        >
-                                            <X className="w-4 h-4" />
-                                            Supprimer le logo
-                                        </button>
-                                    )}
-                                </div>
-                            </div>
-                        )}
-
-                        {companyInfoStep === 5 && (
-                            <div className="space-y-4 mb-6">
-                                <div className="flex items-start gap-2 mb-4">
-                                    <HelpCircle className="w-5 h-5 text-gray-600 flex-shrink-0 mt-0.5" />
-                                    <p className="text-sm text-gray-700">
-                                        La base de connaissances permet de faire performer l'IA en enrichissant ses réponses avec des informations spécifiques à votre entreprise. Vous pourrez la configurer plus tard dans les paramètres.
-                                    </p>
-                                </div>
-                                <div className="space-y-3">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-900 mb-2">
-                                            URLs de sites web (optionnel)
-                                        </label>
-                                        <input
-                                            type="url"
-                                            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                                            placeholder="https://example.com/documentation"
-                                        />
-                                        <p className="text-xs text-gray-500 mt-1">
-                                            URLs de sites web contenant des informations sur votre entreprise
-                                        </p>
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-900 mb-2">
-                                            Documents PDF (optionnel)
-                                        </label>
-                                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                                            <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                                            <p className="text-sm text-gray-600">
-                                                Vous pourrez ajouter des PDFs dans les paramètres
-                                            </p>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        <div className="flex gap-3">
-                            <button
-                                onClick={handleCompanyInfoNext}
-                                className="group relative flex-1 inline-flex cursor-pointer items-center justify-center gap-2 overflow-hidden rounded-full bg-gradient-to-br from-[#F35F4F] to-[#FFAD5A] py-3 font-medium text-white shadow-lg transition-all duration-300 ease-out hover:shadow-xl"
-                            >
-                                <span className="relative z-10 transition-transform duration-300 group-hover:-translate-x-1">
-                                    {companyInfoStep === 5 ? 'Terminer' : 'Continuer'}
-                                </span>
-                                <svg
-                                    className="relative z-10 h-5 w-5 -translate-x-2 opacity-0 transition-all duration-300 group-hover:translate-x-0 group-hover:opacity-100"
-                                    fill="none"
-                                    viewBox="0 0 24 24"
-                                    stroke="currentColor"
-                                    strokeWidth={2}
-                                >
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                                </svg>
-                            </button>
-                            <button
-                                onClick={() => {
-                                    // Vérifier que les étapes obligatoires sont complètes avant de permettre la fermeture
-                                    const isMandatoryComplete = 
-                                        companyFormData.company_name?.trim() &&
-                                        companyFormData.activity_description?.trim() &&
-                                        companyFormData.services_offered?.trim() &&
-                                        companyFormData.signature_image_base64?.trim();
-                                    
-                                    if (!isMandatoryComplete) {
-                                        showToast('Veuillez compléter toutes les étapes obligatoires avant de fermer', 'warning');
-                                        return;
-                                    }
-                                    
-                                    setShowCompanyInfoModal(false);
-                                    setCompanyInfoStep(1);
-                                    setAccountMissingInfo('');
-                                    setCompanyFormData({
-                                        company_name: '',
-                                        activity_description: '',
-                                        services_proposed: '',
-                                        services_offered: '',
-                                        signature_image_base64: '',
-                                    });
-                                }}
-                                className="px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-full hover:bg-gray-50 transition-colors font-medium"
-                            >
-                                Retour
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
 
             {/* Modal de succès */}
             {showSuccessModal && (
@@ -3102,7 +2490,7 @@ export default function Settings() {
             )}
 
             {/* Modal de modification des informations entreprise */}
-            {showEditCompanyModal && selectedAccount && (
+            {/* {showEditCompanyModal && selectedAccount && (
                 <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
                     <div className="bg-white rounded-2xl p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl font-inter">
                         <div className="flex items-center justify-between mb-6">
@@ -3212,7 +2600,7 @@ export default function Settings() {
                         </form>
                     </div>
                 </div>
-            )}
+            )} */}
 
             {/* Modal de suppression de compte utilisateur */}
             {showDeleteUserModal && (

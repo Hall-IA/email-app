@@ -201,7 +201,7 @@ md:h-[700px] md:w-[700px] xl:h-[900px] xl:w-[900px]" />
 
       </section>
 
-      <section className="w-full my-50 flex justify-center">
+      <section className="w-full my-20 flex justify-center">
         <AnimatedCards />
       </section>
 

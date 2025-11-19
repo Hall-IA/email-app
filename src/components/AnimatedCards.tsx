@@ -12,7 +12,7 @@ export default function AnimatedCards() {
                     className="w-full h-full object-contain"
                 />
                 {/* Zone d'animation des enveloppes - en haut de la carte, au-dessus du "1" et du titre */}
-                <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 20 }}>
+                {/* <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 20 }}>
                     <div className="relative w-full h-full overflow-hidden">
                         <Mail 
                             className="envelope-slide-1 absolute w-17 h-17  text-white/90" 
@@ -36,7 +36,7 @@ export default function AnimatedCards() {
                             }}
                         />
                     </div>
-                </div>
+                </div> */}
                 <div className="absolute inset-0 flex items-end">
                     <div className="flex items-end gap-2 w-full -mb-5 pr-4">
                         <div className="flex items-center gap-2">
