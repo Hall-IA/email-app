@@ -1,7 +1,7 @@
-"use client";
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { MotionValue, motion, useScroll, useTransform } from "motion/react";
-import { cn } from "@/lib/utils";
+'use client';
+import React, { useEffect, useRef, useState } from 'react';
+import { MotionValue, motion, useScroll, useTransform } from 'motion/react';
+import { cn } from '@/lib/utils';
 import {
   IconBrightnessDown,
   IconBrightnessUp,
@@ -17,13 +17,12 @@ import {
   IconVolume,
   IconVolume2,
   IconVolume3,
-} from "@tabler/icons-react";
-import { IconSearch } from "@tabler/icons-react";
-import { IconWorld } from "@tabler/icons-react";
-import { IconCommand } from "@tabler/icons-react";
-import { IconCaretLeftFilled } from "@tabler/icons-react";
-import { IconCaretDownFilled } from "@tabler/icons-react";
-
+} from '@tabler/icons-react';
+import { IconSearch } from '@tabler/icons-react';
+import { IconWorld } from '@tabler/icons-react';
+import { IconCommand } from '@tabler/icons-react';
+import { IconCaretLeftFilled } from '@tabler/icons-react';
+import { IconCaretDownFilled } from '@tabler/icons-react';
 
 export const MacbookScroll = ({
   src,
@@ -41,7 +40,7 @@ export const MacbookScroll = ({
   const ref = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({
     target: ref,
-    offset: ["start start", "end start"],
+    offset: ['start start', 'end start'],
   });
 
   const [isMobile, setIsMobile] = useState(false);
@@ -52,16 +51,8 @@ export const MacbookScroll = ({
     }
   }, []);
 
-  const scaleX = useTransform(
-    scrollYProgress,
-    [0, 0.3],
-    [1.2, isMobile ? 1 : 1.5],
-  );
-  const scaleY = useTransform(
-    scrollYProgress,
-    [0, 0.3],
-    [0.6, isMobile ? 1 : 1.5],
-  );
+  const scaleX = useTransform(scrollYProgress, [0, 0.3], [1.2, isMobile ? 1 : 1.5]);
+  const scaleY = useTransform(scrollYProgress, [0, 0.3], [0.6, isMobile ? 1 : 1.5]);
   const translate = useTransform(scrollYProgress, [0, 1], [0, 1200]);
   const rotate = useTransform(scrollYProgress, [0.1, 0.12, 0.3], [-28, -28, 0]);
   const textTransform = useTransform(scrollYProgress, [0, 0.3], [0, 100]);
@@ -70,7 +61,7 @@ export const MacbookScroll = ({
   return (
     <div
       ref={ref}
-      className="flex xs:min-h-[80vh] lg:min-h-[180vh] shrink-0 scale-[0.5] transform flex-col items-center justify-start py-0 [perspective:800px] sm:scale-75 md:scale-110 lg:scale-150 md:py-80"
+      className="flex min-h-screen shrink-0 scale-[0.5] transform flex-col items-center justify-start py-0 sm:scale-75 md:scale-110 md:py-80 lg:min-h-[190vh] lg:scale-150"
     >
       <motion.h2
         style={{
@@ -79,9 +70,7 @@ export const MacbookScroll = ({
         }}
         className="mb-20 text-center text-3xl font-bold text-neutral-800 dark:text-white"
       >
-        {title || (
-          ''
-        )}
+        {title || ''}
       </motion.h2>
       {/* Lid */}
       <Lid
@@ -93,7 +82,7 @@ export const MacbookScroll = ({
         translate={translate}
       />
       {/* Base area */}
-      <div className="relative -z-10 h-[22rem] w-[32rem] overflow-hidden rounded-2xl bg-gray-200 dark:bg-[#272729]">
+      <div className="relative -z-10 h-88 w-lg overflow-hidden rounded-2xl bg-gray-200 dark:bg-[#272729]">
         {/* above keyboard bar */}
         <div className="relative h-10 w-full">
           <div className="absolute inset-x-0 mx-auto h-4 w-[80%] bg-[#050505]" />
@@ -110,9 +99,9 @@ export const MacbookScroll = ({
           </div>
         </div>
         <Trackpad />
-        <div className="absolute inset-x-0 bottom-0 mx-auto h-2 w-20 rounded-tl-3xl rounded-tr-3xl bg-gradient-to-t from-[#272729] to-[#050505]" />
+        <div className="absolute inset-x-0 bottom-0 mx-auto h-2 w-20 rounded-tl-3xl rounded-tr-3xl bg-linear-to-t from-[#272729] to-[#050505]" />
         {showGradient && (
-          <div className="absolute inset-x-0 bottom-0 z-50 h-40 w-full bg-gradient-to-t from-white via-white to-transparent dark:from-black dark:via-black"></div>
+          <div className="absolute inset-x-0 bottom-0 z-50 h-40 w-full bg-linear-to-t from-white via-white to-transparent dark:from-black dark:via-black"></div>
         )}
         {badge && <div className="absolute bottom-4 left-4">{badge}</div>}
       </div>
@@ -135,39 +124,28 @@ export const Lid = ({
   isVideo?: boolean;
 }) => {
   return (
-    <div className="relative [perspective:800px]">
+    <div className="relative perspective-midrange">
       <div
         style={{
-          transform: "perspective(800px) rotateX(-25deg) translateZ(0px)",
-          transformOrigin: "bottom",
-          transformStyle: "preserve-3d",
+          transform: 'perspective(800px) rotateX(-25deg) translateZ(0px)',
+          transformOrigin: 'bottom',
+          transformStyle: 'preserve-3d',
         }}
-        className="relative h-[12rem] w-[32rem] rounded-2xl bg-[#010101] p-2"
-      >
-        <div
-          style={{
-            boxShadow: "0px 2px 0px 2px #171717 inset",
-          }}
-          className="absolute inset-0 flex items-center justify-center rounded-lg bg-[#010101]"
-        >
-          <span className="text-white">
-            <AceternityLogo />
-          </span>
-        </div>
-      </div>
+        className="relative h-48 w-lg rounded-2xl bg-[#010101] p-2"
+      />
       <motion.div
         style={{
           scaleX: scaleX,
           scaleY: scaleY,
           rotateX: rotate,
           translateY: translate,
-          transformStyle: "preserve-3d",
-          transformOrigin: "top",
+          transformStyle: 'preserve-3d',
+          transformOrigin: 'top',
         }}
-        className="absolute inset-0 h-96 w-[32rem] rounded-2xl bg-[#010101] p-2"
+        className="absolute inset-0 h-96 w-lg rounded-2xl bg-[#010101] p-2"
       >
         <div className="absolute inset-0 rounded-lg bg-[#272729]" />
-        
+
         {isVideo ? (
           <video
             src={src as string}
@@ -177,12 +155,12 @@ export const Lid = ({
             playsInline
             className="absolute inset-0 h-full w-full rounded-lg object-cover object-center"
             style={{
-              transform: "translate3d(0, 0, 0)", 
-              willChange: "transform, opacity",
-              backfaceVisibility: "hidden", 
-              WebkitBackfaceVisibility: "hidden",
-              WebkitTransform: "translate3d(0, 0, 0)",
-              filter: "brightness(1)",
+              transform: 'translate3d(0, 0, 0)',
+              willChange: 'transform, opacity',
+              backfaceVisibility: 'hidden',
+              WebkitBackfaceVisibility: 'hidden',
+              WebkitTransform: 'translate3d(0, 0, 0)',
+              filter: 'brightness(1)',
             }}
           />
         ) : (
@@ -191,10 +169,10 @@ export const Lid = ({
             alt="aceternity logo"
             className="absolute inset-0 h-full w-full rounded-lg object-cover object-center"
             style={{
-              transform: "translate3d(0, 0, 0)",
-              willChange: "transform",
-              backfaceVisibility: "hidden",
-              WebkitBackfaceVisibility: "hidden",
+              transform: 'translate3d(0, 0, 0)',
+              willChange: 'transform',
+              backfaceVisibility: 'hidden',
+              WebkitBackfaceVisibility: 'hidden',
             }}
           />
         )}
@@ -202,12 +180,13 @@ export const Lid = ({
     </div>
   );
 };
+
 export const Trackpad = () => {
   return (
     <div
       className="mx-auto my-1 h-32 w-[40%] rounded-xl"
       style={{
-        boxShadow: "0px 0px 1px 1px #00000020 inset",
+        boxShadow: '0px 0px 1px 1px #00000020 inset',
       }}
     ></div>
   );
@@ -215,7 +194,7 @@ export const Trackpad = () => {
 
 export const Keypad = () => {
   return (
-    <div className="mx-1 h-full [transform:translateZ(0)] rounded-md bg-[#050505] p-1 [will-change:transform]">
+    <div className="mx-1 h-full transform-[translateZ(0)] rounded-md bg-[#050505] p-1 will-change-transform">
       {/* First Row */}
       <div className="mb-[2px] flex w-full shrink-0 gap-[2px]">
         <KBtn
@@ -273,7 +252,7 @@ export const Keypad = () => {
           <span className="mt-1 inline-block">F12</span>
         </KBtn>
         <KBtn>
-          <div className="h-4 w-4 rounded-full bg-gradient-to-b from-neutral-900 from-20% via-black via-50% to-neutral-900 to-95% p-px">
+          <div className="h-4 w-4 rounded-full bg-linear-to-b from-neutral-900 from-20% via-black via-50% to-neutral-900 to-95% p-px">
             <div className="h-full w-full rounded-full bg-black" />
           </div>
         </KBtn>
@@ -519,10 +498,7 @@ export const Keypad = () => {
             <span className="block">option</span>
           </div>
         </KBtn>
-        <KBtn
-          className="w-8"
-          childrenClassName="h-full justify-between py-[4px]"
-        >
+        <KBtn className="w-8" childrenClassName="h-full justify-between py-[4px]">
           <div className="flex w-full justify-end pr-1">
             <IconCommand className="h-[6px] w-[6px]" />
           </div>
@@ -531,10 +507,7 @@ export const Keypad = () => {
           </div>
         </KBtn>
         <KBtn className="w-[8.2rem]"></KBtn>
-        <KBtn
-          className="w-8"
-          childrenClassName="h-full justify-between py-[4px]"
-        >
+        <KBtn className="w-8" childrenClassName="h-full justify-between py-[4px]">
           <div className="flex w-full justify-start pl-1">
             <IconCommand className="h-[6px] w-[6px]" />
           </div>
@@ -585,25 +558,24 @@ export const KBtn = ({
   return (
     <div
       className={cn(
-        "[transform:translateZ(0)] rounded-[4px] p-[0.5px] [will-change:transform]",
-        backlit && "bg-white/[0.2] shadow-xl shadow-white",
+        'transform-[translateZ(0)] rounded-[4px] p-[0.5px] will-change-transform',
+        backlit && 'bg-white/20 shadow-xl shadow-white',
       )}
     >
       <div
         className={cn(
-          "flex h-6 w-6 items-center justify-center rounded-[3.5px] bg-[#0A090D]",
+          'flex h-6 w-6 items-center justify-center rounded-[3.5px] bg-[#0A090D]',
           className,
         )}
         style={{
-          boxShadow:
-            "0px -0.5px 2px 0 #0D0D0F inset, -0.5px 0px 2px 0 #0D0D0F inset",
+          boxShadow: '0px -0.5px 2px 0 #0D0D0F inset, -0.5px 0px 2px 0 #0D0D0F inset',
         }}
       >
         <div
           className={cn(
-            "flex w-full flex-col items-center justify-center text-[5px] text-neutral-200",
+            'flex w-full flex-col items-center justify-center text-[5px] text-neutral-200',
             childrenClassName,
-            backlit && "text-white",
+            backlit && 'text-white',
           )}
         >
           {children}
@@ -618,9 +590,8 @@ export const SpeakerGrid = () => {
     <div
       className="mt-2 flex h-40 gap-[2px] px-[0.5px]"
       style={{
-        backgroundImage:
-          "radial-gradient(circle, #08080A 0.5px, transparent 0.5px)",
-        backgroundSize: "3px 3px",
+        backgroundImage: 'radial-gradient(circle, #08080A 0.5px, transparent 0.5px)',
+        backgroundSize: '3px 3px',
       }}
     ></div>
   );
@@ -636,32 +607,13 @@ export const OptionKey = ({ className }: { className: string }) => {
       viewBox="0 0 32 32"
       className={className}
     >
-      <rect
-        stroke="currentColor"
-        strokeWidth={2}
-        x="18"
-        y="5"
-        width="10"
-        height="2"
-      />
+      <rect stroke="currentColor" strokeWidth={2} x="18" y="5" width="10" height="2" />
       <polygon
         stroke="currentColor"
         strokeWidth={2}
         points="10.6,5 4,5 4,7 9.4,7 18.4,27 28,27 28,25 19.6,25 "
       />
-      <rect
-        id="_Transparent_Rectangle_"
-        className="st0"
-        width="32"
-        height="32"
-        stroke="none"
-      />
+      <rect id="_Transparent_Rectangle_" className="st0" width="32" height="32" stroke="none" />
     </svg>
-  );
-};
-
-const AceternityLogo = () => {
-  return (
-<img src="/assets/logos/logo-hallia.png" alt="Hallia Logo" className="w-5 h-5" />
   );
 };
