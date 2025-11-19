@@ -52,9 +52,9 @@ export default function AppNavbar() {
         </div>
 
         {/* Partie scrollable : Navigation */}
-        <div className="-mx-4 overflow-x-auto px-4 [-ms-overflow-style:none] [scrollbar-width:none] md:mx-0 md:px-0 [&::-webkit-scrollbar]:hidden">
-          <ul className="flex min-w-max gap-6 font-medium md:min-w-0">
-            <li>
+        <div className="overflow-x-auto overflow-y-hidden [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <ul className="flex min-w-max gap-6 font-medium">
+            <li className="flex-shrink-0">
               <Link
                 href={'/dashboard'}
                 className={cn(

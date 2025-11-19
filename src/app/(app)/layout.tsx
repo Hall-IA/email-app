@@ -203,9 +203,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   return (
-    <div className="min-h-0 bg-gray-100">
+    <div className="flex min-h-screen flex-1 flex-col">
       <AppNavbar />
-      <main className="container mx-auto px-4 py-8">{children}</main>
+      <main className="bg-silverchalice-100 flex-1 py-8 px-4">{children}</main>
 
       {/* Modals obligatoires */}
       {showOnboarding && user && (

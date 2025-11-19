@@ -9,7 +9,6 @@ import { CheckoutModal } from '@/components/CheckoutModal';
 import { ConfirmationModal } from '@/components/ConfirmationModal';
 import { DeleteAccountModal } from '@/components/DeleteAccountModal';
 import { HowItWorks } from '@/components/HowItWork';
-import Container from '@/components/Container';
 import { motion, AnimatePresence } from 'motion/react';
 import { useToast } from '@/components/Toast';
 import { syncKnowledgeBase, fileToBase64, isValidUrl, validatePdfFile } from '@/utils/knowledgeBaseService';
@@ -1567,7 +1566,7 @@ export default function Settings() {
         <>
             <ToastComponent />
             
-            <Container>
+            <div className="mx-auto max-w-7xl">
             <HowItWorks />
 
                 {/* Contenu principal */}
@@ -2591,7 +2590,7 @@ export default function Settings() {
                 </div>
                 {/* </div> */}
 </motion.div> 
-</Container>
+</div>
 
             {/* Modal d'information de l'entreprise */}
             {showCompanyInfoModal && (
