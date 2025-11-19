@@ -54,6 +54,12 @@ export default function Dashboard() {
     const [hasEverHadSubscription, setHasEverHadSubscription] = useState(false);
     const [showNotification, setShowNotification] = useState(false);
     const [notificationMessage, setNotificationMessage] = useState('');
+    const [companyFormData, setCompanyFormData] = useState({
+        company_name: '',
+        activity_description: '',
+        services_offered: '',
+        signature_image_base64: '',
+    });
 
     useEffect(() => {
         if (user?.id) {
@@ -64,8 +70,40 @@ export default function Dashboard() {
     useEffect(() => {
         if (user?.id && selectedEmail) {
             loadStats();
+            loadCompanyData();
         }
     }, [user?.id, timePeriod, selectedEmail]);
+
+    const loadCompanyData = async () => {
+        if (!user || !selectedEmail) return;
+
+        try {
+            const { data: config } = await supabase
+                .from('email_configurations')
+                .select('company_name, activity_description, services_offered, signature_image_base64')
+                .eq('user_id', user.id)
+                .eq('email', selectedEmail)
+                .maybeSingle();
+
+            if (config) {
+                setCompanyFormData({
+                    company_name: config.company_name || '',
+                    activity_description: config.activity_description || '',
+                    services_offered: config.services_offered || '',
+                    signature_image_base64: config.signature_image_base64 || '',
+                });
+            } else {
+                setCompanyFormData({
+                    company_name: '',
+                    activity_description: '',
+                    services_offered: '',
+                    signature_image_base64: '',
+                });
+            }
+        } catch (error) {
+            console.error('Error loading company data:', error);
+        }
+    };
 
 
     const loadAccounts = async () => {
@@ -580,21 +618,52 @@ export default function Dashboard() {
                                     }}
                                 >
                                     <div className='flex flex-col sm:flex-row justify-between gap-3'>
-                                        <button
-                                            disabled={hasEverHadSubscription && !hasActiveSubscription}
-                                            onClick={handleToggleAutoSort}
-                                            className={`relative w-14 h-8 rounded-full transition-colors ${hasEverHadSubscription && !hasActiveSubscription
-                                                ? 'bg-gray-200 cursor-not-allowed'
-                                                : autoSort
-                                                    ? 'bg-green-500'
-                                                    : 'bg-gray-300'
-                                                }`}
-                                        >
-                                            <div
-                                                className={`absolute top-1 left-1 w-6 h-6 bg-white rounded-full transition-transform ${autoSort ? 'translate-x-6' : 'translate-x-0'
-                                                    }`}
-                                            />
-                                        </button>
+                                        {(() => {
+                                            // Vérifier si les informations obligatoires sont renseignées
+                                            const missingInfo = [];
+                                            if (!companyFormData.company_name?.trim()) {
+                                                missingInfo.push('Nom de l\'entreprise');
+                                            }
+                                            if (!companyFormData.activity_description?.trim()) {
+                                                missingInfo.push('Description de l\'activité et services');
+                                            }
+                                            
+                                            const hasRequiredInfo = missingInfo.length === 0;
+                                            const isDisabled = (hasEverHadSubscription && !hasActiveSubscription) || !hasRequiredInfo;
+                                            
+                                            return (
+                                                <div className="relative group/tooltip">
+                                                    <button
+                                                        disabled={isDisabled}
+                                                        onClick={handleToggleAutoSort}
+                                                        className={`relative w-14 h-8 rounded-full transition-colors ${isDisabled
+                                                            ? 'bg-gray-200 cursor-not-allowed'
+                                                            : autoSort
+                                                                ? 'bg-green-500'
+                                                                : 'bg-gray-300'
+                                                            }`}
+                                                    >
+                                                        <div
+                                                            className={`absolute top-1 left-1 w-6 h-6 bg-white rounded-full transition-transform ${autoSort ? 'translate-x-6' : 'translate-x-0'
+                                                                }`}
+                                                        />
+                                                    </button>
+                                                    {!hasRequiredInfo && (
+                                                        <div className="absolute bottom-full left-0 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none z-50 min-w-[200px]">
+                                                            <div className="font-semibold mb-2">Informations manquantes pour l'activation du traitement automatique :</div>
+                                                            <ul className="list-disc list-inside space-y-1">
+                                                                {missingInfo.map((info, index) => (
+                                                                    <li key={index}>{info}</li>
+                                                                ))}
+                                                            </ul>
+                                                            <div className="absolute top-full left-4 -mt-1">
+                                                                <div className="border-4 border-transparent border-t-gray-900"></div>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })()}
 
                                         <div className="flex items-center gap-2 border rounded-md p-1">
                                             <div className="relative flex items-center gap-2">

@@ -17,9 +17,9 @@ export default function AppNavbar() {
             <div className="container mx-auto px-4">
                 <div className="flex flex-col w-full gap-3 justify-between ">
                     <div className="flex justify-between gap-8">
-                        <Link href="/dashboard" className="text-xl flex items-center gap-2 font-bold">
+                        <Link href="/dashboard" className="text-3xl flex items-center gap-2 font-thunder font-bold">
                             <img src="/logo/logo-navbar.png" alt="Logo" />
-                            HALL MAIL
+                            <h1 className="-mb-2">HALL MAIL</h1>
                         </Link>
                         <div className="flex items-center gap-4">
                             {user && (

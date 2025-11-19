@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Building2, MapPin, Mail, ChevronRight, ChevronLeft, Check } from 'lucide-react';
+import { Building2, MapPin, Mail, ChevronRight, ChevronLeft, Check, AlertCircle } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useToast } from './Toast';
 
@@ -50,6 +50,7 @@ export function OnboardingModal({ userId, onComplete }: OnboardingModalProps) {
     const [emailError, setEmailError] = useState('');
     const [phoneError, setPhoneError] = useState('');
     const [searchTimeout, setSearchTimeout] = useState<NodeJS.Timeout | null>(null);
+    const [validationError, setValidationError] = useState('');
     const { showToast, ToastComponent } = useToast();
 
     const totalSteps = 3;
@@ -255,21 +256,24 @@ export function OnboardingModal({ userId, onComplete }: OnboardingModalProps) {
     };
 
     const handleNext = () => {
+        setValidationError(''); // Réinitialiser l'erreur
         if (currentStep === 1 && !isStep1Valid()) {
-            showToast('Veuillez remplir tous les champs obligatoires', 'warning');
+            setValidationError('Veuillez remplir tous les champs obligatoires');
             return;
         }
         if (currentStep === 2 && !isStep2Valid()) {
-            showToast('Veuillez remplir tous les champs obligatoires', 'warning');
+            setValidationError('Veuillez remplir tous les champs obligatoires');
             return;
         }
         if (currentStep < totalSteps) {
+            setValidationError(''); // Réinitialiser l'erreur avant de passer à l'étape suivante
             setCurrentStep(currentStep + 1);
         }
     };
 
     const handleBack = () => {
         if (currentStep > 1) {
+            setValidationError(''); // Réinitialiser l'erreur
             setCurrentStep(currentStep - 1);
         }
     };
@@ -278,12 +282,13 @@ export function OnboardingModal({ userId, onComplete }: OnboardingModalProps) {
         // Réinitialiser les erreurs
         setEmailError('');
         setPhoneError('');
+        setValidationError('');
         
         if (!isStep3Valid()) {
             if (emailError || phoneError) {
-                showToast('Veuillez corriger les erreurs dans le formulaire', 'error');
+                setValidationError('Veuillez corriger les erreurs dans le formulaire');
             } else {
-                showToast('Veuillez remplir tous les champs obligatoires', 'warning');
+                setValidationError('Veuillez remplir tous les champs obligatoires');
             }
             return;
         }
@@ -706,51 +711,61 @@ export function OnboardingModal({ userId, onComplete }: OnboardingModalProps) {
                 </div>
 
                 {/* Footer with Navigation */}
-                <div className="relative px-8 py-6 bg-white/80 backdrop-blur-sm border-t border-gray-200 flex items-center justify-between font-roboto">
-                    <button
-                        onClick={handleBack}
-                        disabled={currentStep === 1}
-                        className={`flex items-center gap-2 px-5 py-3 rounded-xl font-semibold transition-all font-roboto ${currentStep === 1
-                                ? 'text-gray-300 cursor-not-allowed'
-                                : 'text-gray-700 hover:bg-white hover:shadow-sm'
-                            }`}
-                    >
-                        <ChevronLeft className="w-5 h-5" />
-                        Précédent
-                    </button>
-
-                    <div className="text-sm font-medium text-gray-500 font-roboto">
-                        Étape {currentStep} sur {totalSteps}
-                    </div>
-
-                    {currentStep < totalSteps ? (
-                        <button
-                            onClick={handleNext}
-                            className="flex items-center gap-2 px-6 py-3 bg-gradient-to-br from-[#F35F4F] to-[#FFAD5A] text-white rounded-xl font-semibold hover:shadow-xl transition-all font-roboto"
-                        >
-                            Suivant
-                            <ChevronRight className="w-5 h-5" />
-                        </button>
-                    ) : (
-                    
-                        <button
-                            onClick={handleSubmit}
-                            disabled={loading}
-                            className="flex items-center gap-2 px-6 py-3 bg-gradient-to-br from-[#F35F4F] to-[#FFAD5A] text-white rounded-xl font-semibold hover:shadow-xl transition-all disabled:opacity-50 font-roboto"
-                        >
-                            {loading ? (
-                                <>
-                                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                    Enregistrement...
-                                </>
-                            ) : (
-                                <>
-                                    <Check className="w-5 h-5" />
-                                    Terminer
-                                </>
-                            )}
-                        </button>
+                <div className="relative px-8 py-6 bg-white/80 backdrop-blur-sm border-t border-gray-200">
+                    {/* Message d'erreur */}
+                    {validationError && (
+                        <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-start gap-2">
+                            <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                            <p className="text-sm text-red-700 font-roboto">{validationError}</p>
+                        </div>
                     )}
+                    
+                    <div className="flex items-center justify-between font-roboto">
+                        <button
+                            onClick={handleBack}
+                            disabled={currentStep === 1}
+                            className={`flex items-center gap-2 px-5 py-3 rounded-xl font-semibold transition-all font-roboto ${currentStep === 1
+                                    ? 'text-gray-300 cursor-not-allowed'
+                                    : 'text-gray-700 hover:bg-white hover:shadow-sm'
+                                }`}
+                        >
+                            <ChevronLeft className="w-5 h-5" />
+                            Précédent
+                        </button>
+
+                        <div className="text-sm font-medium text-gray-500 font-roboto">
+                            Étape {currentStep} sur {totalSteps}
+                        </div>
+
+                        {currentStep < totalSteps ? (
+                            <button
+                                onClick={handleNext}
+                                className="flex items-center gap-2 px-6 py-3 bg-gradient-to-br from-[#F35F4F] to-[#FFAD5A] text-white rounded-xl font-semibold hover:shadow-xl transition-all font-roboto"
+                            >
+                                Suivant
+                                <ChevronRight className="w-5 h-5" />
+                            </button>
+                        ) : (
+                            
+                            <button
+                                onClick={handleSubmit}
+                                disabled={loading}
+                                className="flex items-center gap-2 px-6 py-3 bg-gradient-to-br from-[#F35F4F] to-[#FFAD5A] text-white rounded-xl font-semibold hover:shadow-xl transition-all disabled:opacity-50 font-roboto"
+                            >
+                                {loading ? (
+                                    <>
+                                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                        Enregistrement...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Check className="w-5 h-5" />
+                                        Terminer
+                                    </>
+                                )}
+                            </button>
+                        )}
+                    </div>
                 </div>
                 </div>
             </div>
