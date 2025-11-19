@@ -71,9 +71,10 @@ export function ConcreteAdvantagesCard() {
   return (
     <section
       ref={cardRef}
-      className={`w-full bg-[#F4F1EE] py-30 transition-all duration-700 ${
-        isVisible ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0'
-      }`}
+      className={cn(
+        'mb-10 w-full bg-[#F4F1EE] transition-all duration-700',
+        isVisible ? 'translate-y-0 opacity-100' : 'translate-y-8 opacity-0',
+      )}
       itemScope
       itemType="https://schema.org/CreativeWork"
       aria-label="Les avantages concrets de HALL-IA"

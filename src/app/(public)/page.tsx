@@ -5,7 +5,7 @@ import { FaqSection } from '@/components/pages/home/FaqSection';
 import Hero from '@/components/pages/home/Hero';
 import ProductivitySection from '@/components/pages/home/ProductivitySection';
 import TestimonialSection from '@/components/pages/home/TestimonialSection';
-import ConcreteAdvantagesSection from '@/components/pages/home/ConcreteAdvantagesSection';
+import { ConcreteAdvantagesCard } from '@/components/ConcreteAdvantagesCard';
 
 const sampleVideoItems: ListItem[] = [
   {
@@ -82,7 +82,7 @@ export default function Accueil() {
   return (
     <section className="space-y-30 overflow-x-hidden">
       <Hero />
-      <section id="etapes" className='lg:mb-90'>
+      <section id="etapes" className="lg:mb-90">
         <HowItWorkSection items={sampleVideoItems} brandColor="#F27732" />
       </section>
       <section>
@@ -92,7 +92,7 @@ export default function Accueil() {
         <section id="prix">
           <AppPack />
         </section>
-        <ConcreteAdvantagesSection />
+        <ConcreteAdvantagesCard />
         <TestimonialSection />
         <FaqSection />
         <CTASection />

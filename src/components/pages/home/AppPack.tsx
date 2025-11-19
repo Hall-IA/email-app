@@ -34,7 +34,7 @@ export default function AppPack() {
         loading="lazy"
       />
 
-      <h2 className="font-thunder mb-16 text-center text-7xl font-black lg:mt-10">
+      <h2 className="font-thunder mb-16 text-center text-5xl font-black md:text-7xl lg:mt-10">
         Essayer, et commencez aujourd'hui
       </h2>
 
