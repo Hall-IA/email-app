@@ -1,106 +1,119 @@
 'use client';
 
-import { LogOut } from 'lucide-react';
+import { LogOut, Home, Settings, User } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '../../../context/AuthContext';
+import { cn } from '@/lib/utils';
+import { useState } from 'react';
+import { ConfirmDialog } from '../ui/ConfirmDialog';
+import Image from 'next/image';
 
 export default function AppNavbar() {
-    const { user, signOut } = useAuth();
-    const pathname = usePathname();
+  const { user, signOut } = useAuth();
+  const pathname = usePathname();
+  const [open, setOpen] = useState(false);
 
-    // Fonction pour vérifier si le lien est actif
-    const isActive = (path: string) => pathname === path;
+  const linkBaseClasses = 'flex items-center gap-1.5 pb-4 border-b transition-colors';
 
-    return (
-        <nav className="bg-white shadow-sm border-b pt-5 ">
-            <div className="container mx-auto px-4">
-                <div className="flex flex-col w-full gap-3 justify-between ">
-                    <div className="flex justify-between gap-8">
-                        <Link href="/dashboard" className="text-xl flex items-center gap-2 font-bold">
-                            <img src="/logo/logo-navbar.png" alt="Logo" />
-                            HALL MAIL
-                        </Link>
-                        <div className="flex items-center gap-4">
-                            {user && (
-                                <>
-                                    <span className="text-sm text-gray-600">
-                                        {user.email}
-                                    </span>
-                                    <button
-                                        onClick={() => signOut()}
-                                        className="group relative flex items-center gap-2 px-4 py-2 text-sm font-medium overflow-hidden border-2 border-gray-300 rounded-full shadow-md hover:shadow-lg hover:border-red-400 transition-all duration-300"
-                                    >
-                                        <span className="relative z-10 transition-colors duration-300 text-gray-700 group-hover:text-red-600">
-                                            Déconnexion
-                                        </span>
-                                        <LogOut className="relative z-10 w-4 h-4 text-gray-600 transition-all duration-300 group-hover:text-red-600 group-hover:translate-x-1" />
-                                        
-                                        {/* Fond qui apparaît au hover */}
-                                        <div className="absolute inset-0 bg-red-50 transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left" />
-                                    </button>
-                                </>
-                            )}
-                        </div>
-                    </div>
+  const toggleOpen = () => {
+    setOpen(!open);
+  };
 
-                    <div className="flex gap-4">
-                        {/* Dashboard Link */}
-                        <Link
-                            href="/dashboard"
-                            className={`flex items-center gap-2 pb-5 transition-colors transition-all duration-300 ${isActive('/dashboard')
-                                    ? 'text-blue-600 border-b-2 border-blue-600'
-                                    : 'hover:border-b-2 border-gray-400'
-                                }`}
-                        >
-                            <img
-                                src={isActive('/dashboard')
-                                    ? "/assets/icon/home-active.png"
-                                    : "/assets/icon/home.png"
-                                }
-                                alt="Home"
-                            />
-                            Tableau de bord
-                        </Link>
+  const handleSignOut = () => {
+    signOut();
+    setOpen(false);
+  };
 
-                        {/* Settings Link */}
-                        <Link
-                            href="/settings"
-                            className={`flex items-center gap-2 pb-5 transition-colors ${isActive('/settings')
-                                    ? 'text-blue-600 border-b-2 border-blue-600'
-                                    : 'hover:border-b-2 border-gray-400'
-                                }`}
-                        >
-                            <img
-                                src={isActive('/settings')
-                                    ? "/assets/icon/adjustments-horizontal-active.png"
-                                    : "/assets/icon/adjustments-horizontal.png"
-                                }
-                                alt="Settings"
-                            />
-                            Configuration Email
-                        </Link>
-
-                        {/* User Settings Link */}
-                        <Link
-                            href="/user-settings"
-                            className={`flex items-center gap-2 pb-5 transition-colors ${isActive('/user-settings')
-                                    ? 'text-blue-600 border-b-2 border-blue-600'
-                                    : 'hover:border-b-2 border-gray-400'
-                                }`}
-                        >
-                            <img
-                                src={isActive('/user-settings')
-                                    ? "/assets/icon/user-circle-active.png"
-                                    : "/assets/icon/user-circle.png"
-                                }
-                                alt="User"
-                            />
-                            Compte
-                        </Link>
-                    </div>
-                </div>
+  return (
+    <header className="border-b border-[#E5E7EB] bg-white px-4 pt-6">
+      <nav className="mx-auto flex max-w-7xl flex-col gap-5 text-nowrap">
+        {/* Partie fixe : Logo et titre */}
+        <div className="flex items-center justify-between">
+          <span className="flex items-center gap-2">
+            <Image src={'/logo/logo-navbar.png'} alt="Logo" width={35} height={35} />
+            <h1 className="font-thunder text-2xl font-semibold text-black">HALL MAIL</h1>
+          </span>
+          {/* Email et bouton déconnexion */}
+          {user && (
+            <div className="flex items-center gap-4">
+              <span className="hidden text-sm text-gray-600 sm:inline">{user.email}</span>
+              <button
+                className="flex cursor-pointer items-center gap-1.5 rounded-full px-3 py-2 shadow-md transition-all hover:scale-105 hover:shadow-lg"
+                onClick={toggleOpen}
+              >
+                Déconnexion
+                <span>
+                  <LogOut size={16} />
+                </span>
+              </button>
             </div>
-        </nav>
-    );
+          )}
+        </div>
+
+        {/* Partie scrollable : Navigation */}
+        <div className="-mx-4 overflow-x-auto px-4 [-ms-overflow-style:none] [scrollbar-width:none] md:mx-0 md:px-0 [&::-webkit-scrollbar]:hidden">
+          <ul className="flex min-w-max gap-6 font-medium md:min-w-0">
+            <li>
+              <Link
+                href={'/dashboard'}
+                className={cn(
+                  linkBaseClasses,
+                  pathname?.startsWith('/dashboard')
+                    ? 'border-blue-600 text-blue-600'
+                    : 'border-transparent',
+                )}
+              >
+                <span>
+                  <Home size={20} />
+                </span>
+                Tableau de bord
+              </Link>
+            </li>
+            <li>
+              <Link
+                href={'/settings'}
+                className={cn(
+                  linkBaseClasses,
+                  pathname?.startsWith('/settings')
+                    ? 'border-blue-600 text-blue-600'
+                    : 'border-transparent',
+                )}
+              >
+                <span>
+                  <Settings size={20} />
+                </span>
+                Configuration Email
+              </Link>
+            </li>
+            <li>
+              <Link
+                href={'/user-settings'}
+                className={cn(
+                  linkBaseClasses,
+                  pathname?.startsWith('/user-settings')
+                    ? 'border-blue-600 text-blue-600'
+                    : 'border-transparent',
+                )}
+              >
+                <span>
+                  <User size={20} />
+                </span>
+                Compte
+              </Link>
+            </li>
+          </ul>
+        </div>
+
+        {/* Modal de confirmation */}
+        <ConfirmDialog
+          open={open}
+          onOpenChange={setOpen}
+          title="Déconnexion"
+          description="Voulez-vous vraiment vous déconnecter ?"
+          onConfirm={handleSignOut}
+        />
+      </nav>
+    </header>
+  );
 }
