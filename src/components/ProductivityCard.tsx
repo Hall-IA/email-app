@@ -254,7 +254,7 @@ export function ProductivityCard() {
                         )}
                         <div className="font-roboto font-semibold text-white">
                           <h4 className="mb-1 text-3xl font-black">{element.title}</h4>
-                          <p className="text-base font-normal opacity-90">{element.paragraph}</p>
+                          <p className="text-md font-normal opacity-90">{element.paragraph}</p>
                         </div>
                       </div>
                     </div>
