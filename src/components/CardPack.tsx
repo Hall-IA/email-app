@@ -120,7 +120,7 @@ export default function CardPack({
               <BadgeCheck className="shrink-0" />
               <span>
                 {feature}
-                {index === id && <p className="mt-1 text-gray-400">{clearText}</p>}
+                {index === id && <p className="mt-1 text-gray-400 text-xs">{clearText}</p>}
               </span>
             </li>
           ))}
