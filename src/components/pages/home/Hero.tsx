@@ -20,18 +20,18 @@ export default function Hero() {
   return (
     <section className="mx-auto max-w-7xl overflow-x-hidden">
       <div
-        className="pointer-events-none absolute -top-[100px] left-1/2 z-0 h-[200px] w-[200px] -translate-x-1/2 rounded-full blur-3xl md:-top-[200px] md:h-[400px] md:w-[400px] xl:-top-[200px] xl:h-[400px] xl:w-[400px]"
+        className="pointer-events-none absolute -top-[100px] left-1/2 z-0 h-[200px] w-[200px] -translate-x-1/2 rounded-full blur-3xl max-sm:hidden md:-top-[200px] md:h-[400px] md:w-[400px] xl:-top-[200px] xl:h-[400px] xl:w-[400px]"
         style={{
           background: `conic-gradient(
-  from 195.77deg at 84.44% -1.66%,
-  #FE9736 0deg,
-  #F4664C 76.15deg,
-  #F97E41 197.31deg,
-  #E3AB8D 245.77deg,
-  #FE9736 360deg`,
+          from 195.77deg at 84.44% -1.66%,
+          #FE9736 0deg,
+          #F4664C 76.15deg,
+          #F97E41 197.31deg,
+          #E3AB8D 245.77deg,
+          #FE9736 360deg`,
         }}
       />
-      <div className="pointer-events-none absolute -bottom-160 left-1/2 z-0 h-[500px] w-[500px] -translate-x-1/2 rounded-full bg-[#F27732] opacity-10 blur-3xl md:h-[700px] md:w-[700px] xl:h-[900px] xl:w-[900px]" />
+      <div className="pointer-events-none absolute -bottom-160 left-1/2 z-0 h-[500px] w-[500px] -translate-x-1/2 rounded-full bg-[#F27732] opacity-10 blur-3xl max-sm:hidden md:h-[700px] md:w-[700px] xl:h-[900px] xl:w-[900px]" />
 
       <section className="mx-auto mt-4 flex min-h-screen w-full max-w-[1600px] items-center gap-12 px-6 pt-32 pb-10 sm:px-4 xl:flex-row xl:justify-between">
         <div className="space-y-12">
@@ -41,7 +41,7 @@ export default function Hero() {
           </div>
           <div className="font-thunder space-y-6 text-7xl font-semibold">
             <div className="space-y-2">
-              <h1>Automatisez vos emails</h1>
+              <h1>Automatisez le traitement de vos emails</h1>
               <span className="bg-gradient-to-b from-[#F35F4F] to-[#FD9A00] bg-clip-text text-transparent">
                 avec l’IA
               </span>

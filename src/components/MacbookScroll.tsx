@@ -20,7 +20,7 @@ export function MacbookScrollSection() {
         />
 
         {/* ✅ Carte en haut à droite de l'écran du MacBook */}
-        <div className="animate-fade-in absolute z-20 flex w-90 items-center gap-3 rounded-2xl border px-6 py-3 shadow-lg backdrop-blur-md max-xl:right-[0%] md:top-[20%] xl:top-[10%] xl:right-[15%]">
+        <div className="animate-fade-in absolute z-20 flex w-90 items-center gap-3 rounded-2xl border bg-white/50 px-6 py-3 shadow-lg backdrop-blur-md max-xl:right-[0%] md:top-[30%] xl:top-[10%] xl:right-[5%]">
           <span className="font-roboto text-3xl font-semibold">95%</span>
           <span className="font-roboto">
             <p className="font-semibold">De précision</p>
@@ -32,7 +32,7 @@ export function MacbookScrollSection() {
         </div>
 
         {/* ✅ Carte en bas à gauche de l'écran du MacBook */}
-        <div className="animate-fade-in absolute top-[20%] z-20 flex w-90 items-center gap-3 rounded-2xl border px-6 py-3 shadow-lg backdrop-blur-md md:top-[30%] lg:left-[0%] xl:left-[15%]">
+        <div className="animate-fade-in absolute top-[20%] z-20 flex w-90 items-center gap-3 rounded-2xl border bg-white/50 px-6 py-3 shadow-lg backdrop-blur-md md:top-[30%] lg:left-[0%] xl:left-[5%]">
           <span className="font-roboto text-3xl font-semibold">98%</span>
           <span className="font-roboto">
             <p className="font-semibold">De précision</p>
