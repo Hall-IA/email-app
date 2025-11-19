@@ -1,233 +1,255 @@
 'use client';
 
-import Image from "next/image";
-import CustomButton from "../../CustomButton";
-import CardPack from "../../CardPack";
-import { useState } from "react";
-import { LoginModal } from "../../LoginModal";
-import { useRouter } from "next/navigation";
-import { HelpCircle, XCircle } from "lucide-react";
+import Image from 'next/image';
+import CustomButton from '../../CustomButton';
+import CardPack from '../../CardPack';
+import { useState } from 'react';
+import { LoginModal } from '../../LoginModal';
+import { BadgeCheck, HelpCircle, XCircle } from 'lucide-react';
 
 export default function AppPack() {
-    const router = useRouter();
-    const [showLoginModal, setShowLoginModal] = useState(false);
-    const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
-    const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
 
-    const handleStartClick = (planType: string) => {
-        setSelectedPlan(planType);
-        // Sauvegarder le plan sélectionné dans le localStorage
-        localStorage.setItem('selected_plan', planType);
-        setShowLoginModal(true);
-    };
+  const handleStartClick = (planType: string) => {
+    setSelectedPlan(planType);
+    localStorage.setItem('selected_plan', planType);
+    setShowLoginModal(true);
+  };
 
-    const handleSignupSuccess = (userId: string) => {
-        setShowLoginModal(false);
-        // Le plan est déjà sauvegardé dans localStorage
-        // L'utilisateur validera son email et sera redirigé vers le dashboard
-        // où les modals s'enchaîneront automatiquement
-    };
+  const handleSignupSuccess = (userId: string) => {
+    setShowLoginModal(false);
+  };
 
-    return (
-        <>
-            <section className="flex relative flex-col items-center overflow-hidden bg-[#F4F1EE] w-full px-4 max-md:py-10">
-                <Image
-                    src={'/assets/img/shape-yellow.png'}
-                    alt=""
-                    width={700}
-                    height={700}
-                    className="absolute -top-60 -left-60 z-10 rotate-6 max-lg:hidden "
-                    aria-hidden="true"
-                    loading="lazy"
-                />
+  return (
+    <section className="relative flex w-full flex-col items-center overflow-hidden px-4 py-16">
+      <Image
+        src={'/assets/img/shape-yellow.png'}
+        alt=""
+        width={400}
+        height={400}
+        className="absolute -top-5 -left-30 -z-10 rotate-35 max-lg:hidden"
+        aria-hidden="true"
+        loading="lazy"
+      />
 
-                <h2 className="font-thunder font-black text-7xl mb-16 text-center lg:mt-20 max-md:text-5xl">
-                    Essayer, et commencez aujourd'hui
-                </h2>
+      <h2 className="font-thunder mb-16 text-center text-7xl font-black lg:mt-10">
+        Essayer, et commencez aujourd'hui
+      </h2>
 
-                <section className="flex flex-col lg:flex-row justify-center gap-8 w-full max-w-7xl">
-                    <div className="w-full lg:w-96 flex flex-col justify-between rounded-2xl" style={{
-                        background: `conic-gradient(
-                            from 195.77deg at 84.44% -1.66%,
-                            #FE9736 0deg,
-                            #F4664C 76.15deg,
-                            #F97E41 197.31deg,
-                            #E3AB8D 245.77deg,
-                            #FE9736 360deg
-                        )`,
-                    }}>
-                        <div className="space-y-5 px-10 pt-30 pb-0">
-                            <h3 className="font-thunder text-white mb-5 text-5xl font-semibold">
-                                Essai Gratuit
-                            </h3>
-                            <p className="font-roboto text-white">
-                                1 compte mail et toutes les fonctionnalité accessible dans un temps limité !
-                            </p>
-                            <CustomButton
-                                onClick={() => handleStartClick('free_trial')}
-                                className=" animate-fade-in-left-long w-full rounded-full! bg-white px-6 py-3 text-base font-medium text-orange-500! shadow-lg transition-colors hover:bg-white/20 hover:text-white! sm:w-auto sm:px-7 sm:py-3.5 sm:text-lg md:px-8 md:py-4 md:text-xl"
-                            >
-                                Commencer
-                            </CustomButton>
-                        </div>
-                        <div className="flex justify-end">
-                            <img className="w-fit rounded-2xl" src="/img/femme-pack.png" alt="" />
-                        </div>
-                    </div>
+      <section className="flex w-full max-w-7xl flex-col justify-center gap-8 lg:flex-row">
+        <div
+          className="flex w-full flex-col justify-between rounded-2xl lg:w-96"
+          style={{
+            background: `conic-gradient(
+                    from 195.77deg at 84.44% -1.66%,
+                    #FE9736 0deg,
+                    #F4664C 76.15deg,
+                    #F97E41 197.31deg,
+                    #E3AB8D 245.77deg,
+                    #FE9736 360deg
+                )`,
+          }}
+        >
+          <div className="space-y-5 px-10 pt-30 pb-10">
+            <h3 className="font-thunder mb-5 text-5xl font-semibold text-white">Essai Gratuit</h3>
+            <p className="font-roboto text-white">
+              Testez notre solution gratuitement, c’est{' '}
+              <span className="underline underline-offset-2">sans engagement</span>
+            </p>
+            <ul className="space-y-2 text-white">
+              <li className="flex gap-2">
+                <BadgeCheck className="shrink-0" />
+                <span>
+                  <p className="font-medium">1 compte email</p>
+                  <p>Accès à l'ensemble des fonctionnalités de la solution Business</p>
+                </span>
+              </li>
+              <li className="flex gap-2">
+                <BadgeCheck className="shrink-0" />
+                <p>Activez votre essai avec le code promo</p>
+              </li>
+            </ul>
+            <CustomButton
+              onClick={() => handleStartClick('free_trial')}
+              className="animate-fade-in-left-long w-full rounded-full! bg-white px-6 py-3 text-base font-medium text-orange-500! shadow-lg transition-colors hover:bg-white/20 hover:text-white! sm:w-auto sm:px-7 sm:py-3.5 sm:text-lg md:px-8 md:py-4 md:text-xl"
+            >
+              Commencer
+            </CustomButton>
+          </div>
+          <div className="flex justify-end">
+            <img className="w-fit rounded-2xl" src="/assets/img/femme-pack.png" alt="" />
+          </div>
+        </div>
 
-                    <CardPack
-                        title="Business Pass"
-                        subtitle="Avec code de parainage uniquement"
-                        features={[
-                            '4 compte mail inclus',
-                            'Classification intelligente des emails',
-                            'Réponses automatiques personnalisées',
-                            'Support prioritaire',
-                            'IA avancée personnalisée',
-                            'Statistiques détaillées',
-                        ]}
-                        price="20"
-                        priceUnit="/par mois"
-                        buttonText="Commencer"
-                        enableCounter={true}
-                        basePrice={29}
-                        additionalPrice={19}
-                        localStorageKey="business_pass_email_counter"
-                        onButtonClick={() => handleStartClick('business_pass')}
-                    />
+        <CardPack
+          title="Business"
+          subtitle="L’automatisation de votre boîte mail, 
+sans engagement"
+          features={[
+            '1 compte mail inclus',
+            'Classification intelligente de vos emails (publicités, informations et email traités par IA)',
+            'Base de connaissances personnalisable incluse',
+            'Statistiques détaillées sur vos échanges et performances',
+          ]}
+          clearText="Une fois connecté à l’application, vous ajoutez les liens vers votre site internet, vos réseaux sociaux et importez vos documents PDF pour enrichir l’IA."
+          id={2}
+          price="20€"
+          priceUnit="/par mois"
+          buttonText="Commencer"
+          enableCounter={true}
+          basePrice={29}
+          additionalPrice={19}
+          localStorageKey="business_pass_email_counter"
+          onButtonClick={() => handleStartClick('business_pass')}
+        />
 
-                    <CardPack
-                        topGradient={`radial-gradient(
-                            ellipse 90% 90% at 50% 0%,
-                            #9F78FF 0%,
-                            #815AF3 50%,
-                            #D1AAFF 50%,
-                            transparent 80%
-                        )`}
-                        title="Solution sur mesure"
-                        subtitle="Avec code de parainage uniquement"
-                        features={[
-                            'Emails illimités',
-                            'Compte illimités',
-                            'Support dédié',
-                            'Api complète',
-                            'Développement sur mesure',
-                            'Intégration sur mesure',
-                        ]}
-                        price="20"
-                        priceUnit="/par mois"
-                        buttonText="Nous contacter"
-                        buttonHref="https://hallia.ai/contact"
-                        hidePrice={true}
-                    />
-                </section>
+        <CardPack
+          topGradient={`radial-gradient(
+                ellipse 90% 90% at 50% 0%,
+                #9F78FF 0%,
+                #815AF3 50%,
+                #D1AAFF 50%,
+                transparent 80%
+            )`}
+          title="Solution sur mesure"
+          subtitle="Entièrement dédiée à votre entreprise"
+          features={[
+            'Développement d’une solution personnalisée parfaitement adaptée à votre structure',
+            'Conception sur mesure selon votre cahier des charges, avec création de fonctionnalités spécifiques',
+            'Définition ensemble du tri intelligent des emails, selon vos priorités et vos processus internes',
+            'Automatisation avancée des traitements pour optimiser vos flux et réduire les tâches répétitives',
+            'Réponses générées par l’IA : envoi automatique ou ajout dans vos brouillons selon le type d’email',
+            'Intégration complète avec vos outils CRM / ERP',
+            'Support dédié avec un accompagnement continu',
+            'API complète pour connecter ou étendre la solution à vos systèmes existants',
+          ]}
+          price="20€"
+          priceUnit="/par mois"
+          buttonText="Nous contacter"
+          buttonHref="https://hallia.ai/contact"
+          hidePrice={true}
+          classNameButton="mt-10 md:mt-0"
+        />
+      </section>
 
-                <button
-                    onClick={() => setShowSubscriptionModal(true)}
-                    className="flex items-center gap-2 text-gray-600 hover:text-gray-800 transition-colors mt-8 mb-16"
-                >
-                    <span className="text-sm">Aucun engagement – Abonnement mensuel</span>
-                    <HelpCircle className="w-5 h-4" />
-                </button>
-            </section>
+      <button
+        onClick={() => setShowSubscriptionModal(true)}
+        className="mt-8 mb-16 flex cursor-pointer items-center gap-2 text-gray-600 transition-colors hover:text-gray-800"
+      >
+        <span className="text-sm">Aucun engagement – Abonnement mensuel</span>
+        <HelpCircle className="h-4 w-5" />
+      </button>
 
-            {/* Modal de connexion/inscription */}
-            <LoginModal 
-                isOpen={showLoginModal} 
-                onClose={() => setShowLoginModal(false)}
-                onSignupSuccess={handleSignupSuccess}
-            />
+      {/* Modal de connexion/inscription */}
+      <LoginModal
+        isOpen={showLoginModal}
+        onClose={() => setShowLoginModal(false)}
+        onSignupSuccess={handleSignupSuccess}
+      />
 
-            {/* Modal Conditions d'abonnement */}
-            {showSubscriptionModal && (
-                <div 
-                    className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-sm animate-in fade-in duration-300 flex items-center justify-center p-4"
-                    onClick={() => setShowSubscriptionModal(false)}
-                >
-                    <div
-                        className="relative bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto"
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        {/* Header */}
-                        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between z-10">
-                            <div className="flex items-center gap-3">
-                               
-                                <h2 className="text-2xl font-bold text-gray-900">Conditions d'abonnement</h2>
-                            </div>
-                            <button
-                                onClick={() => setShowSubscriptionModal(false)}
-                                className="flex items-center justify-center w-10 h-10 rounded-full bg-gray-200/50 hover:bg-gray-300 transition-all duration-300 group"
-                            >
-                                <XCircle className="w-5 h-5 text-black group-hover:scale-110 transition-transform duration-300" />
-                            </button>
-                        </div>
+      {/* Modal Conditions d'abonnement */}
+      {showSubscriptionModal && (
+        <div
+          className="animate-in fade-in fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm duration-300"
+          onClick={() => setShowSubscriptionModal(false)}
+        >
+          <div
+            className="relative max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-2xl bg-white shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-200 bg-white px-6 py-4">
+              <div className="flex items-center gap-3">
+                <h2 className="text-2xl font-bold text-gray-900">Conditions d'abonnement</h2>
+              </div>
+              <button
+                onClick={() => setShowSubscriptionModal(false)}
+                className="group flex h-10 w-10 cursor-pointer items-center justify-center rounded-full bg-gray-200/50 transition-all duration-300 hover:bg-gray-300"
+              >
+                <XCircle className="h-5 w-5 text-black transition-transform duration-300 group-hover:scale-110" />
+              </button>
+            </div>
 
-                        {/* Content */}
-                        <div className="p-6 space-y-6">
-                            <p className="text-base text-gray-700">
-                                Nos applications sont disponibles sous forme d'abonnement mensuel ou annuel, selon les conditions ci-dessous.
-                            </p>
+            {/* Content */}
+            <div className="space-y-6 p-6">
+              <p className="text-base text-gray-700">
+                Nos applications sont disponibles sous forme d'abonnement mensuel ou annuel, selon
+                les conditions ci-dessous.
+              </p>
 
-                            <div className="space-y-5">
-                                <div>
-                                    <h3 className="text-lg font-bold text-gray-900 mb-2">1. Durée et reconduction</h3>
-                                    <p className="text-base text-gray-700">
-                                        Chaque abonnement, qu'il soit mensuel ou annuel, est conclu pour la durée initialement choisie par le client. À l'issue de cette période, l'abonnement se renouvelle automatiquement par tacite reconduction pour une durée identique, sauf résiliation préalable du client.
-                                    </p>
-                                </div>
-
-                                <div>
-                                    <h3 className="text-lg font-bold text-gray-900 mb-2">2. Paiement</h3>
-                                    <p className="text-base text-gray-700 mb-2">
-                                        <strong>Abonnement mensuel :</strong> le montant est facturé et payable d'avance chaque mois.
-                                    </p>
-                                    <p className="text-base text-gray-700">
-                                        <strong>Abonnement annuel :</strong> le montant est facturé et payable d'avance pour une période de 12 mois.
-                                    </p>
-                                </div>
-
-                                <div>
-                                    <h3 className="text-lg font-bold text-gray-900 mb-2">3. Résiliation</h3>
-                                    <p className="text-base text-gray-700 mb-2">
-                                        Le client peut demander la résiliation de son abonnement à tout moment.
-                                    </p>
-                                    <p className="text-base text-gray-700 mb-2">
-                                        Pour un abonnement mensuel, la résiliation prend effet à la fin du mois en cours.
-                                    </p>
-                                    <p className="text-base text-gray-700 mb-2">
-                                        Pour un abonnement annuel, la résiliation prend effet à la fin de la période annuelle en cours.
-                                    </p>
-                                    <p className="text-base text-gray-700">
-                                        Aucun remboursement, même partiel, ne sera effectué pour une période déjà commencée, les abonnements étant payables d'avance.
-                                    </p>
-                                </div>
-
-                                <div>
-                                    <h3 className="text-lg font-bold text-gray-900 mb-2">4. Modalités d'annulation</h3>
-                                    <p className="text-base text-gray-700 mb-2">
-                                        La demande de résiliation peut être effectuée :
-                                    </p>
-                                    <ul className="list-disc list-inside text-base text-gray-700 space-y-1 ml-4">
-                                        <li>Depuis l'espace client</li>
-                                    </ul>
-                                    <p className="text-base text-gray-700 mt-2">
-                                        Une confirmation de résiliation sera envoyée par email. Pour éviter le renouvellement automatique, la résiliation doit être faite avant la date d'échéance de la période en cours.
-                                    </p>
-                                </div>
-
-                                <div>
-                                    <h3 className="text-lg font-bold text-gray-900 mb-2">5. Réactivation</h3>
-                                    <p className="text-base text-gray-700">
-                                        Le client peut réactiver son abonnement à tout moment en souscrivant à nouveau via la plateforme.
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-
-                        
-                    </div>
+              <div className="space-y-5">
+                <div>
+                  <h3 className="mb-2 text-lg font-bold text-gray-900">1. Durée et reconduction</h3>
+                  <p className="text-base text-gray-700">
+                    Chaque abonnement, qu'il soit mensuel ou annuel, est conclu pour la durée
+                    initialement choisie par le client. À l'issue de cette période, l'abonnement se
+                    renouvelle automatiquement par tacite reconduction pour une durée identique,
+                    sauf résiliation préalable du client.
+                  </p>
                 </div>
-            )}
-        </>
-    );
+
+                <div>
+                  <h3 className="mb-2 text-lg font-bold text-gray-900">2. Paiement</h3>
+                  <p className="mb-2 text-base text-gray-700">
+                    <strong>Abonnement mensuel :</strong> le montant est facturé et payable d'avance
+                    chaque mois.
+                  </p>
+                  <p className="text-base text-gray-700">
+                    <strong>Abonnement annuel :</strong> le montant est facturé et payable d'avance
+                    pour une période de 12 mois.
+                  </p>
+                </div>
+
+                <div>
+                  <h3 className="mb-2 text-lg font-bold text-gray-900">3. Résiliation</h3>
+                  <p className="mb-2 text-base text-gray-700">
+                    Le client peut demander la résiliation de son abonnement à tout moment.
+                  </p>
+                  <p className="mb-2 text-base text-gray-700">
+                    Pour un abonnement mensuel, la résiliation prend effet à la fin du mois en
+                    cours.
+                  </p>
+                  <p className="mb-2 text-base text-gray-700">
+                    Pour un abonnement annuel, la résiliation prend effet à la fin de la période
+                    annuelle en cours.
+                  </p>
+                  <p className="text-base text-gray-700">
+                    Aucun remboursement, même partiel, ne sera effectué pour une période déjà
+                    commencée, les abonnements étant payables d'avance.
+                  </p>
+                </div>
+
+                <div>
+                  <h3 className="mb-2 text-lg font-bold text-gray-900">
+                    4. Modalités d'annulation
+                  </h3>
+                  <p className="mb-2 text-base text-gray-700">
+                    La demande de résiliation peut être effectuée :
+                  </p>
+                  <ul className="ml-4 list-inside list-disc space-y-1 text-base text-gray-700">
+                    <li>Depuis l'espace client</li>
+                  </ul>
+                  <p className="mt-2 text-base text-gray-700">
+                    Une confirmation de résiliation sera envoyée par email. Pour éviter le
+                    renouvellement automatique, la résiliation doit être faite avant la date
+                    d'échéance de la période en cours.
+                  </p>
+                </div>
+
+                <div>
+                  <h3 className="mb-2 text-lg font-bold text-gray-900">5. Réactivation</h3>
+                  <p className="text-base text-gray-700">
+                    Le client peut réactiver son abonnement à tout moment en souscrivant à nouveau
+                    via la plateforme.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </section>
+  );
 }
