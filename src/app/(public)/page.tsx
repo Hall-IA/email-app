@@ -5,7 +5,6 @@ import { FaqSection } from '@/components/pages/home/FaqSection';
 import Hero from '@/components/pages/home/Hero';
 import ProductivitySection from '@/components/pages/home/ProductivitySection';
 import TestimonialSection from '@/components/pages/home/TestimonialSection';
-import { ConcreteAdvantagesCard } from '@/components/ConcreteAdvantagesCard';
 
 const sampleVideoItems: ListItem[] = [
   {
@@ -92,7 +91,6 @@ export default function Accueil() {
         <section id="prix">
           <AppPack />
         </section>
-        <ConcreteAdvantagesCard />
         <TestimonialSection />
         <FaqSection />
         <CTASection />
