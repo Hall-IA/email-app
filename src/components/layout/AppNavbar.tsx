@@ -39,13 +39,16 @@ export default function AppNavbar() {
             <div className="flex items-center gap-4">
               <span className="hidden text-sm text-gray-600 sm:inline">{user.email}</span>
               <button
-                className="flex cursor-pointer items-center gap-1.5 rounded-full px-3 py-2 shadow-md transition-all hover:scale-105 hover:shadow-lg"
-                onClick={toggleOpen}
+                onClick={() => signOut()}
+                className="group relative flex cursor-pointer items-center gap-2 overflow-hidden rounded-full border-2 border-gray-300 px-4 py-2 text-sm font-medium shadow-md transition-all duration-300 hover:border-red-400 hover:shadow-lg"
               >
-                Déconnexion
-                <span>
-                  <LogOut size={16} />
+                <span className="relative z-10 text-gray-700 transition-colors duration-300 group-hover:text-red-600">
+                  Déconnexion
                 </span>
+                <LogOut className="relative z-10 h-4 w-4 text-gray-600 transition-all duration-300 group-hover:translate-x-1 group-hover:text-red-600" />
+
+                {/* Fond qui apparaît au hover */}
+                <div className="absolute inset-0 origin-left scale-x-0 transform bg-red-50 transition-transform duration-300 group-hover:scale-x-100" />
               </button>
             </div>
           )}
