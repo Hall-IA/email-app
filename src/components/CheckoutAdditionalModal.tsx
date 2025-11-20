@@ -21,7 +21,7 @@ export function CheckoutAdditionalModal({
     const { showToast, ToastComponent } = useToast();
     const [loading, setLoading] = useState(false);
     const [additionalAccounts, setAdditionalAccounts] = useState(0);
-    const [additionalPrice, setAdditionalPrice] = useState(19); // Valeur par défaut en attendant le chargement
+    const [additionalPrice, setAdditionalPrice] = useState(39); // Valeur par défaut en attendant le chargement
 
     // Récupérer les prix depuis Stripe
     useEffect(() => {
@@ -79,7 +79,7 @@ export function CheckoutAdditionalModal({
             }
 
             const response = await fetch(
-                `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/stripe-add-account-checkout`,
+                `${process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, '')}/functions/v1/stripe-add-account-checkout`,
                 {
                     method: 'POST',
                     headers: {

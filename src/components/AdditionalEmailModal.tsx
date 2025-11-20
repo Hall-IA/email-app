@@ -43,7 +43,7 @@ export function AdditionalEmailModal({ userId, subscriptionId, onComplete, onClo
         try {
             const { data: { session } } = await supabase.auth.getSession();
             const response = await fetch(
-                `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/gmail-oauth-init`,
+                `${process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, '')}/functions/v1/gmail-oauth-init`,
                 {
                     method: 'POST',
                     headers: {
@@ -117,7 +117,7 @@ export function AdditionalEmailModal({ userId, subscriptionId, onComplete, onClo
             }
 
             const response = await fetch(
-                `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/verify-email-connection`,
+                `${process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, '')}/functions/v1/verify-email-connection`,
                 {
                     method: 'POST',
                     headers: {

@@ -7,7 +7,14 @@ const corsHeaders = {
 };
 
 Deno.serve(async (req) => {
+  console.log('[Gmail OAuth Callback] Requête reçue:', {
+    method: req.method,
+    url: req.url,
+    headers: Object.fromEntries(req.headers.entries())
+  });
+
   if (req.method === 'OPTIONS') {
+    console.log('[Gmail OAuth Callback] Réponse OPTIONS');
     return new Response(null, {
       status: 200,
       headers: corsHeaders
@@ -19,7 +26,15 @@ Deno.serve(async (req) => {
     const code = url.searchParams.get('code');
     const state = url.searchParams.get('state');
 
+    console.log('[Gmail OAuth Callback] Paramètres:', {
+      hasCode: !!code,
+      hasState: !!state,
+      codeLength: code?.length,
+      stateLength: state?.length
+    });
+
     if (!code || !state) {
+      console.error('[Gmail OAuth Callback] Paramètres manquants');
       return new Response(JSON.stringify({ error: 'Missing code or state parameter' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -28,33 +43,56 @@ Deno.serve(async (req) => {
 
     const stateData = JSON.parse(atob(state));
     const { userId, redirectUrl } = stateData;
+    
+    console.log('[Gmail OAuth Callback] State décodé:', {
+      hasUserId: !!userId,
+      hasRedirectUrl: !!redirectUrl,
+      userId,
+      redirectUrl
+    });
 
     const googleClientId = Deno.env.get('GOOGLE_CLIENT_ID');
     const googleClientSecret = Deno.env.get('GOOGLE_CLIENT_SECRET');
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
+    console.log('[Gmail OAuth Callback] Échange du code contre un token...');
     const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: new URLSearchParams({
         code,
-        client_id: googleClientId,
-        client_secret: googleClientSecret,
+        client_id: googleClientId!,
+        client_secret: googleClientSecret!,
         redirect_uri: `${supabaseUrl}/functions/v1/gmail-oauth-callback`,
         grant_type: 'authorization_code'
       })
     });
 
     const tokens = await tokenResponse.json();
+    console.log('[Gmail OAuth Callback] Réponse token exchange:', {
+      ok: tokenResponse.ok,
+      status: tokenResponse.status,
+      hasAccessToken: !!tokens.access_token,
+      hasRefreshToken: !!tokens.refresh_token
+    });
+
     if (!tokenResponse.ok) {
+      console.error('[Gmail OAuth Callback] Échec de l\'échange de token:', tokens);
       throw new Error(`Token exchange failed: ${JSON.stringify(tokens)}`);
     }
 
+    console.log('[Gmail OAuth Callback] Récupération des infos utilisateur...');
     const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
       headers: { Authorization: `Bearer ${tokens.access_token}` }
     });
     const userInfo = await userInfoResponse.json();
+    console.log('[Gmail OAuth Callback] Infos utilisateur:', {
+      ok: userInfoResponse.ok,
+      status: userInfoResponse.status,
+      email: userInfo.email,
+      hasEmail: !!userInfo.email
+    });
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const expiryDate = new Date();
@@ -111,6 +149,7 @@ Deno.serve(async (req) => {
       });
     }
 
+    console.log('[Gmail OAuth Callback] Insertion du token dans la base de données...');
     const { data: tokenData, error: dbError } = await supabase
       .from('gmail_tokens')
       .insert({
@@ -126,9 +165,12 @@ Deno.serve(async (req) => {
       .single();
 
     if (dbError) {
+      console.error('[Gmail OAuth Callback] Erreur DB token:', dbError);
       throw new Error(`Database error: ${dbError.message}`);
     }
+    console.log('[Gmail OAuth Callback] Token inséré avec succès:', tokenData?.id);
 
+    console.log('[Gmail OAuth Callback] Insertion de la configuration email...');
     const { error: configError } = await supabase
       .from('email_configurations')
       .insert({
@@ -143,10 +185,13 @@ Deno.serve(async (req) => {
       });
 
     if (configError) {
+      console.error('[Gmail OAuth Callback] Erreur DB config:', configError);
       throw new Error(`Config error: ${configError.message}`);
     }
+    console.log('[Gmail OAuth Callback] Configuration insérée avec succès');
 
     const redirectToSuccess = `${redirectUrl}/gmail-success.html?email=${encodeURIComponent(userInfo.email)}`;
+    console.log('[Gmail OAuth Callback] Redirection vers:', redirectToSuccess);
 
     return new Response(null, {
       status: 302,
@@ -156,8 +201,12 @@ Deno.serve(async (req) => {
       }
     });
   } catch (error) {
-    console.error('Error in Gmail OAuth callback:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    console.error('[Gmail OAuth Callback] Erreur complète:', error);
+    console.error('[Gmail OAuth Callback] Stack:', error instanceof Error ? error.stack : 'N/A');
+    return new Response(JSON.stringify({ 
+      error: error instanceof Error ? error.message : 'Unknown error',
+      details: error instanceof Error ? error.stack : String(error)
+    }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });

@@ -61,9 +61,11 @@ export function HowItWorks() {
                 <svg
                     className="hidden lg:block absolute top-0 left-0 w-full h-full pointer-events-none"
                     style={{ zIndex: 0 }}
+                    viewBox="0 0 100 100"
+                    preserveAspectRatio="none"
                 >
                     <path
-                        d="M 12.5% 50 L 37.5% 50 M 37.5% 50 L 62.5% 50 M 62.5% 50 L 87.5% 50"
+                        d="M 12.5 50 L 37.5 50 M 37.5 50 L 62.5 50 M 62.5 50 L 87.5 50"
                         stroke="url(#gradient)"
                         strokeWidth="2"
                         fill="none"

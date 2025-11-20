@@ -79,7 +79,7 @@ export default function AppPack() {
             </CustomButton>
           </div>
           <div className="flex justify-end">
-            <img className="w-fit rounded-2xl" src="/assets/img/femme-pack.png" alt="" />
+            <img className="w-fit rounded-2xl" src="/img/femme-pack.png" alt="" />
           </div>
         </div>
 
@@ -95,12 +95,12 @@ sans engagement"
           ]}
           clearText="Une fois connecté à l’application, vous ajoutez les liens vers votre site internet, vos réseaux sociaux et importez vos documents PDF pour enrichir l’IA."
           id={2}
-          price="20€"
+          price="49€"
           priceUnit="/par mois"
           buttonText="Commencer"
           enableCounter={true}
-          basePrice={29}
-          additionalPrice={19}
+          basePrice={49}
+          additionalPrice={39}
           localStorageKey="business_pass_email_counter"
           onButtonClick={() => handleStartClick('business_pass')}
         />

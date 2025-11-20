@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Image, Check, ChevronRight, ChevronLeft, AlertTriangle } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useToast } from './Toast';
@@ -17,7 +17,25 @@ interface CompanyInfoModalProps {
 
 export function CompanyInfoModal({ userId, emailAccountId, email, initialStep = 1, onComplete, onClose }: CompanyInfoModalProps) {
     const { showToast, ToastComponent } = useToast();
-    const [currentStep, setCurrentStep] = useState(initialStep);
+    
+    // Clé unique pour sauvegarder l'étape dans localStorage
+    const stepStorageKey = email ? `company_info_step_${userId}_${email}` : `company_info_step_${userId}`;
+    
+    // Restaurer l'étape sauvegardée ou utiliser initialStep
+    const getSavedStep = () => {
+        if (typeof window !== 'undefined') {
+            const saved = localStorage.getItem(stepStorageKey);
+            if (saved) {
+                const step = parseInt(saved, 10);
+                if (step >= 1 && step <= 5) {
+                    return step;
+                }
+            }
+        }
+        return initialStep;
+    };
+    
+    const [currentStep, setCurrentStep] = useState(getSavedStep());
     const [loading, setLoading] = useState(false);
     const [formData, setFormData] = useState({
         company_name: '',
@@ -30,15 +48,109 @@ export function CompanyInfoModal({ userId, emailAccountId, email, initialStep = 
     const [isDraggingPdf, setIsDraggingPdf] = useState(false);
     const [isDraggingLogo, setIsDraggingLogo] = useState(false);
     const [validationError, setValidationError] = useState<{ step: number; message: string } | null>(null);
+    const [saveTimeout, setSaveTimeout] = useState<NodeJS.Timeout | null>(null);
 
     const totalSteps = 5;
+
+    // Fonction pour sauvegarder automatiquement les données dans la base de données
+    const saveProgress = useCallback(async (silent = true) => {
+        if (!userId || !email) return;
+
+        try {
+            const updateData: any = {
+                updated_at: new Date().toISOString(),
+            };
+
+            // Sauvegarder les données selon l'étape actuelle
+            if (formData.company_name?.trim()) {
+                updateData.company_name = formData.company_name.trim();
+            }
+            if (formData.activity_description?.trim()) {
+                updateData.activity_description = formData.activity_description.trim();
+            }
+            if (formData.services_offered?.trim()) {
+                updateData.services_offered = formData.services_offered.trim();
+            }
+            if (formData.signature_image_base64) {
+                updateData.signature_image_base64 = formData.signature_image_base64;
+            }
+
+            // Sauvegarder les URLs de la base de connaissances si elles existent
+            const validUrls = knowledgeUrls.filter(url => url.trim() !== '');
+            if (validUrls.length > 0) {
+                updateData.knowledge_base_urls = JSON.stringify(validUrls);
+            }
+
+            // Ne pas sauvegarder les PDFs ici car ils nécessitent un traitement spécial
+            // Ils seront sauvegardés lors de la soumission finale
+
+            // Mettre à jour dans la base de données
+            if (emailAccountId) {
+                await supabase
+                    .from('email_configurations')
+                    .update(updateData)
+                    .eq('id', emailAccountId);
+            } else if (email) {
+                await supabase
+                    .from('email_configurations')
+                    .update(updateData)
+                    .eq('user_id', userId)
+                    .eq('email', email);
+            }
+
+            if (!silent) {
+                console.log('[CompanyInfoModal] Progression sauvegardée automatiquement');
+            }
+        } catch (error) {
+            console.error('[CompanyInfoModal] Erreur lors de la sauvegarde automatique:', error);
+        }
+    }, [userId, email, emailAccountId, formData.company_name, formData.activity_description, formData.services_offered, formData.signature_image_base64, knowledgeUrls]);
+
+    // Sauvegarder l'étape dans localStorage quand elle change
+    useEffect(() => {
+        if (typeof window !== 'undefined' && currentStep >= 1 && currentStep <= 5) {
+            localStorage.setItem(stepStorageKey, currentStep.toString());
+            console.log(`[CompanyInfoModal] Étape sauvegardée: ${currentStep}`);
+        }
+    }, [currentStep, stepStorageKey]);
+
+    // Sauvegarder automatiquement les données avec debounce quand les champs changent
+    useEffect(() => {
+        // Annuler la sauvegarde précédente si elle existe
+        if (saveTimeout) {
+            clearTimeout(saveTimeout);
+        }
+
+        // Ne sauvegarder que si on a au moins un champ rempli
+        const hasData = formData.company_name?.trim() || 
+                       formData.activity_description?.trim() || 
+                       formData.services_offered?.trim() || 
+                       formData.signature_image_base64;
+
+        if (hasData && userId && email) {
+            // Sauvegarder après 2 secondes d'inactivité
+            const timeout = setTimeout(() => {
+                saveProgress(true); // Sauvegarde silencieuse
+            }, 2000);
+            setSaveTimeout(timeout);
+        }
+
+        return () => {
+            if (saveTimeout) {
+                clearTimeout(saveTimeout);
+            }
+        };
+    }, [formData.company_name, formData.activity_description, formData.services_offered, formData.signature_image_base64, userId, email, saveProgress]);
 
     useEffect(() => {
         loadCompanyData();
     }, [userId, email]);
 
     useEffect(() => {
-        setCurrentStep(initialStep);
+        // Si initialStep est fourni explicitement, l'utiliser (par exemple lors d'une réouverture depuis un lien)
+        if (initialStep && initialStep !== currentStep) {
+            setCurrentStep(initialStep);
+        }
     }, [initialStep]);
 
     const loadCompanyData = async () => {
@@ -72,13 +184,40 @@ export function CompanyInfoModal({ userId, emailAccountId, email, initialStep = 
                         : JSON.parse(data.knowledge_base_urls || '[]');
                     setKnowledgeUrls(urls.length > 0 ? urls : ['']);
                 }
+                
+                // Restaurer l'étape sauvegardée après avoir chargé les données
+                // Si aucune étape n'est sauvegardée, déterminer l'étape en fonction des données remplies
+                if (typeof window !== 'undefined') {
+                    const savedStep = localStorage.getItem(stepStorageKey);
+                    if (savedStep) {
+                        const step = parseInt(savedStep, 10);
+                        if (step >= 1 && step <= 5) {
+                            setCurrentStep(step);
+                            console.log(`[CompanyInfoModal] Étape restaurée depuis localStorage: ${step}`);
+                        }
+                    } else {
+                        // Déterminer l'étape en fonction des données remplies
+                        let determinedStep = 1;
+                        if (data.company_name) determinedStep = 2;
+                        if (data.activity_description) determinedStep = 3;
+                        if (data.services_offered) determinedStep = 4;
+                        if (data.signature_image_base64) determinedStep = 5;
+                        if (data.knowledge_base_urls || data.knowledge_base_pdfs) determinedStep = 5;
+                        
+                        if (determinedStep > 1) {
+                            setCurrentStep(determinedStep);
+                            localStorage.setItem(stepStorageKey, determinedStep.toString());
+                            console.log(`[CompanyInfoModal] Étape déterminée selon les données: ${determinedStep}`);
+                        }
+                    }
+                }
             }
         } catch (error) {
             console.error('Error:', error);
         }
     };
 
-    const handleNext = () => {
+    const handleNext = async () => {
         const trimmedCompanyName = formData.company_name?.trim();
         const trimmedActivityDescription = formData.activity_description?.trim();
         const trimmedSignature = formData.services_offered?.trim();
@@ -103,13 +242,19 @@ export function CompanyInfoModal({ userId, emailAccountId, email, initialStep = 
         }
 
         setValidationError(null);
+        
+        // Sauvegarder la progression avant de passer à l'étape suivante
+        await saveProgress();
+        
         if (currentStep < totalSteps) {
             setCurrentStep(currentStep + 1);
         }
     };
 
-    const handleBack = () => {
+    const handleBack = async () => {
         if (currentStep > 1) {
+            // Sauvegarder la progression avant de revenir en arrière
+            await saveProgress();
             setCurrentStep(currentStep - 1);
         }
     };
@@ -362,6 +507,13 @@ export function CompanyInfoModal({ userId, emailAccountId, email, initialStep = 
             }
 
             showToast('Informations enregistrées avec succès !', 'success');
+            
+            // Nettoyer la sauvegarde de l'étape dans localStorage
+            if (typeof window !== 'undefined') {
+                localStorage.removeItem(stepStorageKey);
+                console.log(`[CompanyInfoModal] Étape nettoyée du localStorage`);
+            }
+            
             setTimeout(() => onComplete(), 500);
         } catch (error) {
             console.error('Error:', error);

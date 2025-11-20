@@ -316,6 +316,8 @@ export function Subscription() {
 
       // Récupérer le nombre total de slots payés
 
+      console.log('[Subscription.tsx] ===== DÉBUT CALCUL EMAILS NON CONFIGURÉS =====');
+      
       const { data: allSubs } = await supabase
         .from('stripe_user_subscriptions')
         .select('subscription_type, status, subscription_id')
@@ -323,9 +325,20 @@ export function Subscription() {
         .in('status', ['active', 'trialing'])
         .is('deleted_at', null);
 
+      console.log('[Subscription.tsx] Toutes les subscriptions récupérées:', {
+        total: allSubs?.length || 0,
+        subscriptions: allSubs?.map(s => ({
+          subscription_id: s.subscription_id,
+          type: s.subscription_type,
+          status: s.status,
+          isSlot: s.subscription_id?.includes('_slot_')
+        }))
+      });
+
       let totalPaidSlots = 0;
       if (allSubs && allSubs.length > 0) {
         const premierCount = allSubs.filter((s) => s.subscription_type === 'premier').length;
+        console.log('[Subscription.tsx] Nombre de subscriptions premier:', premierCount);
 
         // Récupérer la quantité réelle depuis Stripe pour chaque subscription additionnelle
         const {
@@ -338,10 +351,18 @@ export function Subscription() {
             (s) => s.subscription_type === 'additional_account',
           );
 
+          console.log('[Subscription.tsx] Subscriptions additionnelles trouvées:', {
+            count: additionalSubs.length,
+            subscriptions: additionalSubs.map(s => ({
+              subscription_id: s.subscription_id,
+              isSlot: s.subscription_id?.includes('_slot_')
+            }))
+          });
+
           for (const sub of additionalSubs) {
             try {
               const response = await fetch(
-                `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/get-subscription-quantity`,
+                `${process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, '')}/functions/v1/get-subscription-quantity`,
                 {
                   method: 'POST',
                   headers: {
@@ -357,31 +378,47 @@ export function Subscription() {
               if (response.ok) {
                 const data = await response.json();
                 const quantity = data.quantity || 1; // Par défaut 1 si pas de quantité
+                console.log(`[Subscription.tsx] Quantité pour ${sub.subscription_id}:`, quantity);
                 totalAdditionalQuantity += quantity;
               } else {
+                console.warn(`[Subscription.tsx] Erreur pour ${sub.subscription_id}, fallback à 1`);
                 totalAdditionalQuantity += 1; // Fallback : 1 par défaut
               }
             } catch (error) {
+              console.error(`[Subscription.tsx] Exception pour ${sub.subscription_id}:`, error);
               totalAdditionalQuantity += 1; // Fallback : 1 par défaut
             }
           }
 
+          console.log('[Subscription.tsx] Total quantité additionnelle:', totalAdditionalQuantity);
           totalPaidSlots = premierCount > 0 ? 1 + totalAdditionalQuantity : 0;
         } else {
           // Fallback si pas de session : compter les lignes (ancienne méthode)
           const additionalCount = allSubs.filter(
             (s) => s.subscription_type === 'additional_account',
           ).length;
+          console.log('[Subscription.tsx] Pas de session, fallback - comptage des lignes:', additionalCount);
           totalPaidSlots = premierCount > 0 ? 1 + additionalCount : 0;
         }
       } else {
+        console.log('[Subscription.tsx] Aucune subscription trouvée');
       }
 
       // Ajouter des slots vides pour les emails payés mais non configurés
       const configuredCount = accounts.length;
       const slotsToAdd = totalPaidSlots - configuredCount;
+      
+      console.log('[Subscription.tsx] Résultat final:', {
+        totalPaidSlots,
+        configuredCount,
+        slotsToAdd,
+        accountsCount: accounts.length
+      });
+      
+      console.log('[Subscription.tsx] ===== FIN CALCUL EMAILS NON CONFIGURÉS =====');
 
       if (slotsToAdd > 0) {
+        console.log(`[Subscription.tsx] Ajout de ${slotsToAdd} slot(s) artificiel(s) à la liste des comptes`);
         for (let i = 0; i < slotsToAdd; i++) {
           accounts.push({
             id: `slot-${i}`,
@@ -392,6 +429,10 @@ export function Subscription() {
             isSlot: true,
           });
         }
+        console.log(`[Subscription.tsx] Après ajout des slots, nombre total de comptes: ${accounts.length}`);
+        console.log(`[Subscription.tsx] Nombre de slots (isSlot=true): ${accounts.filter(a => a.isSlot).length}`);
+      } else {
+        console.log(`[Subscription.tsx] Aucun slot à ajouter (slotsToAdd=${slotsToAdd})`);
       }
 
       setEmailAccounts(accounts);
@@ -407,7 +448,7 @@ export function Subscription() {
       if (!session) return;
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/get-stripe-prices`,
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, '')}/functions/v1/get-stripe-prices`,
         {
           method: 'GET',
           headers: {
@@ -465,7 +506,7 @@ export function Subscription() {
       for (const sub of allSubs) {
         try {
           const response = await fetch(
-            `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/get-subscription-quantity`,
+            `${process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, '')}/functions/v1/get-subscription-quantity`,
             {
               method: 'POST',
               headers: {
@@ -532,7 +573,7 @@ export function Subscription() {
       if (!session) return;
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/stripe-sync-invoices`,
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, '')}/functions/v1/stripe-sync-invoices`,
         {
           method: 'POST',
           headers: {
@@ -602,7 +643,7 @@ export function Subscription() {
         }
 
         const response = await fetch(
-          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/stripe-cancel-subscription`,
+          `${process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, '')}/functions/v1/stripe-cancel-subscription`,
           {
             method: 'POST',
             headers: {
@@ -699,7 +740,7 @@ export function Subscription() {
         const finalSubscriptionId = subscriptionData.subscription_id;
 
         const response = await fetch(
-          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/stripe-cancel-subscription`,
+          `${process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, '')}/functions/v1/stripe-cancel-subscription`,
           {
             method: 'POST',
             headers: {
@@ -834,7 +875,7 @@ export function Subscription() {
       setDeletingAccount(`slot-${slotIndex}`);
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/stripe-cancel-subscription`,
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, '')}/functions/v1/stripe-cancel-subscription`,
         {
           method: 'POST',
           headers: {
@@ -872,7 +913,7 @@ export function Subscription() {
         data: { session },
       } = await supabase.auth.getSession();
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/gmail-oauth-init`,
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, '')}/functions/v1/gmail-oauth-init`,
         {
           method: 'POST',
           headers: {
@@ -908,7 +949,7 @@ export function Subscription() {
         showToast('Vous devez être connecté', 'error');
         return;
       }
-      window.location.href = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/outlook-oauth-init?user_id=${user.id}`;
+      window.location.href = `${process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, '')}/functions/v1/outlook-oauth-init?user_id=${user.id}`;
     } else {
       setShowAddAccountModal(false);
       setShowSetupEmailModal(true);
@@ -927,7 +968,7 @@ export function Subscription() {
       }
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/stripe-force-sync`,
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, '')}/functions/v1/stripe-force-sync`,
         {
           method: 'POST',
           headers: {
@@ -999,7 +1040,7 @@ export function Subscription() {
       } = await supabase.auth.getSession();
       if (session) {
         const response = await fetch(
-          `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/stripe-update-subscription`,
+          `${process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, '')}/functions/v1/stripe-update-subscription`,
           {
             method: 'POST',
             headers: {
@@ -1043,7 +1084,7 @@ export function Subscription() {
       }
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/stripe-download-invoice?invoice_id=${invoiceId}`,
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, '')}/functions/v1/stripe-download-invoice?invoice_id=${invoiceId}`,
         {
           method: 'GET',
           headers: {
@@ -1096,7 +1137,7 @@ export function Subscription() {
       const cancelUrl = `${window.location.origin}/user-settings?tab=subscription&canceled=true`;
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/stripe-checkout`,
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, '')}/functions/v1/stripe-checkout`,
         {
           method: 'POST',
           headers: {
@@ -1150,7 +1191,7 @@ export function Subscription() {
       }
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/stripe-cancel-subscription`,
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, '')}/functions/v1/stripe-cancel-subscription`,
         {
           method: 'POST',
           headers: {
@@ -1227,7 +1268,7 @@ export function Subscription() {
       }
 
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/stripe-reactivate-subscription`,
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, '')}/functions/v1/stripe-reactivate-subscription`,
         {
           method: 'POST',
           headers: {

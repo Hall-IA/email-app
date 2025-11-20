@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Mail, Server, Eye, EyeOff, CheckCircle, ArrowRight, AlertCircle, X, RefreshCw } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '../../context/AuthContext';
@@ -12,6 +13,7 @@ interface SetupEmailModalProps {
 }
 
 export function SetupEmailModal({ userId, onComplete }: SetupEmailModalProps) {
+    const router = useRouter();
     const { user } = useAuth();
     const { showToast, ToastComponent } = useToast();
     const [loading, setLoading] = useState(false);
@@ -53,7 +55,7 @@ export function SetupEmailModal({ userId, onComplete }: SetupEmailModalProps) {
             console.log('🔐 [GMAIL OAUTH] Session récupérée, token présent:', !!session.access_token);
     
             const response = await fetch(
-                `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/gmail-oauth-init`,
+                `${process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, '')}/functions/v1/gmail-oauth-init`,
                 {
                     method: 'POST',
                     headers: {
@@ -172,7 +174,7 @@ export function SetupEmailModal({ userId, onComplete }: SetupEmailModalProps) {
             }
 
             const response = await fetch(
-                `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/verify-email-connection`,
+                `${process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, '')}/functions/v1/verify-email-connection`,
                 {
                     method: 'POST',
                     headers: {
@@ -248,8 +250,14 @@ export function SetupEmailModal({ userId, onComplete }: SetupEmailModalProps) {
             localStorage.removeItem('business_pass_email_counter');
             
             showToast('Email configuré avec succès !', 'success');
-            // Fermer la modal en appelant onComplete
+            
+            // Fermer la modal d'abord
             onComplete();
+            
+            // Rediriger vers settings avec un paramètre pour ouvrir la modal de description
+            setTimeout(() => {
+                router.push('/settings?setup=complete');
+            }, 300);
         } catch (err) {
             console.error('Error adding email:', err);
             showToast('Erreur lors de l\'ajout du compte email', 'error');

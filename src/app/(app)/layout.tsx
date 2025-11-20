@@ -103,7 +103,7 @@ export default function DashboardLayout({
             }
 
             const response = await fetch(
-                `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/stripe-sync-invoices`,
+                `${process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, '')}/functions/v1/stripe-sync-invoices`,
                 {
                     method: 'POST',
                     headers: {
@@ -352,12 +352,10 @@ export default function DashboardLayout({
         });
 
         if (!hasPayment) {
-            console.log('⚠️ [CHECKOUT MODAL] checkPaymentStatus - Aucun paiement trouvé - Tentative de synchronisation');
-            // Essayer de synchroniser les factures depuis Stripe
-            await syncInvoicesFromStripe();
-            
-            // Attendre un peu puis re-vérifier
-            setTimeout(async () => {
+            console.log('⚠️ [CHECKOUT MODAL] checkPaymentStatus - Aucun paiement trouvé');
+            // Synchroniser en arrière-plan sans bloquer l'affichage de la modal
+            syncInvoicesFromStripe().then(async () => {
+                // Re-vérifier après synchronisation (en arrière-plan)
                 const { data: recheckInvoices } = await supabase
                     .from('stripe_invoices')
                     .select('invoice_id, status, amount_paid, paid_at')
@@ -370,18 +368,18 @@ export default function DashboardLayout({
                     console.log('✅ [CHECKOUT MODAL] checkPaymentStatus - Factures trouvées après synchronisation - Masquage modal');
                     setShowCheckout(false);
                     checkEmailStatus();
-                } else {
-                    console.log('⚠️ [CHECKOUT MODAL] checkPaymentStatus - Aucune facture trouvée après synchronisation - Affichage modal');
-                    setShowCheckout(true);
                 }
-            }, 2000);
+            }).catch(err => {
+                console.error('Erreur lors de la synchronisation:', err);
+            });
+            // Retourner false immédiatement pour permettre l'affichage de la modal
+            return false;
         } else {
             console.log('✅ [CHECKOUT MODAL] checkPaymentStatus - Paiement trouvé - Masquage modal');
             setShowCheckout(false);
             checkEmailStatus();
             return true;
         }
-        return false;
     };
 
     const checkEmailStatus = async () => {
@@ -469,9 +467,14 @@ export default function DashboardLayout({
             {showOnboarding && user && (
                 <OnboardingModal
                     userId={user.id}
-                    onComplete={() => {
+                    onComplete={async () => {
                         setShowOnboarding(false);
-                        checkPaymentStatus();
+                        // Vérifier rapidement le statut du paiement
+                        const hasPayment = await checkPaymentStatus();
+                        // Si aucun paiement, afficher immédiatement la CheckoutModal
+                        if (!hasPayment) {
+                            setShowCheckout(true);
+                        }
                     }}
                 />
             )}

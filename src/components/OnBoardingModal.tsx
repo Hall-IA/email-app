@@ -324,7 +324,7 @@ export function OnboardingModal({ userId, onComplete }: OnboardingModalProps) {
             }
 
             showToast('Configuration enregistrée avec succès !', 'success');
-            setTimeout(() => onComplete(), 500);
+            onComplete(); // Appel immédiat sans délai
         } catch (error) {
             console.error('Error:', error);
             showToast('Une erreur est survenue. Veuillez réessayer.', 'error');

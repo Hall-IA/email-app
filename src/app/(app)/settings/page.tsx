@@ -108,7 +108,7 @@ export default function Settings() {
         try {
             const { data: { session } } = await supabase.auth.getSession();
             const response = await fetch(
-                `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/gmail-oauth-init`,
+                `${process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, '')}/functions/v1/gmail-oauth-init`,
                 {
                     method: 'POST',
                     headers: {
@@ -138,7 +138,7 @@ export default function Settings() {
         if (provider === 'gmail') {
             await connectGmail();
         } else if (provider === 'outlook') {
-            window.location.href = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/outlook-oauth-init?user_id=${user?.id}`;
+            window.location.href = `${process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, '')}/functions/v1/outlook-oauth-init?user_id=${user?.id}`;
         } else {
             setShowAddAccountModal(false);
             setShowImapModal(true);
@@ -162,7 +162,7 @@ export default function Settings() {
             const { data: { session } } = await supabase.auth.getSession();
 
             const response = await fetch(
-                `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/verify-email-connection`,
+                `${process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, '')}/functions/v1/verify-email-connection`,
                 {
                     method: 'POST',
                     headers: {
@@ -304,6 +304,7 @@ export default function Settings() {
         loadAccounts();
         loadDocuments();
         checkSubscription();
+        fetchPaidEmailSlots(); // Charger les slots payés au démarrage
     }, [user]);
 
 
@@ -404,21 +405,28 @@ export default function Settings() {
     // Détecter le retour du paiement Stripe
     useEffect(() => {
         const upgraded = searchParams.get('upgrade');
+        const payment = searchParams.get('payment');
         
-        if (upgraded === 'success') {
+        if (upgraded === 'success' || payment === 'success') {
+            // Nettoyer l'URL
             router.replace('/settings');
+            console.log('[Settings] Retour du paiement détecté, synchronisation en cours...');
             handleUpgradeReturn();
         }
     }, [searchParams]);
 
 
     const handleUpgradeReturn = async () => {
+        console.log('[Settings] handleUpgradeReturn - Début de la synchronisation');
+        showToast('Synchronisation des données de paiement en cours...', 'info');
+        
         // Forcer la synchronisation avec Stripe
         try {
             const { data: { session } } = await supabase.auth.getSession();
             if (session) {
-                await fetch(
-                    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/stripe-force-sync`,
+                console.log('[Settings] Appel de stripe-force-sync...');
+                const syncResponse = await fetch(
+                    `${process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, '')}/functions/v1/stripe-force-sync`,
                     {
                         method: 'POST',
                         headers: {
@@ -427,23 +435,49 @@ export default function Settings() {
                         },
                     }
                 );
+                
+                if (syncResponse.ok) {
+                    console.log('[Settings] stripe-force-sync réussi');
+                } else {
+                    console.error('[Settings] Erreur stripe-force-sync:', await syncResponse.text());
+                }
             }
         } catch (error) {
+            console.error('[Settings] Erreur lors de la synchronisation:', error);
         }
         
-        // Rafraîchir les données
+        // Attendre un peu pour que le webhook Stripe ait le temps de créer les slots
+        console.log('[Settings] Attente de 2 secondes pour que le webhook crée les slots...');
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        // Rafraîchir les données immédiatement
+        console.log('[Settings] Rechargement des données...');
         await fetchPaidEmailSlots();
         await checkSubscription();
         await loadAccounts();
         
-        // Polling pendant 10 secondes
+        // Polling pendant 15 secondes pour s'assurer que tous les slots sont créés
+        let pollCount = 0;
+        const maxPolls = 7; // 7 tentatives = 14 secondes
+        
         const pollInterval = setInterval(async () => {
+            pollCount++;
+            console.log(`[Settings] Polling ${pollCount}/${maxPolls} - Rechargement des slots...`);
             await fetchPaidEmailSlots();
+            await loadAccounts();
+            
+            if (pollCount >= maxPolls) {
+                clearInterval(pollInterval);
+                console.log('[Settings] Polling terminé');
+                showToast('Synchronisation terminée', 'success');
+            }
         }, 2000);
         
+        // Nettoyer l'intervalle après 15 secondes au cas où
         setTimeout(() => {
             clearInterval(pollInterval);
-        }, 10000);
+            console.log('[Settings] Polling arrêté (timeout)');
+        }, 15000);
     };
 
     const checkSubscription = async () => {
@@ -510,6 +544,7 @@ export default function Settings() {
         if (!user) return;
 
         try {
+            console.log('[Settings] ===== DÉBUT CALCUL EMAILS PAYÉS =====');
             
             // Compter DIRECTEMENT depuis stripe_user_subscriptions (pas stripe_subscriptions)
             const { data: allSubs, error: subsError } = await supabase
@@ -519,46 +554,58 @@ export default function Settings() {
                 .in('status', ['active', 'trialing'])
                 .is('deleted_at', null);
 
+            console.log('[Settings] Toutes les subscriptions récupérées:', {
+                total: allSubs?.length || 0,
+                subscriptions: allSubs?.map(s => ({
+                    subscription_id: s.subscription_id,
+                    type: s.subscription_type,
+                    status: s.status,
+                    isSlot: s.subscription_id?.includes('_slot_')
+                }))
+            });
 
             if (subsError) {
                 // Si la table n'existe pas ou si les colonnes sont manquantes
                 if (subsError.code === '42P01' || subsError.code === '42703' || subsError.message?.includes('does not exist') || subsError.message?.includes('column')) {
-                    console.warn('stripe_user_subscriptions table or columns not found:', subsError);
+                    console.warn('[Settings] stripe_user_subscriptions table or columns not found:', subsError);
                     setTotalPaidSlots(0);
                     return;
                 }
-                console.error('Erreur lors de la récupération:', subsError);
+                console.error('[Settings] Erreur lors de la récupération:', subsError);
                 setTotalPaidSlots(0);
                 return;
             }
 
             if (!allSubs || allSubs.length === 0) {
+                console.log('[Settings] Aucune subscription trouvée');
                 setTotalPaidSlots(0);
                 return;
             }
 
-            // Compter : 1 pour le plan de base + quantité pour chaque subscription additionnelle
+            // Utiliser EXACTEMENT la même méthode que Subscription.tsx
             const premierCount = allSubs.filter(s => s.subscription_type === 'premier').length;
+            console.log('[Settings] Nombre de subscriptions premier:', premierCount);
             
             // Récupérer la quantité réelle depuis Stripe pour chaque subscription additionnelle
             const { data: { session } } = await supabase.auth.getSession();
-            if (!session) {
-                console.error('⚠️ Pas de session pour récupérer les quantités');
-                const additionalCount = allSubs.filter(s => s.subscription_type === 'additional_account').length;
-                const total = premierCount > 0 ? 1 + additionalCount : 0;
-                setTotalPaidSlots(total);
-                return;
-            }
-
-            // Récupérer les quantités depuis Stripe via une fonction backend
             let totalAdditionalQuantity = 0;
+            
+            if (session) {
+                // Récupérer les quantités réelles depuis Stripe (comme dans Subscription.tsx)
             const additionalSubs = allSubs.filter(s => s.subscription_type === 'additional_account');
             
+                console.log('[Settings] Subscriptions additionnelles trouvées:', {
+                    count: additionalSubs.length,
+                    subscriptions: additionalSubs.map(s => ({
+                        subscription_id: s.subscription_id,
+                        isSlot: s.subscription_id?.includes('_slot_')
+                    }))
+                });
             
             for (const sub of additionalSubs) {
                 try {
                     const response = await fetch(
-                        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/get-subscription-quantity`,
+                            `${process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, '')}/functions/v1/get-subscription-quantity`,
                         {
                             method: 'POST',
                             headers: {
@@ -574,23 +621,41 @@ export default function Settings() {
                     if (response.ok) {
                         const data = await response.json();
                         const quantity = data.quantity || 1; // Par défaut 1 si pas de quantité
+                            console.log(`[Settings] Quantité pour ${sub.subscription_id}:`, quantity);
                         totalAdditionalQuantity += quantity;
                     } else {
-                        console.warn(`⚠️ Impossible de récupérer la quantité pour ${sub.subscription_id}, utilisation de 1 par défaut`);
+                            console.warn(`[Settings] Erreur pour ${sub.subscription_id}, fallback à 1`);
                         totalAdditionalQuantity += 1; // Fallback : 1 par défaut
                     }
                 } catch (error) {
-                    console.error(`❌ Erreur lors de la récupération de la quantité pour ${sub.subscription_id}:`, error);
+                        console.error(`[Settings] Exception pour ${sub.subscription_id}:`, error);
                     totalAdditionalQuantity += 1; // Fallback : 1 par défaut
                 }
+                }
+                
+                console.log('[Settings] Total quantité additionnelle:', totalAdditionalQuantity);
+            } else {
+                // Fallback si pas de session : compter les lignes (ancienne méthode)
+                const additionalCount = allSubs.filter(s => s.subscription_type === 'additional_account').length;
+                console.log('[Settings] Pas de session, fallback - comptage des lignes:', additionalCount);
+                totalAdditionalQuantity = additionalCount;
             }
             
             const total = premierCount > 0 ? 1 + totalAdditionalQuantity : 0;
             
+            console.log('[Settings] Résultat final:', {
+                premierCount,
+                totalAdditionalQuantity,
+                totalPaidSlots: total,
+                accountsLength: accounts.length,
+                unlinkedSubscriptionsCount: unlinkedSubscriptions.length
+            });
+            
+            console.log('[Settings] ===== FIN CALCUL EMAILS PAYÉS =====');
             
             setTotalPaidSlots(total);
         } catch (error) {
-            console.error('Error fetching paid email slots:', error);
+            console.error('[Settings] Error fetching paid email slots:', error);
             setTotalPaidSlots(0);
         }
     };
@@ -631,7 +696,7 @@ export default function Settings() {
             const cancelUrl = `${window.location.origin}/dashboard`;
 
             const response = await fetch(
-                `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/stripe-checkout`,
+                `${process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, '')}/functions/v1/stripe-checkout`,
                 {
                     method: 'POST',
                     headers: {
@@ -757,15 +822,33 @@ export default function Settings() {
             setAccounts(sortedAccounts);
 
             // Récupérer les subscriptions non liées (slots non configurés)
-            const { data: unlinkedSubs } = await supabase
+            console.log('[Settings] ===== DÉBUT RÉCUPÉRATION SLOTS NON CONFIGURÉS =====');
+            
+            const { data: unlinkedSubs, error: unlinkedError } = await supabase
                 .from('stripe_user_subscriptions')
-                .select('subscription_id')
+                .select('subscription_id, created_at')
                 .eq('user_id', user.id)
                 .eq('subscription_type', 'additional_account')
                 .is('email_configuration_id', null)
                 .in('status', ['active', 'trialing'])
                 .is('deleted_at', null)
                 .order('created_at', { ascending: true });
+            
+            if (unlinkedError) {
+                console.error('[Settings] Erreur lors de la récupération des slots non configurés:', unlinkedError);
+            } else {
+                console.log(`[Settings] Slots non configurés trouvés: ${unlinkedSubs?.length || 0}`);
+                console.log(`[Settings] Détails des slots:`, {
+                    count: unlinkedSubs?.length || 0,
+                    slots: unlinkedSubs?.map(s => ({
+                        subscription_id: s.subscription_id,
+                        isSlot: s.subscription_id?.includes('_slot_'),
+                        created_at: s.created_at
+                    }))
+                });
+            }
+            
+            console.log('[Settings] ===== FIN RÉCUPÉRATION SLOTS NON CONFIGURÉS =====');
             
             setUnlinkedSubscriptions(unlinkedSubs || []);
 
@@ -1240,7 +1323,7 @@ export default function Settings() {
             }
 
             const response = await fetch(
-                `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/delete-email-account`,
+                `${process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, '')}/functions/v1/delete-email-account`,
                 {
                     method: 'POST',
                     headers: {
@@ -1293,7 +1376,7 @@ export default function Settings() {
             }
 
             const response = await fetch(
-                `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/delete-user-account`,
+                `${process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, '')}/functions/v1/delete-user-account`,
                 {
                     method: 'POST',
                     headers: {
@@ -1467,9 +1550,49 @@ export default function Settings() {
                                 })}
 
                                 {/* Slots d'emails payés mais non configurés */}
-                                {totalPaidSlots > accounts.length && Array.from({ length: totalPaidSlots - accounts.length }).map((_, index) => {
-                                    const slotSub = unlinkedSubscriptions[index];
+                                {(() => {
+                                    // Utiliser la même méthode que Subscription.tsx : calculer le nombre de slots
+                                    // basé sur totalPaidSlots - accounts.length au lieu d'utiliser unlinkedSubscriptions.length
+                                    const slotsToAdd = totalPaidSlots - accounts.length;
+                                    
+                                    console.log('[Settings] AFFICHAGE - Nombre de slots non configurés à afficher:', {
+                                        unlinkedSubscriptionsLength: unlinkedSubscriptions.length,
+                                        accountsLength: accounts.length,
+                                        totalPaidSlots,
+                                        calculatedUnconfigured: slotsToAdd,
+                                        slotsToAdd,
+                                        unlinkedSubscriptions: unlinkedSubscriptions.map(s => ({
+                                            subscription_id: s.subscription_id,
+                                            isSlot: s.subscription_id?.includes('_slot_')
+                                        }))
+                                    });
+                                    
+                                    // Créer un tableau de slots pour l'affichage (comme dans Subscription.tsx)
+                                    const displaySlots: Array<{ subscription_id: string | null; index: number }> = [];
+                                    
+                                    if (slotsToAdd > 0) {
+                                        // Utiliser les unlinkedSubscriptions existants si disponibles
+                                        for (let i = 0; i < slotsToAdd; i++) {
+                                            if (i < unlinkedSubscriptions.length) {
+                                                // Utiliser un slot réel de la base de données
+                                                displaySlots.push({
+                                                    subscription_id: unlinkedSubscriptions[i].subscription_id,
+                                                    index: i
+                                                });
+                                            } else {
+                                                // Créer un slot artificiel (comme dans Subscription.tsx)
+                                                displaySlots.push({
+                                                    subscription_id: null,
+                                                    index: i
+                                                });
+                                            }
+                                        }
+                                    }
+                                    
+                                    return displaySlots;
+                                })().map((slotItem, index) => {
                                     const isSelected = selectedSlot?.index === index;
+                                    const slotSub = slotItem.subscription_id ? { subscription_id: slotItem.subscription_id } : null;
                                     
                                     return (
                                         <motion.button
@@ -1479,14 +1602,15 @@ export default function Settings() {
                                             transition={{ duration: 0.3, delay: 0.3 + (accounts.length + index) * 0.1 }}
                                             onClick={(e) => {
                                                 e.stopPropagation();
-                                                if (slotSub?.subscription_id) {
+                                                if (slotItem.subscription_id) {
                                                     // Ouvrir directement la modal de configuration
-                                                    setSelectedSlotForConfig({ index, subscription_id: slotSub.subscription_id });
+                                                    setSelectedSlotForConfig({ index, subscription_id: slotItem.subscription_id });
                                                     setShowSlotConfigModal(true);
                                                     // Sélectionner aussi le slot pour afficher la colonne de droite
-                                                    setSelectedSlot({ index, subscription_id: slotSub.subscription_id });
+                                                    setSelectedSlot({ index, subscription_id: slotItem.subscription_id });
                                                     setSelectedAccount(null); // Désélectionner le compte configuré
                                                 } else {
+                                                    // Slot artificiel sans subscription_id, ouvrir la modal d'ajout
                                                     setShowAddAccountModal(true);
                                                 }
                                             }}
