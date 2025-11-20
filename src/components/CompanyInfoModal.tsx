@@ -560,7 +560,7 @@ export function CompanyInfoModal({ userId, emailAccountId, email, initialStep = 
                                 <div className="space-y-3 font-inter">
                                     <div>
                                         <label className="block text-sm font-semibold text-gray-900 mb-2 font-inter">
-                                            Logo de signature
+                                            Logo de signature (optionnel)
                                         </label>
                                         <div
                                             onDragOver={handleLogoDragOver}
@@ -618,7 +618,7 @@ export function CompanyInfoModal({ userId, emailAccountId, email, initialStep = 
                                 <div className="space-y-3 font-inter">
                                     <div>
                                         <label className="block text-sm font-semibold text-gray-900 mb-3 font-inter">
-                                            Base de connaissance
+                                            Base de connaissance (optionnel)
                                         </label>
                                         
                                         {/* URLs */}

@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { Mail, Server, Eye, EyeOff, CheckCircle, ArrowRight, AlertCircle, X, RefreshCw } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '../../context/AuthContext';
@@ -13,7 +12,6 @@ interface SetupEmailModalProps {
 }
 
 export function SetupEmailModal({ userId, onComplete }: SetupEmailModalProps) {
-    const router = useRouter();
     const { user } = useAuth();
     const { showToast, ToastComponent } = useToast();
     const [loading, setLoading] = useState(false);
@@ -250,10 +248,8 @@ export function SetupEmailModal({ userId, onComplete }: SetupEmailModalProps) {
             localStorage.removeItem('business_pass_email_counter');
             
             showToast('Email configuré avec succès !', 'success');
-            // Rediriger vers settings avec un paramètre pour ouvrir la modal de description
-            setTimeout(() => {
-                router.push('/settings?setup=complete');
-            }, 500);
+            // Fermer la modal en appelant onComplete
+            onComplete();
         } catch (err) {
             console.error('Error adding email:', err);
             showToast('Erreur lors de l\'ajout du compte email', 'error');
