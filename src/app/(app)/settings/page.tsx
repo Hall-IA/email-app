@@ -5,7 +5,7 @@ import { supabase } from '@/lib/supabase';
 import { Plus, Edit, Trash2, FileText, Globe, Share2, X, Check, Lock, ChevronRight, Eye, EyeOff, Edit2Icon, Mail, Upload, Loader2, Download, AlertCircle, HelpCircle } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../../../../context/AuthContext';
-import { CheckoutModal } from '@/components/CheckoutModal';
+import { CheckoutAdditionalModal } from '@/components/CheckoutAdditionalModal';
 import { ConfirmationModal } from '@/components/ConfirmationModal';
 import { DeleteAccountModal } from '@/components/DeleteAccountModal';
 import { SetupEmailModal } from '@/components/SetupEmailModal';
@@ -61,7 +61,6 @@ export default function Settings() {
     const [duplicateEmail, setDuplicateEmail] = useState<string>('');
     const [showNotification, setShowNotification] = useState(false);
     const [notificationMessage, setNotificationMessage] = useState('');
-    const [showUpgradeModal, setShowUpgradeModal] = useState(false);
     const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
     const [hasActiveSubscription, setHasActiveSubscription] = useState(false);
     const [allowedAccounts, setAllowedAccounts] = useState(1);
@@ -104,6 +103,144 @@ export default function Settings() {
     const [knowledgeSaving, setKnowledgeSaving] = useState(false);
     const [isDraggingPdf, setIsDraggingPdf] = useState(false);
     const [isDraggingLogo, setIsDraggingLogo] = useState(false);
+
+    const connectGmail = async () => {
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            const response = await fetch(
+                `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/gmail-oauth-init`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${session?.access_token}`,
+                        'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ redirectUrl: window.location.origin }),
+                }
+            );
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'Échec de l\'initialisation Gmail');
+            }
+            const { authUrl } = await response.json();
+            const width = 600;
+            const height = 700;
+            const left = window.screen.width / 2 - width / 2;
+            const top = window.screen.height / 2 - height / 2;
+            window.open(authUrl, 'Gmail OAuth', `width=${width},height=${height},left=${left},top=${top}`);
+        } catch (err) {
+            showToast('Erreur lors de la connexion Gmail', 'error');
+        }
+    };
+
+    const handleProviderSelect = async (provider: 'gmail' | 'outlook' | 'imap') => {
+        if (provider === 'gmail') {
+            await connectGmail();
+        } else if (provider === 'outlook') {
+            window.location.href = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/outlook-oauth-init?user_id=${user?.id}`;
+        } else {
+            setShowAddAccountModal(false);
+            setShowImapModal(true);
+            setTestSuccess(false);
+            setTestError(null);
+        }
+    };
+
+    const handleImapFormChange = (field: string, value: string) => {
+        setImapFormData({ ...imapFormData, [field]: value });
+        setTestSuccess(false);
+        setTestError(null);
+    };
+
+    const handleTestConnection = async () => {
+        setTestingConnection(true);
+        setTestError(null);
+        setTestSuccess(false);
+
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+
+            const response = await fetch(
+                `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/verify-email-connection`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${session?.access_token}`,
+                        'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        email: imapFormData.email,
+                        password: imapFormData.password,
+                        imap_host: imapFormData.imap_host,
+                        imap_port: parseInt(imapFormData.imap_port),
+                    }),
+                }
+            );
+
+            const result = await response.json();
+
+            if (result.success) {
+                setTestSuccess(true);
+            } else {
+                setTestError(result.error || 'Échec de la vérification de la connexion');
+            }
+        } catch (err) {
+            setTestError('Impossible de vérifier la connexion au serveur');
+        } finally {
+            setTestingConnection(false);
+        }
+    };
+
+    const handleImapSubmit = async () => {
+        if (!imapFormData.email || !imapFormData.password || !imapFormData.imap_host) {
+            showToast('Veuillez remplir tous les champs obligatoires', 'warning');
+            return;
+        }
+
+        try {
+            const { data: existing } = await supabase
+                .from('email_configurations')
+                .select('id')
+                .eq('user_id', user?.id as string)
+                .eq('email', imapFormData.email)
+                .maybeSingle();
+
+            if (existing) {
+                setDuplicateEmail(imapFormData.email);
+                setShowDuplicateEmailModal(true);
+                return;
+            }
+
+            const { error } = await supabase.from('email_configurations').insert({
+                user_id: user?.id as string,
+                name: imapFormData.email,
+                email: imapFormData.email,
+                provider: 'smtp_imap',
+                is_connected: true,
+                is_classement: false,
+                password: imapFormData.password,
+                imap_host: imapFormData.imap_host,
+                imap_port: parseInt(imapFormData.imap_port),
+                imap_username: imapFormData.email,
+                imap_password: imapFormData.password,
+            });
+
+            if (error) throw error;
+
+            setShowImapModal(false);
+            setImapFormData({
+                email: '',
+                password: '',
+                imap_host: '',
+                imap_port: '993',
+            });
+            await loadAccounts();
+        } catch (err) {
+            showToast('Erreur lors de l\'ajout du compte', 'error');
+        }
+    };
 
     const checkCompanyInfoForAccount = async () => {
         if (!user || !selectedAccount) return;
@@ -469,46 +606,7 @@ export default function Settings() {
             return;
         }
 
-        // Ouvrir directement le modal de paiement pour ajouter un compte additionnel
-        setShowUpgradeModal(true);
-    };
-
-    const handleUpgrade = async () => {
-        setShowUpgradeModal(false);
-        
-        // Forcer la synchronisation avec Stripe immédiatement
-        try {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (session) {
-                await fetch(
-                    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/stripe-force-sync`,
-                    {
-                        method: 'POST',
-                        headers: {
-                            'Authorization': `Bearer ${session.access_token}`,
-                            'Content-Type': 'application/json',
-                        },
-                    }
-                );
-            }
-        } catch (error) {
-        }
-        
-        // Attendre un peu puis rafraîchir
-        setTimeout(async () => {
-            await fetchPaidEmailSlots();
-            await checkSubscription();
-            await loadAccounts();
-        }, 2000);
-        
-        // Polling pour vérifier les changements toutes les 2 secondes pendant 10 secondes
-        const pollInterval = setInterval(async () => {
-            await fetchPaidEmailSlots();
-        }, 2000);
-        
-        setTimeout(() => {
-            clearInterval(pollInterval);
-        }, 10000);
+        setShowAddAccountModal(true);
     };
 
     const handleSubscribe = async () => {
@@ -1221,144 +1319,6 @@ export default function Settings() {
     };
 
 
-    const connectGmail = async () => {
-        try {
-            const { data: { session } } = await supabase.auth.getSession();
-            const response = await fetch(
-                `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/gmail-oauth-init`,
-                {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${session?.access_token}`,
-                        'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ redirectUrl: window.location.origin }),
-                }
-            );
-            if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.error || 'Échec de l\'initialisation Gmail');
-            }
-            const { authUrl } = await response.json();
-            const width = 600; const height = 700;
-            const left = window.screen.width / 2 - width / 2;
-            const top = window.screen.height / 2 - height / 2;
-            window.open(authUrl, 'Gmail OAuth', `width=${width},height=${height},left=${left},top=${top}`);
-
-        } catch (err) {
-            showToast('Erreur lors de la connexion Gmail', 'error');
-        }
-    };
-
-    const handleProviderSelect = async (provider: 'gmail' | 'outlook' | 'imap') => {
-        if (provider === 'gmail') {
-            await connectGmail();
-        } else if (provider === 'outlook') {
-            window.location.href = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/outlook-oauth-init?user_id=${user?.id}`;
-        } else {
-            setShowAddAccountModal(false);
-            setShowImapModal(true);
-            setTestSuccess(false);
-            setTestError(null);
-        }
-    };
-
-    const handleImapFormChange = (field: string, value: string) => {
-        setImapFormData({ ...imapFormData, [field]: value });
-        setTestSuccess(false);
-        setTestError(null);
-    };
-
-    const handleTestConnection = async () => {
-        setTestingConnection(true);
-        setTestError(null);
-        setTestSuccess(false);
-
-        try {
-            const { data: { session } } = await supabase.auth.getSession();
-
-            const response = await fetch(
-                `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/verify-email-connection`,
-                {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${session?.access_token}`,
-                        'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        email: imapFormData.email,
-                        password: imapFormData.password,
-                        imap_host: imapFormData.imap_host,
-                        imap_port: parseInt(imapFormData.imap_port),
-                    }),
-                }
-            );
-
-            const result = await response.json();
-
-            if (result.success) {
-                setTestSuccess(true);
-            } else {
-                setTestError(result.error || 'Échec de la vérification de la connexion');
-            }
-        } catch (err) {
-            setTestError('Impossible de vérifier la connexion au serveur');
-        } finally {
-            setTestingConnection(false);
-        }
-    };
-
-    const handleImapSubmit = async () => {
-        if (!imapFormData.email || !imapFormData.password || !imapFormData.imap_host) {
-            showToast('Veuillez remplir tous les champs obligatoires', 'warning');
-            return;
-        }
-
-        try {
-            const { data: existing } = await supabase
-                .from('email_configurations')
-                .select('id')
-                .eq('user_id', user?.id as string)
-                .eq('email', imapFormData.email)
-                .maybeSingle();
-
-            if (existing) {
-                setDuplicateEmail(imapFormData.email);
-                setShowDuplicateEmailModal(true);
-                return;
-            }
-
-            const { error } = await supabase.from('email_configurations').insert({
-                user_id: user?.id as string,
-                name: imapFormData.email,
-                email: imapFormData.email,
-                provider: 'smtp_imap',
-                is_connected: true,
-                is_classement: false, // Tri automatique désactivé par défaut - sera activé après configuration de l'entreprise
-                password: imapFormData.password,
-                imap_host: imapFormData.imap_host,
-                imap_port: parseInt(imapFormData.imap_port),
-                imap_username: imapFormData.email,
-                imap_password: imapFormData.password,
-            });
-
-            if (error) throw error;
-
-            setShowImapModal(false);
-            const addedEmail = imapFormData.email;
-            setImapFormData({
-                email: '',
-                password: '',
-                imap_host: '',
-                imap_port: '993',
-            });
-            await loadAccounts();
-        } catch (err) {
-            showToast('Erreur lors de l\'ajout du compte', 'error');
-        }
-    };
 
     return (
         <>
@@ -1406,90 +1366,6 @@ export default function Settings() {
                     </motion.button>
                 </motion.div>
 
-            {/* Modal d'ajout de compte */}
-            <AnimatePresence>
-                {showAddAccountModal && (
-                    <motion.div 
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        transition={{ duration: 0.2 }}
-                        className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
-                    >
-                        <motion.div 
-                            initial={{ opacity: 0, scale: 0.9, y: 20 }}
-                            animate={{ opacity: 1, scale: 1, y: 0 }}
-                            exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                            transition={{ duration: 0.3, type: "spring" }}
-                            className="bg-white rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl font-inter max-h-[90vh] overflow-y-auto"
-                        >
-                        <div className="mb-6">
-                            <h2 className="text-2xl font-bold text-gray-900 mb-2">Ajouter un compte email</h2>
-                            <p className="text-gray-600 text-sm">Sélectionnez votre fournisseur d'email</p>
-                        </div>
-
-                        <div className="space-y-3 mb-6">
-                            <button
-                                onClick={() => handleProviderSelect('gmail')}
-                                className="w-full flex items-center justify-between p-4 border-2 border-gray-200 rounded-xl hover:border-orange-500 hover:bg-orange-50 transition-all group"
-                            >
-                                <div className="flex items-center gap-4">
-                                    <div className="w-12 h-12 bg-gradient-to-br from-[#F35F4F] to-[#FFAD5A] rounded-lg flex items-center justify-center text-white font-bold text-xl shadow-md">
-                                        G
-                                    </div>
-                                    <div className="text-left">
-                                        <div className="font-semibold text-gray-900">Gmail</div>
-                                        <div className="text-sm text-gray-500">Google Workspace</div>
-                                    </div>
-                                </div>
-                                <Check className="w-5 h-5 text-green-500" />
-                            </button>
-
-                            <button
-                                onClick={() => handleProviderSelect('outlook')}
-                                className="w-full flex items-center justify-between p-4 border-2 border-gray-200 rounded-xl hover:border-orange-500 hover:bg-orange-50 transition-all group"
-                            >
-                                <div className="flex items-center gap-4">
-                                    <div className="w-12 h-12 bg-gradient-to-br from-orange-100 to-orange-50 rounded-lg flex items-center justify-center">
-                                        <svg className="w-6 h-6 text-orange-600" fill="currentColor" viewBox="0 0 24 24">
-                                            <path d="M7 18h11v-2H7v2zm0-4h11v-2H7v2zm0-4h11V8H7v2zm14 8V6c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2z" />
-                                        </svg>
-                                    </div>
-                                    <div className="text-left">
-                                        <div className="font-semibold text-gray-900">Outlook</div>
-                                        <div className="text-sm text-gray-500">Microsoft 365</div>
-                                    </div>
-                                </div>
-                                <span className="px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-semibold rounded">Bientôt</span>
-                            </button>
-
-                            <button
-                                onClick={() => handleProviderSelect('imap')}
-                                className="w-full flex items-center justify-between p-4 border-2 border-gray-200 rounded-xl hover:border-orange-500 hover:bg-orange-50 transition-all group"
-                            >
-                                <div className="flex items-center gap-4">
-                                    <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
-                                        <Lock className="w-6 h-6 text-gray-600" />
-                                    </div>
-                                    <div className="text-left">
-                                        <div className="font-semibold text-gray-900">Autres emails</div>
-                                        <div className="text-sm text-gray-500">SMTP / IMAP</div>
-                                    </div>
-                                </div>
-                                <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-orange-500" />
-                            </button>
-                        </div>
-
-                        <button
-                            onClick={() => setShowAddAccountModal(false)}
-                            className="w-full px-4 py-3 border-2 border-gray-300 text-gray-700 rounded-lg font-medium hover:bg-gray-50 transition-colors"
-                        >
-                            Annuler
-                        </button>
-                        </motion.div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
 
                 {/* Bannière d'abonnement annulé */}
                 {isCanceled && hasActiveSubscription && subscriptionEndDate && (
@@ -2215,212 +2091,6 @@ export default function Settings() {
                             )}
                         </AnimatePresence>
 
-                        {/* Fonctionnalités */}
-                        {/* <div className="bg-white  p-6 shadow-sm border border-gray-200">
-                            <h3 className="font-bold text-gray-900 mb-6">Fonctionnalités</h3>
-                            <div className="space-y-6">
-                                <div>
-                                    <div className="flex items-center justify-between">
-                                        <div>
-                                            <div className={`font-semibold ${hasEverHadSubscription && !hasActiveSubscription ? 'text-gray-400' : 'text-gray-900'}`}>Tri automatique</div>
-                                            <div className={`text-sm ${hasEverHadSubscription && !hasActiveSubscription ? 'text-gray-400' : 'text-gray-600'}`}>Classement dans Info, Traités, Pub</div>
-                                        </div>
-                                        <button
-                                            disabled={hasEverHadSubscription && !hasActiveSubscription}
-                                            onClick={async () => {
-                                                if (!user || !selectedAccount) return;
-                                                if (hasEverHadSubscription && !hasActiveSubscription) return;
-                                                const newValue = !autoSort;
-                                                setAutoSort(newValue);
-
-                                                // Préparer les données à mettre à jour
-                                                const updateData: any = { is_classement: newValue };
-                                                if (newValue) {
-                                                    updateData.is_classement_activated_at = new Date().toISOString();
-                                                }
-
-                                                const { error } = await supabase
-                                                    .from('email_configurations')
-                                                    .update(updateData)
-                                                    .eq('user_id', user.id)
-                                                    .eq('email', selectedAccount.email);
-
-                                                const { data: configData } = await supabase
-                                                    .from('email_configurations')
-                                                    .select('gmail_token_id, outlook_token_id')
-                                                    .eq('user_id', user.id)
-                                                    .eq('email', selectedAccount.email)
-                                                    .maybeSingle();
-
-                                                if (configData?.gmail_token_id) {
-                                                    await supabase
-                                                        .from('gmail_tokens')
-                                                        .update({ is_classement: newValue })
-                                                        .eq('id', configData.gmail_token_id);
-                                                }
-
-                                                if (!error) {
-                                                    setNotificationMessage(newValue ? 'Tri automatique activé' : 'Tri automatique désactivé');
-                                                    setShowNotification(true);
-                                                    setTimeout(() => setShowNotification(false), 3000);
-                                                }
-                                            }}
-                                            className={`relative w-14 h-8 rounded-full transition-colors ${hasEverHadSubscription && !hasActiveSubscription ? 'bg-gray-200 cursor-not-allowed' : autoSort ? 'bg-green-500' : 'bg-gray-300'
-                                                }`}
-                                        >
-                                            <div
-                                                className={`absolute top-1 left-1 w-6 h-6 bg-white rounded-full transition-transform ${autoSort ? 'translate-x-6' : 'translate-x-0'
-                                                    }`}
-                                            />
-                                        </button>
-                                    </div>
-                                    {hasEverHadSubscription && !hasActiveSubscription ? (
-                                        <div className="mt-3 p-4 bg-red-50 rounded-lg border border-red-200">
-                                            <div className="flex items-start gap-3">
-                                                <svg className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                                                </svg>
-                                                <div className="flex-1">
-                                                    <div className="font-semibold text-red-800 mb-1">Abonnement expiré</div>
-                                                    {accounts.length === 0 ? (
-                                                        <>
-                                                            <div className="text-sm text-red-700 mb-3">
-                                                                Votre abonnement a expiré et vous n'avez plus de compte email configuré. Pour réactiver le tri automatique, vous devez d'abord ajouter un compte email.
-                                                            </div>
-                                                            <button
-                                                                onClick={() => setShowAddAccountModal(true)}
-                                                                className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition-colors"
-                                                            >
-                                                                Ajouter un compte email
-                                                            </button>
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            <div className="text-sm text-red-700 mb-3">
-                                                                Votre abonnement a expiré. Pour réactiver le tri automatique et accéder à toutes les fonctionnalités, veuillez renouveler votre abonnement.
-                                                            </div>
-                                                            <button
-                                                                onClick={() => router.push('/user-settings?tab=subscription')}
-                                                                className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition-colors"
-                                                            >
-                                                                Réactiver mon abonnement
-                                                            </button>
-                                                        </>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    ) : autoSort ? (
-                                        <div className="mt-3 p-4 bg-orange-50 rounded-lg border border-orange-200">
-                                            <p className="text-sm text-gray-800 mb-2">
-                                                Les e-mails entrants sont <strong>automatiquement classés</strong> dans trois dossiers selon leur contenu :
-                                            </p>
-                                            <ul className="text-sm text-gray-700 space-y-1 ml-4">
-                                                <li><strong>INFO</strong> → e-mails informatifs (notifications, confirmations, etc.)</li>
-                                                <li><strong>TRAITE</strong> → e-mails nécessitant une action ou une réponse</li>
-                                                <li><strong>PUB</strong> → e-mails promotionnels ou publicitaires filtrés</li>
-                                            </ul>
-                                            <p className="text-sm text-gray-800 mt-2">
-                                                Ce tri permet de <strong>structurer la boîte de réception</strong> et de <strong>prioriser les messages utiles</strong>.
-                                            </p>
-                                            <p className="text-sm text-gray-800 mt-1">
-                                                Si <strong>Réponses automatiques</strong> est <strong>activé</strong>, l'IA génère en plus des <strong>brouillons de réponses</strong> pour les e-mails <strong>pertinents</strong>.
-                                            </p>
-                                        </div>
-                                    ) : (
-                                        <div className="mt-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                                            <p className="text-sm text-gray-800">
-                                                • Aucun classement : les e-mails <strong>restent dans la boîte de réception</strong>.
-                                            </p>
-                                            <p className="text-sm text-gray-800 mt-1">
-                                                • Aucune création ou déplacement dans les dossiers <strong>INFO / TRAITE / PUB</strong>.
-                                            </p>
-                                        </div>
-                                    )}
-                                </div>
-                            </div> 
-                        </div>*/}
-
-                        {/* Base de connaissances */}
-                        {/* <div className="bg-white  p-6 shadow-sm border border-gray-200">
-                            <div className="flex items-center justify-between mb-6">
-                                <h3 className="font-bold text-gray-900">Base de connaissances</h3>
-                                <span className="px-3 py-1 bg-yellow-100 text-yellow-800 text-xs font-semibold rounded-full">
-                                    v2
-                                </span>
-                            </div>
-                            <div className="space-y-3">
-                                {documents.map((doc) => (
-                                    <div key={doc.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                                        <div className="flex items-center gap-3">
-                                            <FileText className="w-5 h-5 text-gray-400" />
-                                            <span className="text-gray-700">{doc.name}</span>
-                                        </div>
-                                        <button
-                                            onClick={() => handleDeleteDocumentClick(doc.id)}
-                                            className="p-1 text-red-600 hover:bg-red-50 rounded transition-colors"
-                                        >
-                                            <Trash2 className="w-4 h-4" />
-                                        </button>
-                                    </div>
-                                ))}
-                                <button className="w-full px-4 py-3 rounded-lg border-2 border-dashed border-orange-500 text-orange-600 font-medium hover:bg-orange-50 transition-colors flex items-center justify-center gap-2 opacity-50 cursor-not-allowed">
-                                    <Plus className="w-4 h-4" />
-                                    Ajouter un document
-                                </button>
-                            </div>
-                        </div> */}
-
-                        {/* Ressources avancées */}
-                        {/* <div className="bg-white  p-6 shadow-sm border border-gray-200">
-                            <div className="flex items-center justify-between mb-6">
-                                <h3 className="font-bold text-gray-900">Ressources avancées</h3>
-                                <span className="px-3 py-1 bg-yellow-100 text-yellow-800 text-xs font-semibold rounded-full">
-                                    v2
-                                </span>
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <button className="flex flex-col items-center gap-3 p-6 border-2 border-gray-200 rounded-xl hover:border-orange-500 hover:bg-orange-50 transition-colors opacity-50 cursor-not-allowed">
-                                    <Globe className="w-8 h-8 text-gray-400" />
-                                    <span className="text-sm text-gray-600">Liens web</span>
-                                </button>
-                                <button className="flex flex-col items-center gap-3 p-6 border-2 border-gray-200 rounded-xl hover:border-orange-500 hover:bg-orange-50 transition-colors opacity-50 cursor-not-allowed">
-                                    <Share2 className="w-8 h-8 text-gray-400" />
-                                    <span className="text-sm text-gray-600">Réseaux Sociaux</span>
-                                </button>
-                            </div>
-                        </div> */}
-                    {/* </motion.div> */}
-
-                        {/* Zone de danger */}
-                        {/* <div className="bg-white p-6 shadow-sm border-2 border-red-200">
-                            <h3 className="font-bold text-red-600 mb-4 flex items-center gap-2">
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                                </svg>
-                                Zone de danger
-                            </h3>
-                            <div className="space-y-4">
-                                <div className="p-4 bg-red-50 rounded-lg">
-                                    <p className="text-sm text-gray-800 mb-3">
-                                        La suppression de votre compte est <strong>irréversible</strong>. Toutes vos données seront <strong>définitivement supprimées</strong> :
-                                    </p>
-                                    <ul className="text-sm text-gray-700 space-y-1 ml-4 list-disc">
-                                        <li>Tous vos comptes email configurés</li>
-                                        <li>Historique de classification des emails</li>
-                                        <li>Informations de l'entreprise</li>
-                                        <li>Votre abonnement sera <strong>résilié sur Stripe</strong></li>
-                                    </ul>
-                                </div>
-                                <button
-                                    onClick={() => setShowDeleteUserModal(true)}
-                                    className="w-full px-4 py-3 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors flex items-center justify-center gap-2"
-                                >
-                                    <Trash2 className="w-4 h-4" />
-                                    Supprimer définitivement mon compte
-                                </button>
-                            </div>
-                        </div>*/}
                     </motion.div>
                 </div>
                 {/* </div> */}
@@ -2776,90 +2446,12 @@ export default function Settings() {
 
             {/* Modal d'abonnement requis */}
             {showSubscriptionModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-8 font-inter max-h-[90vh] overflow-y-auto">
-                        <div className="text-center mb-6">
-                            <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-orange-100 to-orange-50 rounded-full mb-4">
-                                <Lock className="w-8 h-8 text-orange-600" />
-                            </div>
-                            <h2 className="text-3xl font-bold text-gray-900 mb-2">Abonnement requis</h2>
-                            <p className="text-gray-600">
-                                Pour accéder à Hall IA, souscrivez au Plan Premier
-                            </p>
-                        </div>
-
-                        <div className="bg-gradient-to-br from-orange-50 to-white rounded-xl p-6 border-2 border-orange-500 mb-6">
-                            <div className="flex items-baseline justify-center mb-4">
-                                <span className="text-5xl font-bold text-gray-900">29€</span>
-                                <span className="text-xl text-gray-600 ml-2">HT/mois</span>
-                            </div>
-                            <p className="text-center text-sm font-medium text-orange-600 mb-6">Plan Premier</p>
-
-                            <div className="space-y-3">
-                                <div className="flex items-start gap-3">
-                                    <Check className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-                                    <span className="text-gray-700">1 compte email inclus</span>
-                                </div>
-                                <div className="flex items-start gap-3">
-                                    <Check className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-                                    <span className="text-gray-700">Tri automatique des emails (INFO, TRAITE, PUB)</span>
-                                </div>
-                                <div className="flex items-start gap-3">
-                                    <Check className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-                                    <span className="text-gray-700">Réponses automatiques personnalisées par IA</span>
-                                </div>
-                                <div className="flex items-start gap-3">
-                                    <Check className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-                                    <span className="text-gray-700">Statistiques détaillées et tableaux de bord</span>
-                                </div>
-                                <div className="flex items-start gap-3">
-                                    <Check className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-                                    <span className="text-gray-700">Compatible Gmail et IMAP</span>
-                                </div>
-                                <div className="flex items-start gap-3">
-                                    <Check className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-                                    <span className="text-gray-700">Support prioritaire</span>
-                                </div>
-                            </div>
-
-                            <div className="mt-4 pt-4 border-t border-orange-200">
-                                <p className="text-sm text-gray-600 text-center">
-                                    <span className="font-semibold">Comptes supplémentaires :</span> +19€ HT/mois par compte
-                                </p>
-                            </div>
-                        </div>
-
-                        <div className="flex gap-3">
-                            <button
-                                onClick={() => setShowSubscriptionModal(false)}
-                                disabled={isCheckoutLoading}
-                                className="flex-1 px-6 py-3 border-2 border-gray-300 text-gray-700 rounded-full font-semibold hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                Annuler
-                            </button>
-                            <button
-                                onClick={handleSubscribe}
-                                disabled={isCheckoutLoading}
-                                className="group relative flex-1 inline-flex items-center justify-center gap-2 overflow-hidden rounded-full bg-gradient-to-br from-[#F35F4F] to-[#FFAD5A] px-6 py-3 font-semibold text-white shadow-lg transition-all duration-300 ease-out hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
-                            >
-                                <span className="relative z-10 transition-transform duration-300 group-hover:-translate-x-1">
-                                    {isCheckoutLoading ? 'Redirection...' : 'S\'abonner maintenant'}
-                                </span>
-                                {!isCheckoutLoading && (
-                                    <svg
-                                        className="relative z-10 h-5 w-5 -translate-x-2 opacity-0 transition-all duration-300 group-hover:translate-x-0 group-hover:opacity-100"
-                                        fill="none"
-                                        viewBox="0 0 24 24"
-                                        stroke="currentColor"
-                                        strokeWidth={2}
-                                    >
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                                    </svg>
-                                )}
-                            </button>
-                        </div>
-                    </div>
-                </div>
+           <CheckoutAdditionalModal
+            userId={user.id}
+            onClose={() => setShowSubscriptionModal(false)}
+            currentAdditionalAccounts={currentAdditionalAccounts}
+            unlinkedSubscriptionsCount={unlinkedSubscriptions.length}
+           />
             )}
 
             {/* Modal email en double */}
@@ -3467,12 +3059,10 @@ export default function Settings() {
                 cancelText="Annuler"
             />
 
-            {showUpgradeModal && user && (
-                <CheckoutModal
+            {showAddAccountModal && user && (
+                <CheckoutAdditionalModal
                     userId={user.id}
-                    onComplete={handleUpgrade}
-                    onClose={() => setShowUpgradeModal(false)}
-                    isUpgrade={true}
+                    onClose={() => setShowAddAccountModal(false)}
                     currentAdditionalAccounts={currentAdditionalAccounts}
                     unlinkedSubscriptionsCount={unlinkedSubscriptions.length}
                 />

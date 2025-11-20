@@ -21,10 +21,44 @@ export function CheckoutModal({ userId, onComplete, onClose, isUpgrade = false, 
     const [loading, setLoading] = useState(false);
     const [showConfirmation, setShowConfirmation] = useState(false);
     const [additionalEmails, setAdditionalEmails] = useState(0);
-
-    const basePrice = 29;
-    const additionalPrice = 19;
+    const [basePrice, setBasePrice] = useState(29); // Valeur par défaut en attendant le chargement
+    const [additionalPrice, setAdditionalPrice] = useState(19); // Valeur par défaut en attendant le chargement
     
+    // Récupérer les prix depuis Stripe
+    useEffect(() => {
+        const fetchStripePrices = async () => {
+            try {
+                const { data: { session } } = await supabase.auth.getSession();
+                if (!session) return;
+
+                const response = await fetch(
+                    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/get-stripe-prices`,
+                    {
+                        method: 'GET',
+                        headers: {
+                            'Authorization': `Bearer ${session.access_token}`,
+                        },
+                    }
+                );
+
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.basePlan?.amount) {
+                        setBasePrice(data.basePlan.amount);
+                    }
+                    if (data.additionalAccount?.amount) {
+                        setAdditionalPrice(data.additionalAccount.amount);
+                    }
+                }
+            } catch (error) {
+                console.error('Erreur lors de la récupération des prix Stripe:', error);
+                // Garder les valeurs par défaut en cas d'erreur
+            }
+        };
+
+        fetchStripePrices();
+    }, []);
+
     useEffect(() => {
         if (!isUpgrade && typeof window !== 'undefined') {
             // Premier abonnement : récupérer depuis localStorage

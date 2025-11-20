@@ -29,6 +29,7 @@ export function CompanyInfoModal({ userId, emailAccountId, email, initialStep = 
     const [knowledgePdfFiles, setKnowledgePdfFiles] = useState<File[]>([]);
     const [isDraggingPdf, setIsDraggingPdf] = useState(false);
     const [isDraggingLogo, setIsDraggingLogo] = useState(false);
+    const [validationError, setValidationError] = useState<{ step: number; message: string } | null>(null);
 
     const totalSteps = 5;
 
@@ -78,18 +79,30 @@ export function CompanyInfoModal({ userId, emailAccountId, email, initialStep = 
     };
 
     const handleNext = () => {
-        if (currentStep === 1 && !formData.company_name?.trim()) {
-            showToast('Veuillez remplir le nom de l\'entreprise', 'warning');
+        const trimmedCompanyName = formData.company_name?.trim();
+        const trimmedActivityDescription = formData.activity_description?.trim();
+        const trimmedSignature = formData.services_offered?.trim();
+
+        if (currentStep === 1 && !trimmedCompanyName) {
+            if (validationError?.step !== 1) {
+                setValidationError({ step: 1, message: 'Veuillez remplir le nom de l\'entreprise' });
+            }
             return;
         }
-        if (currentStep === 2 && !formData.activity_description?.trim()) {
-            showToast('Veuillez remplir la description de l\'activité', 'warning');
+        if (currentStep === 2 && !trimmedActivityDescription) {
+            if (validationError?.step !== 2) {
+                setValidationError({ step: 2, message: 'Veuillez remplir la description de l\'activité' });
+            }
             return;
         }
-        if (currentStep === 3 && !formData.services_offered?.trim()) {
-            showToast('Veuillez remplir la signature d\'email', 'warning');
+        if (currentStep === 3 && !trimmedSignature) {
+            if (validationError?.step !== 3) {
+                setValidationError({ step: 3, message: 'Veuillez remplir la signature d\'email' });
+            }
             return;
         }
+
+        setValidationError(null);
         if (currentStep < totalSteps) {
             setCurrentStep(currentStep + 1);
         }
@@ -234,19 +247,23 @@ export function CompanyInfoModal({ userId, emailAccountId, email, initialStep = 
         const signatureEmail = formData.services_offered?.trim() || '';
 
         if (!companyName) {
-            showToast('Le nom de l\'entreprise est obligatoire', 'warning');
+            setCurrentStep(1);
+            setValidationError({ step: 1, message: 'Le nom de l\'entreprise est obligatoire' });
             return;
         }
 
         if (!activityDescription) {
-            showToast('La description de l\'activité est obligatoire', 'warning');
+            setCurrentStep(2);
+            setValidationError({ step: 2, message: 'La description de l\'activité est obligatoire' });
             return;
         }
 
         if (!signatureEmail) {
-            showToast('La signature d\'email est obligatoire', 'warning');
+            setCurrentStep(3);
+            setValidationError({ step: 3, message: 'La signature d\'email est obligatoire' });
             return;
         }
+        setValidationError(null);
 
         setLoading(true);
         try {
@@ -445,6 +462,17 @@ export function CompanyInfoModal({ userId, emailAccountId, email, initialStep = 
 
                     {/* Contenu scrollable */}
                     <div className="relative overflow-y-auto flex-1 min-h-0 py-5">
+                        {validationError && validationError.step === currentStep && (
+                            <div className="px-6 mb-4">
+                                <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-start gap-2">
+                                    <AlertTriangle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
+                                    <div>
+                                        <p className="text-sm font-semibold text-red-800">{validationError.message}</p>
+                                        <p className="text-xs text-red-600">Corrigez ce champ pour continuer.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                         <div className="px-6 py-4">
                             {/* Step 1: Nom de l'entreprise */}
                             {currentStep === 1 && (
@@ -459,6 +487,9 @@ export function CompanyInfoModal({ userId, emailAccountId, email, initialStep = 
                                             onChange={(e) => {
                                                 const value = e.target.value;
                                                 setFormData({ ...formData, company_name: value });
+                                                if (validationError?.step === 1) {
+                                                    setValidationError(null);
+                                                }
                                             }}
                                             className="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all font-inter text-sm"
                                             placeholder="Ex: Hall IA"
@@ -482,6 +513,9 @@ export function CompanyInfoModal({ userId, emailAccountId, email, initialStep = 
                                             onChange={(e) => {
                                                 const value = e.target.value;
                                                 setFormData({ ...formData, activity_description: value });
+                                                if (validationError?.step === 2) {
+                                                    setValidationError(null);
+                                                }
                                             }}
                                             className="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all resize-none font-inter text-sm"
                                             rows={4}
@@ -506,6 +540,9 @@ export function CompanyInfoModal({ userId, emailAccountId, email, initialStep = 
                                             onChange={(e) => {
                                                 const value = e.target.value;
                                                 setFormData({ ...formData, services_offered: value });
+                                                if (validationError?.step === 3) {
+                                                    setValidationError(null);
+                                                }
                                             }}
                                             className="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all resize-none font-inter text-sm"
                                             rows={4}

@@ -44,58 +44,115 @@ export function SetupEmailModal({ userId, onComplete }: SetupEmailModalProps) {
 
     const handleGmailConnect = async () => {
         try {
-            const { data: { session } } = await supabase.auth.getSession();
+            const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+            
+            if (sessionError || !session?.access_token) {
+                console.error('❌ [GMAIL OAUTH] Erreur de session:', sessionError);
+                showToast('Session expirée. Veuillez vous reconnecter.', 'error');
+                return;
+            }
+    
+            console.log('🔐 [GMAIL OAUTH] Session récupérée, token présent:', !!session.access_token);
+    
             const response = await fetch(
                 `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/gmail-oauth-init`,
                 {
                     method: 'POST',
                     headers: {
-                        'Authorization': `Bearer ${session?.access_token}`,
-                        'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+                        'Authorization': `Bearer ${session.access_token}`,
+                        'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, // Minuscules cohérentes
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({ redirectUrl: window.location.origin }),
                 }
             );
-
+    
+            console.log('📡 [GMAIL OAUTH] Réponse reçue, status:', response.status);
+    
             if (!response.ok) {
                 const error = await response.json();
-                throw new Error(error.error || 'Échec de l\'initialisation Gmail');
+                console.error('❌ [GMAIL OAUTH] Erreur de réponse:', error);
+                throw new Error(error.error || error.message || 'Échec de l\'initialisation Gmail');
             }
-            const { authUrl } = await response.json();
+            
+            const data = await response.json();
+            console.log('✅ [GMAIL OAUTH] Données reçues:', { hasAuthUrl: !!data.authUrl });
+            const { authUrl } = data;
             const width = 600;
             const height = 700;
             const left = window.screen.width / 2 - width / 2;
             const top = window.screen.height / 2 - height / 2;
             
             const popup = window.open(authUrl, 'Gmail OAuth', `width=${width},height=${height},left=${left},top=${top}`);
-
-            const checkPopup = setInterval(async () => {
-                if (popup?.closed) {
+    
+            if (!popup) {
+                showToast('Impossible d\'ouvrir la fenêtre de connexion. Vérifiez que les popups ne sont pas bloquées.', 'error');
+                return;
+            }
+    
+            let isHandled = false;
+    
+            // Ajouter un listener pour les messages de la popup
+            const messageHandler = (event: MessageEvent) => {
+                console.log('📨 [GMAIL OAUTH] Message reçu:', event.data);
+                
+                if (event.data?.type === 'gmail-connected') {
+                    isHandled = true;
                     clearInterval(checkPopup);
-                    await new Promise(resolve => setTimeout(resolve, 1500));
+                    window.removeEventListener('message', messageHandler);
+                    
+                    localStorage.removeItem('selected_plan');
+                    localStorage.removeItem('business_pass_email_counter');
+                    showToast('Compte Gmail connecté avec succès !', 'success');
+                    
+                    // Attendre un peu pour que la base de données soit mise à jour
+                    setTimeout(() => {
+                        onComplete();
+                    }, 500);
+                } else if (event.data?.type === 'gmail-duplicate') {
+                    isHandled = true;
+                    clearInterval(checkPopup);
+                    window.removeEventListener('message', messageHandler);
+                    showToast('Ce compte Gmail est déjà configuré', 'warning');
+                }
+            };
+            window.addEventListener('message', messageHandler);
+    
+            const checkPopup = setInterval(async () => {
+                if (popup?.closed && !isHandled) {
+                    clearInterval(checkPopup);
+                    window.removeEventListener('message', messageHandler);
+                    
+                    // Attendre un peu plus pour laisser le temps au callback de traiter
+                    await new Promise(resolve => setTimeout(resolve, 2000));
                     
                     // Vérifier si email ajouté
-                    const { data } = await supabase
+                    const { data, error } = await supabase
                         .from('email_configurations')
-                        .select('id')
+                        .select('id, email')
                         .eq('user_id', user?.id)
                         .eq('is_connected', true)
+                        .order('created_at', { ascending: false })
+                        .limit(1)
                         .maybeSingle();
-
+    
+                    console.log('🔍 [GMAIL OAUTH] Vérification après fermeture popup:', { data, error });
+    
                     if (data) {
                         localStorage.removeItem('selected_plan');
                         localStorage.removeItem('business_pass_email_counter');
+                        showToast('Compte Gmail connecté avec succès !', 'success');
                         onComplete();
                     } else {
+                        showToast('La connexion Gmail a échoué ou a été annulée', 'error');
                         setStep(1);
                     }
                 }
             }, 1000);
-
+    
         } catch (err) {
             console.error('Erreur connexion Gmail:', err);
-            showToast('Erreur lors de la connexion Gmail', 'error');
+            showToast(`Erreur lors de la connexion Gmail: ${err instanceof Error ? err.message : 'Erreur inconnue'}`, 'error');
         }
     };
 
