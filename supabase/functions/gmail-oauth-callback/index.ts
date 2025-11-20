@@ -1,13 +1,15 @@
-import { createClient } from 'npm:@supabase/supabase-js@2.57.4';
+import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Client-Info, Apikey'
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey"
 };
 
 Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') {
+  if (req.method === "OPTIONS") {
     return new Response(null, {
       status: 200,
       headers: corsHeaders
@@ -15,151 +17,160 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const url = new URL(req.url);
-    const code = url.searchParams.get('code');
-    const state = url.searchParams.get('state');
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    const supabase = createClient(supabaseUrl, supabaseKey);
 
-    if (!code || !state) {
-      return new Response(JSON.stringify({ error: 'Missing code or state parameter' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+    // Récupérer l'utilisateur authentifié
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader) {
+      throw new Error('Missing Authorization header');
     }
 
-    const stateData = JSON.parse(atob(state));
-    const { userId, redirectUrl } = stateData;
+    const token = authHeader.replace('Bearer ', '');
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
 
-    const googleClientId = Deno.env.get('GOOGLE_CLIENT_ID');
-    const googleClientSecret = Deno.env.get('GOOGLE_CLIENT_SECRET');
-    const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    if (userError || !user) {
+      throw new Error('Unauthorized');
+    }
 
+    // Récupérer le code d'autorisation et le redirect_uri
+    const { code, redirect_uri } = await req.json();
+
+    if (!code) {
+      throw new Error('Missing authorization code');
+    }
+
+    const clientId = Deno.env.get('GOOGLE_CLIENT_ID');
+    const clientSecret = Deno.env.get('GOOGLE_CLIENT_SECRET');
+
+    // Utiliser le redirect_uri du body, sinon fallback sur env
+    const redirectUri = redirect_uri || Deno.env.get('GMAIL_REDIRECT_URI');
+
+    console.log('OAuth Config:', {
+      clientId: clientId ? 'Set' : 'Missing',
+      clientSecret: clientSecret ? 'Set' : 'Missing',
+      redirectUri: redirectUri || 'Missing',
+      redirectUriSource: redirect_uri ? 'Body' : 'Env',
+      userId: user.id
+    });
+
+    if (!clientId || !clientSecret || !redirectUri) {
+      throw new Error('Gmail OAuth credentials not configured. Check GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET environment variables.');
+    }
+
+    // Échanger le code contre des tokens
     const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded'
+      },
       body: new URLSearchParams({
         code,
-        client_id: googleClientId,
-        client_secret: googleClientSecret,
-        redirect_uri: `${supabaseUrl}/functions/v1/gmail-oauth-callback`,
+        client_id: clientId,
+        client_secret: clientSecret,
+        redirect_uri: redirectUri,
         grant_type: 'authorization_code'
       })
     });
 
-    const tokens = await tokenResponse.json();
     if (!tokenResponse.ok) {
-      throw new Error(`Token exchange failed: ${JSON.stringify(tokens)}`);
+      const error = await tokenResponse.text();
+      throw new Error(`Failed to exchange code for tokens: ${error}`);
     }
 
+    const tokens = await tokenResponse.json();
+
+    // Récupérer les informations de l'utilisateur Gmail
     const userInfoResponse = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
-      headers: { Authorization: `Bearer ${tokens.access_token}` }
+      headers: {
+        'Authorization': `Bearer ${tokens.access_token}`
+      }
     });
+
+    if (!userInfoResponse.ok) {
+      throw new Error('Failed to fetch user info from Gmail');
+    }
+
     const userInfo = await userInfoResponse.json();
 
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    const expiryDate = new Date();
-    expiryDate.setSeconds(expiryDate.getSeconds() + tokens.expires_in);
+    // Calculer la date d'expiration
+    const expiryDate = new Date(Date.now() + tokens.expires_in * 1000);
 
+    // Vérifier si l'email existe déjà pour cet utilisateur
     const { data: existingConfig } = await supabase
       .from('email_configurations')
       .select('id')
-      .eq('user_id', userId)
+      .eq('user_id', user.id)
       .eq('email', userInfo.email)
       .maybeSingle();
 
     if (existingConfig) {
-      const duplicateHtml = `<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Account Already Exists</title>
-  <style>
-    body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; background:#fff7f7; margin:0; display:flex; align-items:center; justify-content:center; height:100vh; }
-    .card { background:#ffffff; border:1px solid #fecaca; border-radius:12px; padding:28px 32px; text-align:center; box-shadow:0 10px 20px rgba(0,0,0,0.06); max-width:400px; }
-    .icon { width:56px; height:56px; border-radius:9999px; background:#fef2f2; color:#dc2626; display:flex; align-items:center; justify-content:center; margin:0 auto 12px; font-size:30px; }
-    .title { font-weight:700; color:#991b1b; margin-bottom:4px; font-size:18px; }
-    .subtitle { color:#475569; font-size:14px; }
-  </style>
-</head>
-<body>
-  <div class="card">
-    <div class="icon">!</div>
-    <div class="title">Compte déjà existant</div>
-    <div class="subtitle">Ce compte Gmail est déjà configuré. Fermeture...</div>
-  </div>
-  <script>
-    (function() {
-      if (window.opener && !window.opener.closed) {
-        window.opener.postMessage({ type: 'gmail-duplicate', email: '${userInfo.email}' }, '*');
-      }
-      setTimeout(function() {
-        window.close();
-      }, 2000);
-    })();
-  </script>
-</body>
-</html>`;
-
-      return new Response(duplicateHtml, {
-        status: 400,
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'text/html; charset=utf-8',
-          'Cache-Control': 'no-cache, no-store, must-revalidate'
-        }
-      });
+      throw new Error('Ce compte Gmail est déjà configuré');
     }
 
-    const { data: tokenData, error: dbError } = await supabase
+    // Enregistrer les tokens Gmail
+    const { data: tokenData, error: tokenError } = await supabase
       .from('gmail_tokens')
       .insert({
-        user_id: userId,
+        user_id: user.id,
         access_token: tokens.access_token,
         refresh_token: tokens.refresh_token,
         token_expiry: expiryDate.toISOString(),
         email: userInfo.email,
-        is_classement: false, // Tri automatique désactivé par défaut - sera activé après configuration de l'entreprise
+        is_classement: false,
         updated_at: new Date().toISOString()
       })
       .select()
       .single();
 
-    if (dbError) {
-      throw new Error(`Database error: ${dbError.message}`);
+    if (tokenError) {
+      throw new Error(`Failed to save Gmail tokens: ${tokenError.message}`);
     }
 
+    // Créer la configuration email
     const { error: configError } = await supabase
       .from('email_configurations')
       .insert({
-        user_id: userId,
+        user_id: user.id,
         name: `Gmail - ${userInfo.email}`,
         email: userInfo.email,
         provider: 'gmail',
         is_connected: true,
-        is_classement: false, 
+        is_classement: false,
         gmail_token_id: tokenData.id,
         last_sync_at: new Date().toISOString()
       });
 
     if (configError) {
-      throw new Error(`Config error: ${configError.message}`);
+      throw new Error(`Failed to create email configuration: ${configError.message}`);
     }
 
-    const redirectToSuccess = `${redirectUrl}/gmail-success.html?email=${encodeURIComponent(userInfo.email)}`;
+    console.log('✅ Gmail connected successfully for user:', user.id);
 
-    return new Response(null, {
-      status: 302,
+    return new Response(JSON.stringify({
+      success: true,
+      email: userInfo.email,
+      message: 'Gmail connected successfully'
+    }), {
+      status: 200,
       headers: {
         ...corsHeaders,
-        'Location': redirectToSuccess
+        'Content-Type': 'application/json'
       }
     });
   } catch (error) {
-    console.error('Error in Gmail OAuth callback:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    console.error('❌ Error in Gmail OAuth callback:', error);
+
+    return new Response(JSON.stringify({
+      success: false,
+      error: error.message || 'Failed to connect Gmail'
+    }), {
       status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'application/json'
+      }
     });
   }
 });
