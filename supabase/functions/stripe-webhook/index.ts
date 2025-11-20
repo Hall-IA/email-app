@@ -54,24 +54,28 @@ Deno.serve(async (req) => {
 });
 
 async function handleEvent(event: Stripe.Event) {
-  console.info(`Received webhook event: ${event.type}`);
+  console.info(`[STRIPE WEBHOOK] Received webhook event: ${event.type}, event_id: ${event.id}`);
 
   const stripeData = event?.data?.object ?? {};
 
   if (!stripeData) {
+    console.warn(`[STRIPE WEBHOOK] No data in event: ${event.type}`);
     return;
   }
 
   if (!('customer' in stripeData)) {
+    console.warn(`[STRIPE WEBHOOK] No customer in event data: ${event.type}`);
     return;
   }
 
   const { customer: customerId } = stripeData;
 
   if (!customerId || typeof customerId !== 'string') {
-    console.error(`No customer received on event: ${JSON.stringify(event)}`);
+    console.error(`[STRIPE WEBHOOK] No valid customer received on event: ${JSON.stringify(event)}`);
     return;
   }
+
+  console.info(`[STRIPE WEBHOOK] Processing event ${event.type} for customer: ${customerId}`);
 
   // Handle invoice payment succeeded - save invoice data
   if (event.type === 'invoice.payment_succeeded') {
@@ -142,12 +146,16 @@ async function handleEvent(event: Stripe.Event) {
 
 async function saveInvoice(invoice: Stripe.Invoice) {
   try {
+    console.info(`[STRIPE WEBHOOK] saveInvoice called for invoice: ${invoice.id}, status: ${invoice.status}`);
+    
     const customerId = typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.id;
 
     if (!customerId) {
-      console.error('No customer ID found in invoice');
+      console.error('[STRIPE WEBHOOK] No customer ID found in invoice');
       return;
     }
+
+    console.info(`[STRIPE WEBHOOK] Looking up customer: ${customerId}`);
 
     const { data: customer, error: customerError } = await supabase
       .from('stripe_customers')
@@ -156,40 +164,64 @@ async function saveInvoice(invoice: Stripe.Invoice) {
       .maybeSingle();
 
     if (customerError || !customer) {
-      console.error('Failed to fetch customer from database:', customerError);
+      console.error('[STRIPE WEBHOOK] Failed to fetch customer from database:', customerError);
       return;
     }
 
     const userId = customer.user_id;
+    console.info(`[STRIPE WEBHOOK] Found user_id: ${userId} for customer: ${customerId}`);
 
-    const { error: invoiceError } = await supabase.from('stripe_invoices').upsert(
-      {
-        customer_id: customerId,
-        invoice_id: invoice.id,
-        subscription_id: typeof invoice.subscription === 'string' ? invoice.subscription : invoice.subscription?.id,
-        amount_paid: invoice.amount_paid,
-        currency: invoice.currency,
-        invoice_pdf: invoice.invoice_pdf,
-        invoice_number: invoice.number,
-        status: invoice.status,
-        period_start: invoice.period_start,
-        period_end: invoice.period_end,
-        paid_at: invoice.status_transitions?.paid_at,
-        user_id: userId,
-      },
+    const invoiceData = {
+      customer_id: customerId,
+      invoice_id: invoice.id,
+      subscription_id: typeof invoice.subscription === 'string' ? invoice.subscription : invoice.subscription?.id,
+      amount_paid: invoice.amount_paid,
+      currency: invoice.currency,
+      invoice_pdf: invoice.invoice_pdf,
+      invoice_number: invoice.number,
+      status: invoice.status,
+      period_start: invoice.period_start,
+      period_end: invoice.period_end,
+      paid_at: invoice.status_transitions?.paid_at,
+      user_id: userId,
+    };
+
+    console.info(`[STRIPE WEBHOOK] Saving invoice data:`, {
+      invoice_id: invoice.id,
+      status: invoice.status,
+      amount_paid: invoice.amount_paid,
+      user_id: userId,
+      customer_id: customerId
+    });
+
+    const { error: invoiceError, data: savedInvoice } = await supabase.from('stripe_invoices').upsert(
+      invoiceData,
       {
         onConflict: 'invoice_id',
       }
     );
 
     if (invoiceError) {
-      console.error('Error saving invoice:', invoiceError);
+      console.error('[STRIPE WEBHOOK] Error saving invoice:', invoiceError);
       return;
     }
 
-    console.info(`Successfully saved invoice ${invoice.id} for customer: ${customerId}`);
+    console.info(`[STRIPE WEBHOOK] Successfully saved invoice ${invoice.id} for customer: ${customerId}, user_id: ${userId}`);
+    
+    // Vérifier que l'invoice a bien été sauvegardée
+    const { data: verifyInvoice } = await supabase
+      .from('stripe_invoices')
+      .select('*')
+      .eq('invoice_id', invoice.id)
+      .maybeSingle();
+    
+    console.info(`[STRIPE WEBHOOK] Verification - Invoice in DB:`, verifyInvoice ? {
+      invoice_id: verifyInvoice.invoice_id,
+      status: verifyInvoice.status,
+      user_id: verifyInvoice.user_id
+    } : 'NOT FOUND');
   } catch (error) {
-    console.error('Error in saveInvoice:', error);
+    console.error('[STRIPE WEBHOOK] Error in saveInvoice:', error);
   }
 }
 
@@ -208,7 +240,7 @@ async function syncCustomerFromStripe(customerId: string) {
 
     const userId = customer.user_id;
 
-    console.info(`Fetching subscriptions for customer: ${customerId}`);
+    console.info(`[STRIPE WEBHOOK] Fetching subscriptions for customer: ${customerId}, user_id: ${userId}`);
 
     const subscriptions = await stripe.subscriptions.list({
       customer: customerId,
@@ -217,7 +249,18 @@ async function syncCustomerFromStripe(customerId: string) {
       expand: ['data.default_payment_method'],
     });
 
-    console.info(`Found ${subscriptions.data.length} subscriptions for customer: ${customerId}`);
+    console.info(`[STRIPE WEBHOOK] Found ${subscriptions.data.length} subscriptions for customer: ${customerId}`);
+    console.info(`[STRIPE WEBHOOK] Subscriptions details:`, subscriptions.data.map(sub => ({
+      id: sub.id,
+      status: sub.status,
+      current_period_start: sub.current_period_start,
+      current_period_end: sub.current_period_end,
+      cancel_at_period_end: sub.cancel_at_period_end,
+      items: sub.items.data.map(item => ({
+        price_id: item.price.id,
+        quantity: item.quantity
+      }))
+    })));
 
     if (subscriptions.data.length === 0) {
       console.info(`No active subscriptions found for customer: ${customerId}`);
@@ -316,35 +359,58 @@ async function syncCustomerFromStripe(customerId: string) {
       }
 
       // Save to new multi-subscription table
-      const { error: multiSubError } = await supabase.from('stripe_user_subscriptions').upsert(
-        {
-          user_id: userId,
-          customer_id: customerId,
-          subscription_id: subscription.id,
-          subscription_type: subscriptionType,
-          status: subscription.status,
-          price_id: firstPriceId,
-          current_period_start: subscription.current_period_start,
-          current_period_end: subscription.current_period_end,
-          cancel_at_period_end: subscription.cancel_at_period_end,
-          email_configuration_id: emailConfigId,
-          ...(subscription.default_payment_method && typeof subscription.default_payment_method !== 'string'
-            ? {
-                payment_method_brand: subscription.default_payment_method.card?.brand ?? null,
-                payment_method_last4: subscription.default_payment_method.card?.last4 ?? null,
-              }
-            : {}),
-          updated_at: new Date().toISOString(),
-        },
+      const subscriptionData = {
+        user_id: userId,
+        customer_id: customerId,
+        subscription_id: subscription.id,
+        subscription_type: subscriptionType,
+        status: subscription.status,
+        price_id: firstPriceId,
+        current_period_start: subscription.current_period_start,
+        current_period_end: subscription.current_period_end,
+        cancel_at_period_end: subscription.cancel_at_period_end,
+        email_configuration_id: emailConfigId,
+        ...(subscription.default_payment_method && typeof subscription.default_payment_method !== 'string'
+          ? {
+              payment_method_brand: subscription.default_payment_method.card?.brand ?? null,
+              payment_method_last4: subscription.default_payment_method.card?.last4 ?? null,
+            }
+          : {}),
+        updated_at: new Date().toISOString(),
+      };
+
+      console.info(`[STRIPE WEBHOOK] Saving subscription to stripe_user_subscriptions:`, {
+        subscription_id: subscription.id,
+        subscription_type: subscriptionType,
+        status: subscription.status,
+        user_id: userId,
+        customer_id: customerId,
+        email_configuration_id: emailConfigId
+      });
+
+      const { error: multiSubError, data: upsertedData } = await supabase.from('stripe_user_subscriptions').upsert(
+        subscriptionData,
         {
           onConflict: 'subscription_id',
         },
       );
 
       if (multiSubError) {
-        console.error(`Error syncing subscription ${subscription.id}:`, multiSubError);
+        console.error(`[STRIPE WEBHOOK] Error syncing subscription ${subscription.id}:`, multiSubError);
       } else {
-        console.info(`Successfully synced subscription ${subscription.id} of type ${subscriptionType}`);
+        console.info(`[STRIPE WEBHOOK] Successfully synced subscription ${subscription.id} of type ${subscriptionType}`, {
+          status: subscription.status,
+          isActive: ['active', 'trialing'].includes(subscription.status)
+        });
+        
+        // Vérifier que la subscription a bien été sauvegardée
+        const { data: verifySub } = await supabase
+          .from('stripe_user_subscriptions')
+          .select('*')
+          .eq('subscription_id', subscription.id)
+          .maybeSingle();
+        
+        console.info(`[STRIPE WEBHOOK] Verification - Subscription in DB:`, verifySub);
       }
     }
 

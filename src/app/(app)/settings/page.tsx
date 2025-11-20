@@ -8,6 +8,9 @@ import { useAuth } from '../../../../context/AuthContext';
 import { CheckoutModal } from '@/components/CheckoutModal';
 import { ConfirmationModal } from '@/components/ConfirmationModal';
 import { DeleteAccountModal } from '@/components/DeleteAccountModal';
+import { SetupEmailModal } from '@/components/SetupEmailModal';
+import { AdditionalEmailModal } from '@/components/AdditionalEmailModal';
+import { CompanyInfoModal } from '@/components/CompanyInfoModal';
 import { HowItWorks } from '@/components/HowItWork';
 import { motion, AnimatePresence } from 'motion/react';
 import { useToast } from '@/components/Toast';
@@ -41,6 +44,8 @@ export default function Settings() {
     const [adFilter, setAdFilter] = useState(true);
     const [showAddAccountModal, setShowAddAccountModal] = useState(false);
     const [showImapModal, setShowImapModal] = useState(false);
+    const [showSlotConfigModal, setShowSlotConfigModal] = useState(false);
+    const [selectedSlotForConfig, setSelectedSlotForConfig] = useState<{ index: number; subscription_id: string } | null>(null);
     const [showEditCompanyModal, setShowEditCompanyModal] = useState(false);
     const [showCompanyInfoModal, setShowCompanyInfoModal] = useState(false);
     const [companyInfoStep, setCompanyInfoStep] = useState(1);
@@ -88,6 +93,7 @@ export default function Settings() {
     const [showEditSignatureModal, setShowEditSignatureModal] = useState(false);
     const [showEditLogoModal, setShowEditLogoModal] = useState(false);
     const [editTempValue, setEditTempValue] = useState('');
+    const [modalError, setModalError] = useState<string>('');
     const [totalPaidSlots, setTotalPaidSlots] = useState(0); // Nombre total d'emails payés (base + additionnels)
     
     // Knowledge base states
@@ -98,6 +104,64 @@ export default function Settings() {
     const [isDraggingPdf, setIsDraggingPdf] = useState(false);
     const [isDraggingLogo, setIsDraggingLogo] = useState(false);
 
+    const checkCompanyInfoForAccount = async () => {
+        if (!user || !selectedAccount) return;
+        
+        // Ne pas ouvrir automatiquement si la modal est déjà ouverte ou si on a déjà vérifié
+        if (hasCheckedCompanyInfo) return;
+
+        try {
+            // Recharger les données pour être sûr d'avoir les dernières valeurs
+            const emailToLoad = selectedAccount.email;
+            const { data: config } = await supabase
+                .from('email_configurations')
+                .select('company_name, activity_description, services_offered')
+                .eq('user_id', user.id)
+                .eq('email', emailToLoad)
+                .maybeSingle();
+
+            // Vérifier si les champs obligatoires sont manquants (nom, description, signature d'email)
+            const companyName = config?.company_name?.trim() || '';
+            const activityDescription = config?.activity_description?.trim() || '';
+            const signatureEmail = config?.services_offered?.trim() || '';
+            
+            const missingCompanyName = !companyName;
+            const missingActivityDescription = !activityDescription;
+            const missingSignatureEmail = !signatureEmail;
+            
+            const isMissingMandatoryInfo = missingCompanyName || missingActivityDescription || missingSignatureEmail;
+
+            if (isMissingMandatoryInfo) {
+                // Déterminer l'étape de départ basée sur les données actuelles
+                let startStep = 1;
+                if (missingCompanyName) {
+                    startStep = 1;
+                } else if (missingActivityDescription) {
+                    startStep = 2;
+                } else if (missingSignatureEmail) {
+                    startStep = 3;
+                }
+
+                setCompanyInfoStep(startStep);
+                setAccountMissingInfo(selectedAccount.email);
+                setHasCheckedCompanyInfo(true);
+                
+                // Ouvrir la modal d'édition des informations de l'entreprise
+                setShowCompanyInfoModal(true);
+            } else {
+                // Si les informations sont complètes, s'assurer que la modal est fermée
+                setShowCompanyInfoModal(false);
+                setAccountMissingInfo('');
+                setHasCheckedCompanyInfo(true);
+            }
+        } catch (error) {
+            console.error('Error checking company info:', error);
+            // En cas d'erreur, ne pas afficher la modal
+            setShowCompanyInfoModal(false);
+            setHasCheckedCompanyInfo(true);
+        }
+    };
+
     useEffect(() => {
         loadAccounts();
         loadDocuments();
@@ -107,86 +171,77 @@ export default function Settings() {
 
     useEffect(() => {
         if (selectedAccount) {
-            loadCompanyData();
-            loadCurrentConfig();
             // Réinitialiser le flag quand on change de compte
             setHasCheckedCompanyInfo(false);
-            // Vérifier si le compte nécessite une configuration
-            checkCompanyInfoForAccount();
-        }
-    }, [selectedAccount, user]);
+            // Ne pas afficher la modal immédiatement - attendre que les données soient chargées
+            setShowCompanyInfoModal(false);
+            // Charger les données d'abord, puis vérifier
+            const loadAndCheck = async () => {
+                await loadCompanyData();
+                await loadCurrentConfig();
+                // Attendre que le state soit mis à jour
+                await new Promise(resolve => setTimeout(resolve, 200));
+                checkCompanyInfoForAccount();
+            };
+            loadAndCheck();
+        } else if (selectedSlot && !selectedAccount) {
+            // Pour les slots non configurés, réinitialiser les données (ne pas charger celles du compte principal)
+            setCompanyFormData({
+                company_name: '',
+                activity_description: '',
+                services_proposed: '',
+                services_offered: '',
+                signature_image_base64: '',
+            });
+            setAutoSort(false);
+            // Ne pas charger les données du compte principal
+            /* const loadPrimaryForSlot = async () => {
+                if (!user) return;
+                const primaryAccount = accounts.find(acc => acc.is_active !== false && acc.cancel_at_period_end !== true) || accounts[0];
+                if (primaryAccount) {
+                    // Charger les données du compte principal
+                    const { data: config } = await supabase
+                        .from('email_configurations')
+                        .select('company_name, activity_description, services_offered, is_classement, signature_image_base64')
+                        .eq('user_id', user.id)
+                        .eq('email', primaryAccount.email)
+                        .maybeSingle();
 
-    const checkCompanyInfoForAccount = async () => {
-        if (!user || !selectedAccount) return;
-        
-        // Ne pas ouvrir automatiquement si la modal est déjà ouverte ou si on a déjà vérifié
-        if (showCompanyInfoModal || hasCheckedCompanyInfo) return;
+                    if (config) {
+                        setCompanyFormData({
+                            company_name: config.company_name || '',
+                            activity_description: config.activity_description || '',
+                            services_proposed: '',
+                            services_offered: config.services_offered || '',
+                            signature_image_base64: config.signature_image_base64 || '',
+                        });
+                    }
 
-        try {
-            const { data: config } = await supabase
-                .from('email_configurations')
-                .select('company_name, activity_description, services_offered, signature_image_base64, services_proposed')
-                .eq('user_id', user.id)
-                .eq('email', selectedAccount.email)
-                .maybeSingle();
+                    // Charger la config pour la base de connaissances
+                    const { data: knowledgeConfig } = await supabase
+                        .from('email_configurations')
+                        .select('id, email, knowledge_base_urls, knowledge_base_pdfs')
+                        .eq('user_id', user.id)
+                        .eq('email', primaryAccount.email)
+                        .maybeSingle();
 
-            // Vérifier si les champs obligatoires sont manquants
-            const isMissingMandatoryInfo = !config || !config.company_name?.trim() || !config.activity_description?.trim();
-
-            if (isMissingMandatoryInfo) {
-                // Charger les données existantes dans le formulaire
-                if (config) {
-                    setCompanyFormData({
-                        company_name: config.company_name || '',
-                        activity_description: config.activity_description || '',
-                        services_proposed: config.services_proposed || '',
-                        services_offered: config.services_offered || '',
-                        signature_image_base64: config.signature_image_base64 || '',
-                    });
-                } else {
-                    setCompanyFormData({
-                        company_name: '',
-                        activity_description: '',
-                        services_proposed: '',
-                        services_offered: '',
-                        signature_image_base64: '',
-                    });
-                }
-
-                // Déterminer l'étape de départ
-                let startStep = 1;
-                if (config) {
-                    if (!config.company_name?.trim()) {
-                        startStep = 1;
-                    } else if (!config.activity_description?.trim()) {
-                        startStep = 2;
-                    } else if (!config.services_offered?.trim()) {
-                        startStep = 3;
-                    } else if (!config.signature_image_base64?.trim()) {
-                        startStep = 4;
-                    } else {
-                        startStep = 5;
+                    if (knowledgeConfig) {
+                        setCurrentConfig({
+                            id: knowledgeConfig.id,
+                            email: knowledgeConfig.email,
+                            knowledge_base_urls: knowledgeConfig.knowledge_base_urls,
+                            knowledge_base_pdfs: knowledgeConfig.knowledge_base_pdfs,
+                        });
                     }
                 }
-
-                setCompanyInfoStep(startStep);
-                setAccountMissingInfo(selectedAccount.email);
-                setHasCheckedCompanyInfo(true);
-                
-                // Ouvrir la modal après un court délai pour laisser le temps au chargement
-                setTimeout(() => {
-                    setShowCompanyInfoModal(true);
-                }, 300);
-            } else {
-                // Si les informations sont complètes, s'assurer que la modal est fermée
-                setShowCompanyInfoModal(false);
-                setAccountMissingInfo('');
-                setHasCheckedCompanyInfo(true);
-            }
-        } catch (error) {
-            console.error('Error checking company info:', error);
+            }; */
+            // Ne plus charger les données du compte principal pour les slots non configurés
+            // Réinitialiser aussi la config de la base de connaissances
+            setCurrentConfig(null);
+            setKnowledgeUrls(['']);
+            setKnowledgePdfFiles([]);
         }
-    };
+    }, [selectedAccount, selectedSlot, user, accounts]);
 
     useEffect(() => {
         const handleOAuthMessage = async (event: MessageEvent) => {
@@ -677,31 +732,40 @@ export default function Settings() {
         const emailToLoad = selectedAccount?.email;
         if (!emailToLoad) return;
 
-        const { data: config } = await supabase
-            .from('email_configurations')
-            .select('company_name, activity_description, services_offered, is_classement, signature_image_base64')
-            .eq('user_id', user.id)
-            .eq('email', emailToLoad)
-            .maybeSingle();
+        try {
+            const { data: config, error } = await supabase
+                .from('email_configurations')
+                .select('company_name, activity_description, services_offered, is_classement, signature_image_base64')
+                .eq('user_id', user.id)
+                .eq('email', emailToLoad)
+                .maybeSingle();
 
-        if (config) {
-            setCompanyFormData({
-                company_name: config.company_name || '',
-                activity_description: config.activity_description || '',
-                services_proposed: (config as any).services_proposed || '',
-                services_offered: config.services_offered || '',
-                signature_image_base64: config.signature_image_base64 || '',
-            });
-            setAutoSort(config.is_classement ?? false);
-        } else {
-            setCompanyFormData({
-                company_name: '',
-                activity_description: '',
-                services_proposed: '',
-                services_offered: '',
-                signature_image_base64: '',
-            });
-            setAutoSort(false);
+            if (error) {
+                console.error('Error loading company data:', error);
+                return;
+            }
+
+            if (config) {
+                setCompanyFormData({
+                    company_name: config.company_name || '',
+                    activity_description: config.activity_description || '',
+                    services_proposed: '',
+                    services_offered: config.services_offered || '',
+                    signature_image_base64: config.signature_image_base64 || '',
+                });
+                setAutoSort(config.is_classement ?? false);
+            } else {
+                setCompanyFormData({
+                    company_name: '',
+                    activity_description: '',
+                    services_proposed: '',
+                    services_offered: '',
+                    signature_image_base64: '',
+                });
+                setAutoSort(false);
+            }
+        } catch (error) {
+            console.error('Error in loadCompanyData:', error);
         }
     };
 
@@ -1806,6 +1870,10 @@ export default function Settings() {
                                             onClick={(e) => {
                                                 e.stopPropagation();
                                                 if (slotSub?.subscription_id) {
+                                                    // Ouvrir directement la modal de configuration
+                                                    setSelectedSlotForConfig({ index, subscription_id: slotSub.subscription_id });
+                                                    setShowSlotConfigModal(true);
+                                                    // Sélectionner aussi le slot pour afficher la colonne de droite
                                                     setSelectedSlot({ index, subscription_id: slotSub.subscription_id });
                                                     setSelectedAccount(null); // Désélectionner le compte configuré
                                                 } else {
@@ -1885,54 +1953,110 @@ export default function Settings() {
                                             {autoSort ? 'Actif' : 'Inactif'}
                                         </span>
                                     </div>
-                                    <button
-                                        disabled={hasEverHadSubscription && !hasActiveSubscription}
-                                        onClick={async () => {
-                                            if (!user || !selectedAccount) return;
-                                            if (hasEverHadSubscription && !hasActiveSubscription) return;
-                                            const newValue = !autoSort;
-                                            setAutoSort(newValue);
-
-                                            // Préparer les données à mettre à jour
-                                            const updateData: any = { is_classement: newValue };
-                                            if (newValue) {
-                                                updateData.is_classement_activated_at = new Date().toISOString();
+                                    {(() => {
+                                        // Vérifier si les informations obligatoires sont renseignées
+                                        const missingInfo = [];
+                                        if (!companyFormData.company_name?.trim()) {
+                                            missingInfo.push('Nom de l\'entreprise');
+                                        }
+                                        if (!companyFormData.activity_description?.trim()) {
+                                            missingInfo.push('Description de l\'activité et services');
+                                        }
+                                        if (!companyFormData.services_offered?.trim()) {
+                                            missingInfo.push('Signature email');
+                                        }
+                                        
+                                        const hasRequiredInfo = missingInfo.length === 0;
+                                        const isDisabled = (hasEverHadSubscription && !hasActiveSubscription) || !hasRequiredInfo;
+                                        
+                                        // Déterminer l'étape à ouvrir si des informations manquent
+                                        const getMissingStep = () => {
+                                            if (!companyFormData.company_name?.trim()) {
+                                                return 1;
+                                            } else if (!companyFormData.activity_description?.trim()) {
+                                                return 2;
                                             }
+                                            return 1;
+                                        };
+                                        
+                                        return (
+                                            <div className="relative group/tooltip">
+                                                <button
+                                                    disabled={isDisabled}
+                                                    onClick={async () => {
+                                                        if (!user || !selectedAccount) return;
+                                                        
+                                                        // Si des informations manquent, ouvrir la modal au lieu de toggle
+                                                        if (!hasRequiredInfo) {
+                                                            const stepToOpen = getMissingStep();
+                                                            setCompanyInfoStep(stepToOpen);
+                                                            setAccountMissingInfo(selectedAccount.email);
+                                                            setHasCheckedCompanyInfo(false);
+                                                            // Ouvrir la modal d'édition des informations de l'entreprise
+                                                            setShowCompanyInfoModal(true);
+                                                            return;
+                                                        }
+                                                        
+                                                        if (isDisabled) return;
+                                                        const newValue = !autoSort;
+                                                        setAutoSort(newValue);
 
-                                            const { error } = await supabase
-                                                .from('email_configurations')
-                                                .update(updateData)
-                                                .eq('user_id', user.id)
-                                                .eq('email', selectedAccount.email);
+                                                        // Préparer les données à mettre à jour
+                                                        const updateData: any = { is_classement: newValue };
+                                                        if (newValue) {
+                                                            updateData.is_classement_activated_at = new Date().toISOString();
+                                                        }
 
-                                            const { data: configData } = await supabase
-                                                .from('email_configurations')
-                                                .select('gmail_token_id, outlook_token_id')
-                                                .eq('user_id', user.id)
-                                                .eq('email', selectedAccount.email)
-                                                .maybeSingle();
+                                                        const { error } = await supabase
+                                                            .from('email_configurations')
+                                                            .update(updateData)
+                                                            .eq('user_id', user.id)
+                                                            .eq('email', selectedAccount.email);
 
-                                            if (configData?.gmail_token_id) {
-                                                await supabase
-                                                    .from('gmail_tokens')
-                                                    .update({ is_classement: newValue })
-                                                    .eq('id', configData.gmail_token_id);
-                                            }
+                                                        const { data: configData } = await supabase
+                                                            .from('email_configurations')
+                                                            .select('gmail_token_id, outlook_token_id')
+                                                            .eq('user_id', user.id)
+                                                            .eq('email', selectedAccount.email)
+                                                            .maybeSingle();
 
-                                            if (!error) {
-                                                setNotificationMessage(newValue ? 'Tri automatique activé' : 'Tri automatique désactivé');
-                                                setShowNotification(true);
-                                                setTimeout(() => setShowNotification(false), 3000);
-                                            }
-                                        }}
-                                        className={`relative w-14 h-8 rounded-full transition-colors ${hasEverHadSubscription && !hasActiveSubscription ? 'bg-gray-200 cursor-not-allowed' : autoSort ? 'bg-green-500' : 'bg-gray-300'
-                                            }`}
-                                    >
-                                        <div
-                                            className={`absolute top-1 left-1 w-6 h-6 bg-white rounded-full transition-transform ${autoSort ? 'translate-x-6' : 'translate-x-0'
-                                                }`}
-                                        />
-                                    </button>
+                                                        if (configData?.gmail_token_id) {
+                                                            await supabase
+                                                                .from('gmail_tokens')
+                                                                .update({ is_classement: newValue })
+                                                                .eq('id', configData.gmail_token_id);
+                                                        }
+
+                                                        if (!error) {
+                                                            setNotificationMessage(newValue ? 'Tri automatique activé' : 'Tri automatique désactivé');
+                                                            setShowNotification(true);
+                                                            setTimeout(() => setShowNotification(false), 3000);
+                                                        }
+                                                    }}
+                                                    className={`relative w-14 h-8 rounded-full transition-colors ${isDisabled ? 'bg-gray-200 cursor-not-allowed' : autoSort ? 'bg-green-500' : 'bg-gray-300'
+                                                        }`}
+                                                >
+                                                    <div
+                                                        className={`absolute top-1 left-1 w-6 h-6 bg-white rounded-full transition-transform ${autoSort ? 'translate-x-6' : 'translate-x-0'
+                                                            }`}
+                                                    />
+                                                </button>
+                                                {!hasRequiredInfo && (
+                                                    <div className="absolute bottom-full right-full mr-2 mb-2 px-3 py-2 bg-gray-900 text-white text-xs rounded-lg opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none z-50 min-w-[200px]">
+                                                        <div className="font-semibold mb-2">Informations manquantes pour l'activation du traitement automatique :</div>
+                                                        <ul className="list-disc list-inside space-y-1">
+                                                            {missingInfo.map((info, index) => (
+                                                                <li key={index}>{info}</li>
+                                                            ))}
+                                                        </ul>
+                                                        <div className="absolute top-full right-4 -mt-1">
+                                                            <div className="border-4 border-transparent border-t-gray-900"></div>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })()}
                                 </div>
                                 </motion.div>
                             )}
@@ -1940,107 +2064,59 @@ export default function Settings() {
 
                         {/* Informations du compte sélectionné ou du slot sélectionné */}
                         <AnimatePresence mode="wait">
-                            {selectedAccount && (
+                            {(selectedAccount || selectedSlot) && (
                                 <motion.div 
-                                    key={`info-${selectedAccount.id}`}
+                                    key={selectedAccount ? `info-${selectedAccount.id}` : `slot-info-${selectedSlot?.index}`}
                                     initial={{ opacity: 0, y: 20 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     exit={{ opacity: 0, y: -20 }}
                                     transition={{ duration: 0.3 }}
                                     className="font-inter bg-white p-6 border-r border-gray-200"
                                 >
-                                    <h2 className="text-lg font-semibold text-gray-900">{selectedAccount.email}</h2>
+                                    <h2 className="text-lg font-semibold text-gray-900">
+                                        {selectedAccount ? selectedAccount.email : `Email #${accounts.length + (selectedSlot?.index || 0) + 1}`}
+                                    </h2>
                                     <p className="text-sm text-gray-500">
-                                      Flux de traitement automatique
+                                      {selectedAccount ? 'Flux de traitement automatique' : 'Non configuré'}
                                     </p>
-                                </motion.div>
-                            )}
-                            {selectedSlot && !selectedAccount && (
-                                <motion.div 
-                                    key={`slot-info-${selectedSlot.index}`}
-                                    initial={{ opacity: 0, y: 20 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    exit={{ opacity: 0, y: -20 }}
-                                    transition={{ duration: 0.3 }}
-                                    className="font-inter bg-white p-6 border-r border-gray-200"
-                                >
-                                    <div className="flex items-center justify-between mb-4">
-                                        <div>
-                                            <h2 className="text-lg font-semibold text-gray-900">Email #{accounts.length + selectedSlot.index + 1}</h2>
-                                            <p className="text-sm text-gray-500">Non configuré</p>
-                                        </div>
-                                    </div>
-                                    <div className="flex gap-3 mt-4">
-                                        <button
-                                            onClick={() => setShowAddAccountModal(true)}
-                                            className="flex-1 px-4 py-2 bg-gradient-to-br from-[#F35F4F] to-[#FFAD5A] text-white rounded-lg font-medium hover:shadow-lg transition-all"
-                                        >
-                                            Configurer
-                                        </button>
-                                        <button
-                                            onClick={async () => {
-                                                if (!selectedSlot?.subscription_id || !user) return;
-                                                
-                                                if (!confirm('Êtes-vous sûr de vouloir résilier cet abonnement ? Il restera actif jusqu\'à la fin de la période de facturation en cours.')) {
-                                                    return;
-                                                }
-
-                                                try {
-                                                    const { data: { session } } = await supabase.auth.getSession();
-                                                    if (!session) {
-                                                        showToast('Vous devez être connecté', 'error');
-                                                        return;
-                                                    }
-
-                                                    const response = await fetch(
-                                                        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/stripe-cancel-subscription`,
-                                                        {
-                                                            method: 'POST',
-                                                            headers: {
-                                                                'Authorization': `Bearer ${session.access_token}`,
-                                                                'Content-Type': 'application/json',
-                                                            },
-                                                            body: JSON.stringify({
-                                                                subscription_id: selectedSlot.subscription_id
-                                                            }),
-                                                        }
-                                                    );
-
-                                                    const data = await response.json();
-
-                                                    if (data.error) {
-                                                        showToast(`Erreur: ${data.error}`, 'error');
-                                                        return;
-                                                    }
-
-                                                    showToast('Abonnement résilié avec succès', 'success');
-                                                    setSelectedSlot(null);
-                                                    loadAccounts();
-                                                    checkSubscription();
-                                                } catch (error: any) {
-                                                    showToast('Une erreur est survenue lors de la résiliation', 'error');
-                                                }
-                                            }}
-                                            className="px-4 py-2 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700 transition-colors"
-                                        >
-                                            Résilier
-                                        </button>
-                                    </div>
                                 </motion.div>
                             )}
                         </AnimatePresence>
 
                         {/* Informations de l'entreprise */}
                         <AnimatePresence mode="wait">
-                            {selectedAccount && (
+                            {(selectedAccount || selectedSlot) && (
                                 <motion.div 
-                                    key={`company-${selectedAccount.id}`}
+                                    key={selectedAccount ? `company-${selectedAccount.id}` : `slot-company-${selectedSlot?.index}`}
                                     initial={{ opacity: 0, y: 20 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     exit={{ opacity: 0, y: -20 }}
                                     transition={{ duration: 0.3, delay: 0.1 }}
-                                    className="bg-white font-inter p-6 shadow-sm border-r border-b border-gray-200 rounded-br-xl"
+                                    className="bg-white font-inter p-6 shadow-sm border-r border-b border-gray-200 rounded-br-xl relative"
                                 >
+                                    {/* Fond blanc avec bouton pour les slots non configurés */}
+                                    {selectedSlot && !selectedAccount && (
+                                        <div 
+                                            className="absolute inset-0 bg-white z-20 rounded-br-xl flex items-center justify-center"
+                                        >
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    const slotSub = unlinkedSubscriptions[selectedSlot.index];
+                                                    if (slotSub?.subscription_id) {
+                                                        // Ouvrir la modal de configuration
+                                                        setSelectedSlotForConfig({ index: selectedSlot.index, subscription_id: slotSub.subscription_id });
+                                                        setShowSlotConfigModal(true);
+                                                    } else {
+                                                        setShowAddAccountModal(true);
+                                                    }
+                                                }}
+                                                className="px-8 py-4 bg-gradient-to-br from-[#F35F4F] to-[#FFAD5A] text-white rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all"
+                                            >
+                                                Configurer l'email
+                                            </button>
+                                        </div>
+                                    )}
                                
                                 <div className="space-y-3 text-sm">
                                     <div>
@@ -2048,6 +2124,7 @@ export default function Settings() {
                                         <span className="text-gray-500">Nom de l'entreprise:</span>
                                         <button onClick={() => {
                                             setEditTempValue(companyFormData.company_name);
+                                            setModalError('');
                                             setShowEditCompanyNameModal(true);
                                         }}>
                                             <Edit2Icon className='w-5 h-5 text-blue-500 hover:text-blue-700 cursor-pointer' />
@@ -2060,6 +2137,7 @@ export default function Settings() {
                                         <span className="text-gray-500  mb-2">Description de l'activité:</span>
                                         <button onClick={() => {
                                             setEditTempValue(companyFormData.activity_description);
+                                            setModalError('');
                                             setShowEditActivityModal(true);
                                         }}>
                                             <Edit2Icon className='w-5 h-5 text-blue-500 hover:text-blue-700 cursor-pointer' />
@@ -2073,6 +2151,7 @@ export default function Settings() {
                                         <span className="text-gray-500 mb-2">Signature email:</span>
                                         <button onClick={() => {
                                             setEditTempValue(companyFormData.services_offered);
+                                            setModalError('');
                                             setShowEditSignatureModal(true);
                                         }}>
                                             <Edit2Icon className='w-5 h-5 text-blue-500 hover:text-blue-700 cursor-pointer' />
@@ -2104,15 +2183,37 @@ export default function Settings() {
 
                         {/* Base de connaissances */}
                         <AnimatePresence mode="wait">
-                            {selectedAccount && (
+                            {(selectedAccount || selectedSlot) && (
                                 <motion.div 
-                                    key={`knowledge-${selectedAccount.id}`}
+                                    key={selectedAccount ? `knowledge-${selectedAccount.id}` : `slot-knowledge-${selectedSlot?.index}`}
                                     initial={{ opacity: 0, y: 20 }}
                                     animate={{ opacity: 1, y: 0 }}
                                     exit={{ opacity: 0, y: -20 }}
                                     transition={{ duration: 0.3, delay: 0.2 }}
-                                    className="bg-white font-inter p-6 shadow-sm border-r border-b border-gray-200"
+                                    className="bg-white font-inter p-6 shadow-sm border-r border-b border-gray-200 relative"
                                 >
+                                    {/* Fond blanc avec bouton pour les slots non configurés */}
+                                    {selectedSlot && !selectedAccount && (
+                                        <div 
+                                            className="absolute inset-0 bg-white z-20 flex items-center justify-center"
+                                        >
+                                            <button
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    const slotSub = unlinkedSubscriptions[selectedSlot.index];
+                                                    if (slotSub?.subscription_id) {
+                                                        setSelectedSlotForConfig({ index: selectedSlot.index, subscription_id: slotSub.subscription_id });
+                                                        setShowSlotConfigModal(true);
+                                                    } else {
+                                                        setShowAddAccountModal(true);
+                                                    }
+                                                }}
+                                                className="px-8 py-4 bg-gradient-to-br from-[#F35F4F] to-[#FFAD5A] text-white rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all"
+                                            >
+                                                Configurer l'email
+                                            </button>
+                                        </div>
+                                    )}
                                     <div className="mb-6">
                                         <h3 className="font-bold text-[#3D2817] text-lg mb-2">Base de connaissances</h3>
                                         <p className="text-sm text-gray-500">Ajoutez des ressources pour enrichir les réponses de l'IA</p>
@@ -3151,117 +3252,26 @@ export default function Settings() {
             )}
 
             {/* Modal de modification des informations entreprise */}
-            {/* {showEditCompanyModal && selectedAccount && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-                    <div className="bg-white rounded-2xl p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl font-inter">
-                        <div className="flex items-center justify-between mb-6">
-                            <h2 className="text-2xl font-bold text-gray-900">Modifier les informations de l'entreprise</h2>
-                            <button
-                                onClick={() => setShowEditCompanyModal(false)}
-                                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                            >
-                                <X className="w-5 h-5 text-gray-600" />
-                            </button>
-                        </div>
-
-                        <form onSubmit={async (e) => {
-                            e.preventDefault();
-                            try {
-                                const { error } = await supabase
-                                    .from('email_configurations')
-                                    .update({
-                                        company_name: companyFormData.company_name,
-                                        activity_description: companyFormData.activity_description,
-                                        services_offered: companyFormData.services_offered,
-                                        updated_at: new Date().toISOString(),
-                                    })
-                                    .eq('id', selectedAccount.id);
-
-                                if (error) throw error;
-
-                                setShowEditCompanyModal(false);
-                                setNotificationMessage('Informations mises à jour avec succès');
-                                setShowNotification(true);
-                                setTimeout(() => setShowNotification(false), 3000);
-                                await loadCompanyData();
-                            } catch (err) {
-                                showToast('Erreur lors de la mise à jour des informations', 'error');
-                            }
-                        }} className="space-y-6">
-                            <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                    Nom de l'entreprise
-                                </label>
-                                <input
-                                    type="text"
-                                    value={companyFormData.company_name}
-                                    onChange={(e) => setCompanyFormData({ ...companyFormData, company_name: e.target.value })}
-                                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-orange-500 focus:outline-none transition-colors"
-                                    placeholder="Ex: HalliA Solutions"
-                                    required
-                                />
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                    Description de l'activité
-                                </label>
-                                <textarea
-                                    value={companyFormData.activity_description}
-                                    onChange={(e) => setCompanyFormData({ ...companyFormData, activity_description: e.target.value })}
-                                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-orange-500 focus:outline-none transition-colors resize-none"
-                                    rows={6}
-                                    placeholder="Exemple : Nous sommes une agence de marketing digital spécialisée dans la création de contenu et la gestion des réseaux sociaux pour les PME. Nous aidons nos clients à développer leur présence en ligne et à atteindre leurs objectifs commerciaux."
-                                    required
-                                />
-                                <p className="text-xs text-gray-500 mt-2">
-                                    Cette description sera utilisée par l'IA pour mieux comprendre votre contexte et classer vos e-mails.
-                                </p>
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                                    Signature email
-                                </label>
-                                <textarea
-                                    value={companyFormData.services_offered}
-                                    onChange={(e) => setCompanyFormData({ ...companyFormData, services_offered: e.target.value })}
-                                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-orange-500 focus:outline-none transition-colors resize-none"
-                                    rows={4}
-                                    placeholder={`Exemple :\nCordialement,\nJean Dupont\nCEO - Mon Entreprise\nTel: +33 6 12 34 56 78\nEmail: contact@entreprise.fr`}
-                                />
-                            </div>
-
-                            <div className="flex gap-3 pt-4">
-                                <button
-                                    type="button"
-                                    onClick={() => setShowEditCompanyModal(false)}
-                                    className="flex-1 px-6 py-3 border-2 border-gray-300 rounded-full hover:bg-gray-50 transition-colors font-semibold text-gray-700"
-                                >
-                                    Annuler
-                                </button>
-                                <button
-                                    type="submit"
-                                    className="group relative flex-1 inline-flex cursor-pointer items-center justify-center gap-2 overflow-hidden rounded-full bg-gradient-to-br from-[#F35F4F] to-[#FFAD5A] px-6 py-3 font-semibold text-white shadow-lg transition-all duration-300 ease-out hover:shadow-xl"
-                                >
-                                    <span className="relative z-10 transition-transform duration-300 group-hover:-translate-x-1">
-                                        Enregistrer
-                                    </span>
-                                    <svg
-                                        className="relative z-10 h-5 w-5 -translate-x-2 opacity-0 transition-all duration-300 group-hover:translate-x-0 group-hover:opacity-100"
-                                        fill="none"
-                                        viewBox="0 0 24 24"
-                                        stroke="currentColor"
-                                        strokeWidth={2}
-                                    >
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                                    </svg>
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )} */}
+            {showCompanyInfoModal && selectedAccount && user && (
+                <CompanyInfoModal
+                    userId={user.id}
+                    emailAccountId={selectedAccount.id}
+                    email={selectedAccount.email}
+                    initialStep={companyInfoStep}
+                    onComplete={async () => {
+                        setShowCompanyInfoModal(false);
+                        setHasCheckedCompanyInfo(false);
+                        setNotificationMessage('Informations mises à jour avec succès');
+                        setShowNotification(true);
+                        setTimeout(() => setShowNotification(false), 3000);
+                        await loadCompanyData();
+                    }}
+                    onClose={() => {
+                        setShowCompanyInfoModal(false);
+                        setHasCheckedCompanyInfo(false);
+                    }}
+                />
+            )}
 
             {/* Modal de suppression de compte utilisateur */}
             {showDeleteUserModal && (
@@ -3534,7 +3544,10 @@ export default function Settings() {
                         <div className="flex items-center justify-between mb-6">
                             <h2 className="text-2xl font-bold text-gray-900">Modifier le nom de l'entreprise</h2>
                             <button
-                                onClick={() => setShowEditCompanyNameModal(false)}
+                                onClick={() => {
+                                    setShowEditCompanyNameModal(false);
+                                    setModalError('');
+                                }}
                                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                             >
                                 <X className="w-5 h-5 text-gray-600" />
@@ -3549,16 +3562,27 @@ export default function Settings() {
                                 <input
                                     type="text"
                                     value={editTempValue}
-                                    onChange={(e) => setEditTempValue(e.target.value)}
-                                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-orange-500 focus:outline-none transition-colors"
+                                    onChange={(e) => {
+                                        setEditTempValue(e.target.value);
+                                        setModalError('');
+                                    }}
+                                    className={`w-full px-4 py-3 border-2 rounded-lg focus:outline-none transition-colors ${
+                                        modalError ? 'border-red-500' : 'border-gray-200 focus:border-orange-500'
+                                    }`}
                                     placeholder="Ex: Hall IA"
                                 />
+                                {modalError && (
+                                    <p className="text-sm text-red-600 mt-2">{modalError}</p>
+                                )}
                             </div>
 
                             <div className="flex gap-3 pt-4">
                                 <button
                                     type="button"
-                                    onClick={() => setShowEditCompanyNameModal(false)}
+                                    onClick={() => {
+                                        setShowEditCompanyNameModal(false);
+                                        setModalError('');
+                                    }}
                                     className="flex-1 px-6 py-3 border-2 border-gray-300 rounded-lg hover:bg-gray-50 transition-colors font-semibold text-gray-700"
                                 >
                                     Annuler
@@ -3567,19 +3591,28 @@ export default function Settings() {
                                     type="button"
                                     onClick={async () => {
                                         if (!selectedAccount || !user) return;
+                                        
+                                        // Validation : le champ ne doit pas être vide
+                                        if (!editTempValue?.trim()) {
+                                            setModalError('Le nom de l\'entreprise est obligatoire');
+                                            return;
+                                        }
+                                        
+                                        setModalError('');
                                         try {
                                             const { error } = await supabase
                                                 .from('email_configurations')
                                                 .update({
-                                                    company_name: editTempValue,
+                                                    company_name: editTempValue.trim(),
                                                     updated_at: new Date().toISOString(),
                                                 })
                                                 .eq('id', selectedAccount.id);
 
                                             if (error) throw error;
 
-                                            setCompanyFormData({ ...companyFormData, company_name: editTempValue });
+                                            setCompanyFormData({ ...companyFormData, company_name: editTempValue.trim() });
                                             setShowEditCompanyNameModal(false);
+                                            setModalError('');
                                             setNotificationMessage('Nom de l\'entreprise mis à jour');
                                             setShowNotification(true);
                                             setTimeout(() => setShowNotification(false), 3000);
@@ -3612,7 +3645,10 @@ export default function Settings() {
                         <div className="flex items-center justify-between mb-6">
                             <h2 className="text-2xl font-bold text-gray-900">Modifier la description de l'activité</h2>
                             <button
-                                onClick={() => setShowEditActivityModal(false)}
+                                onClick={() => {
+                                    setShowEditActivityModal(false);
+                                    setModalError('');
+                                }}
                                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                             >
                                 <X className="w-5 h-5 text-gray-600" />
@@ -3626,11 +3662,19 @@ export default function Settings() {
                                 </label>
                                 <textarea
                                     value={editTempValue}
-                                    onChange={(e) => setEditTempValue(e.target.value)}
-                                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-orange-500 focus:outline-none transition-colors resize-none"
+                                    onChange={(e) => {
+                                        setEditTempValue(e.target.value);
+                                        setModalError('');
+                                    }}
+                                    className={`w-full px-4 py-3 border-2 rounded-lg focus:outline-none transition-colors resize-none ${
+                                        modalError ? 'border-red-500' : 'border-gray-200 focus:border-orange-500'
+                                    }`}
                                     rows={6}
                                     placeholder="Exemple : Nous sommes une agence de marketing digital spécialisée dans la création de contenu et la gestion des réseaux sociaux pour les PME. Nous aidons nos clients à développer leur présence en ligne et à atteindre leurs objectifs commerciaux."
                                 />
+                                {modalError && (
+                                    <p className="text-sm text-red-600 mt-2">{modalError}</p>
+                                )}
                                 <p className="text-xs text-gray-500 mt-2">
                                     Cette description sera utilisée par l'IA pour mieux comprendre votre contexte et classer vos e-mails.
                                 </p>
@@ -3639,7 +3683,10 @@ export default function Settings() {
                             <div className="flex gap-3 pt-4">
                                 <button
                                     type="button"
-                                    onClick={() => setShowEditActivityModal(false)}
+                                    onClick={() => {
+                                        setShowEditActivityModal(false);
+                                        setModalError('');
+                                    }}
                                     className="flex-1 px-6 py-3 border-2 border-gray-300 rounded-lg hover:bg-gray-50 transition-colors font-semibold text-gray-700"
                                 >
                                     Annuler
@@ -3648,19 +3695,28 @@ export default function Settings() {
                                     type="button"
                                     onClick={async () => {
                                         if (!selectedAccount || !user) return;
+                                        
+                                        // Validation : le champ ne doit pas être vide
+                                        if (!editTempValue?.trim()) {
+                                            setModalError('La description de l\'activité est obligatoire');
+                                            return;
+                                        }
+                                        
+                                        setModalError('');
                                         try {
                                             const { error } = await supabase
                                                 .from('email_configurations')
                                                 .update({
-                                                    activity_description: editTempValue,
+                                                    activity_description: editTempValue.trim(),
                                                     updated_at: new Date().toISOString(),
                                                 })
                                                 .eq('id', selectedAccount.id);
 
                                             if (error) throw error;
 
-                                            setCompanyFormData({ ...companyFormData, activity_description: editTempValue });
+                                            setCompanyFormData({ ...companyFormData, activity_description: editTempValue.trim() });
                                             setShowEditActivityModal(false);
+                                            setModalError('');
                                             setNotificationMessage('Description de l\'activité mise à jour');
                                             setShowNotification(true);
                                             setTimeout(() => setShowNotification(false), 3000);
@@ -3872,7 +3928,10 @@ export default function Settings() {
                         <div className="flex items-center justify-between mb-6">
                             <h2 className="text-2xl font-bold text-gray-900">Modifier la signature email</h2>
                             <button
-                                onClick={() => setShowEditSignatureModal(false)}
+                                onClick={() => {
+                                    setShowEditSignatureModal(false);
+                                    setModalError('');
+                                }}
                                 className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                             >
                                 <X className="w-5 h-5 text-gray-600" />
@@ -3886,17 +3945,28 @@ export default function Settings() {
                                 </label>
                                 <textarea
                                     value={editTempValue}
-                                    onChange={(e) => setEditTempValue(e.target.value)}
-                                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-orange-500 focus:outline-none transition-colors resize-none"
+                                    onChange={(e) => {
+                                        setEditTempValue(e.target.value);
+                                        setModalError('');
+                                    }}
+                                    className={`w-full px-4 py-3 border-2 rounded-lg focus:outline-none transition-colors resize-none ${
+                                        modalError ? 'border-red-500' : 'border-gray-200 focus:border-orange-500'
+                                    }`}
                                     rows={4}
                                     placeholder={`Exemple :\nCordialement,\nJean Dupont\nCEO - Mon Entreprise\nTel: +33 6 12 34 56 78\nEmail: contact@entreprise.fr`}
                                 />
+                                {modalError && (
+                                    <p className="text-sm text-red-600 mt-2">{modalError}</p>
+                                )}
                             </div>
 
                             <div className="flex gap-3 pt-4">
                                 <button
                                     type="button"
-                                    onClick={() => setShowEditSignatureModal(false)}
+                                    onClick={() => {
+                                        setShowEditSignatureModal(false);
+                                        setModalError('');
+                                    }}
                                     className="flex-1 px-6 py-3 border-2 border-gray-300 rounded-lg hover:bg-gray-50 transition-colors font-semibold text-gray-700"
                                 >
                                     Annuler
@@ -3905,19 +3975,28 @@ export default function Settings() {
                                     type="button"
                                     onClick={async () => {
                                         if (!selectedAccount || !user) return;
+                                        
+                                        // Validation : le champ ne doit pas être vide
+                                        if (!editTempValue?.trim()) {
+                                            setModalError('La signature email est obligatoire');
+                                            return;
+                                        }
+                                        
+                                        setModalError('');
                                         try {
                                             const { error } = await supabase
                                                 .from('email_configurations')
                                                 .update({
-                                                    services_offered: editTempValue,
+                                                    services_offered: editTempValue.trim(),
                                                     updated_at: new Date().toISOString(),
                                                 })
                                                 .eq('id', selectedAccount.id);
 
                                             if (error) throw error;
 
-                                            setCompanyFormData({ ...companyFormData, services_offered: editTempValue });
+                                            setCompanyFormData({ ...companyFormData, services_offered: editTempValue.trim() });
                                             setShowEditSignatureModal(false);
+                                            setModalError('');
                                             setNotificationMessage('Signature email mise à jour');
                                             setShowNotification(true);
                                             setTimeout(() => setShowNotification(false), 3000);
@@ -3977,6 +4056,24 @@ export default function Settings() {
                     isUpgrade={true}
                     currentAdditionalAccounts={currentAdditionalAccounts}
                     unlinkedSubscriptionsCount={unlinkedSubscriptions.length}
+                />
+            )}
+
+            {/* Modal de configuration pour slot non configuré */}
+            {showSlotConfigModal && selectedSlotForConfig && user && (
+                <AdditionalEmailModal
+                    userId={user.id}
+                    subscriptionId={selectedSlotForConfig.subscription_id}
+                    onComplete={async () => {
+                        setShowSlotConfigModal(false);
+                        setSelectedSlotForConfig(null);
+                        setSelectedSlot(null);
+                        await loadAccounts();
+                    }}
+                    onClose={() => {
+                        setShowSlotConfigModal(false);
+                        setSelectedSlotForConfig(null);
+                    }}
                 />
             )}
         </>
