@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
-import { Brain, ChevronsUp, Flame, Lightbulb, LockKeyhole } from 'lucide-react';
+import { Brain, ChevronsUp, Flame, Lightbulb, ListChecks, LockKeyhole } from 'lucide-react';
 import type { ReactNode } from 'react';
 
 interface ProductivityElementProps {
@@ -16,7 +16,7 @@ const productivityElement: ProductivityElementProps[] = [
     icon: <Brain className="text-silverchalice-50" />,
     title: 'Automatisation intelligente',
     paragraph:
-      'L’IA rédige vos réponses automatiquement, elle comprend et s’adapte aux contextes identifié.',
+      'L’IA analyse  le message reçu et étudie le contexte. Elle détermine si une réponse et nécessaire.',
   },
   {
     icon: <Lightbulb className="text-silverchalice-50" />,
@@ -31,10 +31,10 @@ const productivityElement: ProductivityElementProps[] = [
       'Laissez l’IA gérer les emails courants pendant que vous traitez l’essentiel. Optimisez vos priorités en un clic.',
   },
   {
-    icon: <Flame className="text-silverchalice-50" />,
-    title: 'Déploiement instantané',
+    icon: <ListChecks className="text-silverchalice-50" />,
+    title: 'Classification intelligente',
     paragraph:
-      'Connectez simplement votre boîte mail : tout est prêt en quelques minutes, sans aucune configuration technique.',
+      'Emails triés instantanément (INFO, TRAITÉ, PUB) avec 98 % de précision. Concentrez-vous sur les messages clés.',
   },
   {
     icon: <LockKeyhole className="text-silverchalice-50" />,
@@ -76,13 +76,13 @@ export function ProductivityCard() {
       }`}
       style={{
         background: `conic-gradient(
-                    from 195.77deg at 84.44% -1.66%,
-                    #FE9736 0deg,
-                    #F4664C 76.15deg,
-                    #F97E41 197.31deg,
-                    #E3AB8D 245.77deg,
-                    #FE9736 360deg
-                )`,
+          from 195.77deg at 84.44% -1.66%,
+          #FE9736 0deg,
+          #F4664C 76.15deg,
+          #F97E41 197.31deg,
+          #E3AB8D 245.77deg,
+          #FE9736 360deg
+        )`,
       }}
       itemScope
       itemType="https://schema.org/CreativeWork"
@@ -229,11 +229,99 @@ export function ProductivityCard() {
 
             {/* Vue Desktop (lg+) : 3 colonnes, 2 lignes avec divider au milieu */}
             <div className="hidden lg:block" itemProp="text">
+              <style jsx>{`
+                .card-gradient-hover {
+                  position: relative;
+                }
+
+                .card-gradient-hover::before {
+                  content: '';
+                  position: absolute;
+                  inset: 0;
+                  opacity: 0;
+                  transition: opacity 0.2s ease-in-out;
+                  pointer-events: none;
+                }
+
+                .card-gradient-hover:hover::before {
+                  opacity: 1;
+                }
+
+                .gradient-tl::before {
+                  background: linear-gradient(
+                    to top left,
+                    transparent 55%,
+                    rgba(255, 255, 255, 0.4) 90%
+                  );
+                  margin-top: -25px;
+                  margin-left: -15px;
+                }
+
+                .gradient-t::before {
+                  background: linear-gradient(
+                    to top,
+                    transparent 52%,
+                    rgba(255, 255, 255, 0.4) 90%
+                  );
+                  margin-top: -20px;
+                  /* Ajoute un léger scale pour "boucher" les padding sur les côtés */
+                  transform: scale(1.04);
+                }
+
+                .gradient-tr::before {
+                  background: linear-gradient(
+                    to top right,
+                    transparent 52%,
+                    rgba(255, 255, 255, 0.4) 90%
+                  );
+                  margin-top: -25px;
+                  margin-right: -16px;
+                }
+
+                .gradient-bl::before {
+                  background: linear-gradient(
+                    to bottom left,
+                    transparent 52%,
+                    rgba(255, 255, 255, 0.4) 90%
+                  );
+                  margin-bottom: -25px;
+                  margin-left: -15px;
+                }
+
+                .gradient-b::before {
+                  background: linear-gradient(
+                    to bottom,
+                    transparent 52%,
+                    rgba(255, 255, 255, 0.4) 90%
+                  );
+                  margin-bottom: -20px;
+                  /* Ajoute un léger scale pour "boucher" les padding sur les côtés */
+                  transform: scale(1.04);
+                }
+
+                .gradient-br::before {
+                  background: linear-gradient(
+                    to bottom right,
+                    transparent 52%,
+                    rgba(255, 255, 255, 0.4) 90%
+                  );
+                  margin-bottom: -25px;
+                  margin-right: -16px;
+                }
+              `}</style>
               {/* Ligne 1 */}
               <div className="grid grid-cols-3 gap-6">
                 {productivityElement.slice(0, 3).map((element, index) => (
-                  <div key={index} className={cn(index === 2 && 'pl-3')}>
-                    <div className="flex flex-col gap-6 p-3">
+                  <div
+                    key={index}
+                    className={cn(
+                      'card-gradient-hover',
+                      index === 0 && 'gradient-br',
+                      index === 1 && 'gradient-b',
+                      index === 2 && 'gradient-bl pl-3',
+                    )}
+                  >
+                    <div className="relative z-10 flex flex-col gap-6 p-3">
                       {element.icon && (
                         <div className="w-fit shrink-0 rounded-md border border-[#FEFDFDA3]/64 bg-[#FEFDFDA3]/16 p-2 text-white">
                           {element.icon}
@@ -258,8 +346,16 @@ export function ProductivityCard() {
               {/* Ligne 2 */}
               <div className="grid grid-cols-3 gap-6">
                 {productivityElement.slice(3, 6).map((element, index) => (
-                  <div key={index + 3} className={cn(index === 2 && 'pl-3')}>
-                    <div className="flex flex-col gap-6 p-3">
+                  <div
+                    key={index + 3}
+                    className={cn(
+                      'card-gradient-hover',
+                      index === 0 && 'gradient-tr',
+                      index === 1 && 'gradient-t',
+                      index === 2 && 'gradient-tl pl-3',
+                    )}
+                  >
+                    <div className="relative z-10 flex flex-col gap-6 p-3">
                       {element.icon && (
                         <div className="w-fit shrink-0 rounded-md border border-[#FEFDFDA3]/64 bg-[#FEFDFDA3]/16 p-2 text-white">
                           {element.icon}
