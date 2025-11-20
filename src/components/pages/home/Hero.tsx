@@ -18,7 +18,7 @@ export default function Hero() {
   };
 
   return (
-    <section className="m-auto max-w-7xl overflow-x-hidden">
+    <section className="mx-auto max-w-7xl overflow-x-hidden">
       <div
         className="pointer-events-none absolute -top-[100px] left-1/2 z-0 h-[200px] w-[200px] -translate-x-1/2 rounded-full blur-3xl max-sm:hidden md:-top-[200px] md:h-[400px] md:w-[400px] xl:-top-[200px] xl:h-[400px] xl:w-[400px]"
         style={{
@@ -183,7 +183,7 @@ export default function Hero() {
         </div>
       </section>
 
-      <section className="md:my-20 flex w-full justify-center px-6">
+      <section className="my-20 flex w-full justify-center px-6">
         <AnimatedCards />
       </section>
 

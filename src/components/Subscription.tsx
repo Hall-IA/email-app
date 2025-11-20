@@ -1400,7 +1400,7 @@ export function Subscription() {
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={handleAddAccountClick}
-            className="group relative flex w-auto items-center justify-center gap-2 overflow-hidden rounded-full px-4 py-2.5 text-xs font-medium text-white shadow-md transition-all duration-300 hover:scale-105 hover:shadow-lg disabled:opacity-50 md:px-2.5 md:py-2 md:text-sm cursor-pointer"
+            className="group relative flex w-auto items-center justify-center gap-2 overflow-hidden rounded-full px-4 py-2.5 text-xs font-medium text-white shadow-md transition-all duration-300 hover:scale-105 hover:shadow-lg disabled:opacity-50 md:px-2.5 md:py-2 md:text-sm"
             style={{
               background: `conic-gradient(
                     from 195.77deg at 84.44% -1.66%,
