@@ -15,17 +15,10 @@ export interface ListItem {
 
 interface ItemCarouselProps {
   items: ListItem[];
-  heading?: string;
-  subheading?: string;
   brandColor?: string;
 }
 
-export default function ItemCarousel({
-  items,
-  heading = "Nos agents IA",
-  subheading = "Découvrez nos solutions d'intelligence artificielle",
-  brandColor = "#f97316"
-}: ItemCarouselProps) {
+export default function HowItWorkSection({ items, brandColor = '#f97316' }: ItemCarouselProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isAnimating, setIsAnimating] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
@@ -45,7 +38,7 @@ export default function ItemCarousel({
       setIsAnimating(true);
       setCurrentIndex((prev) => getCircularIndex(prev + 1));
       setTimeout(() => setIsAnimating(false), 800);
-    }, 2000); // Change toutes les 3 secondes
+    }, 6000); // Change toutes les 6 secondes
 
     return () => clearInterval(interval);
   }, [isPaused, isAnimating, items.length]);
@@ -89,7 +82,7 @@ export default function ItemCarousel({
         };
       case 'prev':
         return {
-          flex: '0 0 15%',
+          flex: '0 0 20%',
           transform: 'scale(0.9) translateY(0)',
           opacity: 0.6,
           zIndex: 5,
@@ -97,7 +90,7 @@ export default function ItemCarousel({
         };
       case 'next':
         return {
-          flex: '0 0 15%',
+          flex: '0 0 20%',
           transform: 'scale(0.9) translateY(0)',
           opacity: 0.6,
           zIndex: 5,
@@ -105,7 +98,7 @@ export default function ItemCarousel({
         };
       default:
         return {
-          flex: '0 0 15%',
+          flex: '0 0 20%',
           transform: 'scale(0.9)',
           opacity: 0.5,
           zIndex: 1,
@@ -116,10 +109,14 @@ export default function ItemCarousel({
 
   return (
     <section
-    className="w-full lg:h-[70vh] bg-gradient-to-br py-16 lg:py-0"
-    onMouseEnter={() => setIsPaused(true)}
+      className="font-roboto flex w-full flex-col items-center gap-20 py-10 lg:h-[70vh]"
+      onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
     >
+      <div className="flex flex-col items-center gap-4 px-2">
+        <h3 className="font-thunder text-5xl font-semibold">Comment ça marche ?</h3>
+        <p className="text-center text-lg">4 étapes simples pour une intégration réussie</p>
+      </div>
       <style jsx global>{`
         @keyframes fadeInUp {
           from {
@@ -152,10 +149,10 @@ export default function ItemCarousel({
       `}</style>
 
       {/* Desktop Version */}
-      <div className="mx-auto hidden h-[70vh] w-full px-8 lg:flex lg:gap-8">
+      <div className="mx-auto hidden h-full max-w-7xl px-6 lg:flex lg:items-center lg:gap-8">
         {/* Images Column */}
-        <div className="flex w-[60%] gap-6">
-          <div className="relative flex flex-1 flex-col gap-4 items-start">
+        <div className="flex h-full w-[60%] gap-6">
+          <div className="relative flex flex-1 flex-col gap-4">
             {visibleItems.map(({ item, index, position }) => {
               const isActive = position === 'current';
               const imageStyle = getImageStyle(position);
@@ -164,7 +161,7 @@ export default function ItemCarousel({
                 <button
                   key={`${item.id}-${index}`}
                   onClick={() => goToIndex(index)}
-                  className="relative overflow-hidden rounded-3xl  cursor-pointer group inline-block"
+                  className="group relative cursor-pointer overflow-hidden rounded-3xl shadow-2xl"
                   style={{
                     flex: imageStyle.flex,
                     opacity: imageStyle.opacity,
@@ -172,7 +169,6 @@ export default function ItemCarousel({
                     zIndex: imageStyle.zIndex,
                     filter: imageStyle.filter,
                     transition: 'all 0.8s cubic-bezier(0.34, 1.56, 0.64, 1)',
-                    alignSelf: 'flex-start',
                   }}
                   aria-label={isActive ? `Image actuelle: ${item.title}` : `Aller à ${item.title}`}
                   aria-current={isActive}
@@ -181,10 +177,10 @@ export default function ItemCarousel({
                   <img
                     src={item.videoUrl}
                     alt={isActive ? item.alt : ''}
-                    className="w-full h-auto block transition-transform duration-500 group-hover:scale-105 rounded-3xl shadow-lg"
+                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                   />
                   {!isActive && (
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                    <div className="absolute inset-0 bg-linear-to-t from-black/40 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
                   )}
                 </button>
               );
@@ -196,7 +192,7 @@ export default function ItemCarousel({
             <button
               onClick={handlePrev}
               disabled={isAnimating}
-              className="flex h-14 w-14 items-center justify-center rounded-full text-white shadow-xl transition-all duration-300 hover:scale-110 hover:shadow-2xl "
+              className="flex h-14 w-14 cursor-pointer items-center justify-center rounded-full text-white shadow-xl transition-all duration-300 hover:scale-110 hover:shadow-2xl"
               style={{ backgroundColor: brandColor }}
               aria-label="Élément précédent"
             >
@@ -217,7 +213,7 @@ export default function ItemCarousel({
             <button
               onClick={handleNext}
               disabled={isAnimating}
-              className="flex h-14 w-14 items-center justify-center rounded-full text-white shadow-xl transition-all duration-300 hover:scale-110 hover:shadow-2xl "
+              className="flex h-14 w-14 cursor-pointer items-center justify-center rounded-full text-white shadow-xl transition-all duration-300 hover:scale-110 hover:shadow-2xl"
               style={{ backgroundColor: brandColor }}
               aria-label="Élément suivant"
             >
@@ -244,43 +240,27 @@ export default function ItemCarousel({
           <div key={`content-${currentIndex}`} className="space-y-8">
             <div className="flex items-start gap-6">
               <div
-                className="content-animate content-icon flex h-20 w-20 flex-shrink-0 items-center justify-center rounded-2xl text-white shadow-xl"
+                className="content-animate content-icon flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl text-white shadow-xl"
                 style={{ backgroundColor: brandColor }}
               >
-                <span className="text-3xl font-bold">
-                  {currentIndex + 1}
-                </span>
+                <span className="text-3xl font-bold">{currentIndex + 1}</span>
               </div>
               <div>
-                <h2 className="content-animate content-title text-5xl font-thunder font-black text-gray-900 mb-4 leading-tight">
+                <h2 className="content-animate content-title font-thunder mb-4 text-5xl leading-tight font-black text-gray-900">
                   {currentItem.title}
                 </h2>
-                <p className="content-animate content-desc text-lg font-roboto text-gray-600 leading-relaxed">
+                <p className="content-animate content-desc font-roboto text-lg leading-relaxed text-gray-600">
                   {currentItem.description}
                 </p>
               </div>
             </div>
-
-            {/* {currentItem.keywords && currentItem.keywords.length > 0 && (
-              <div className="flex flex-wrap gap-3">
-                {currentItem.keywords.map((keyword, idx) => (
-                  <span
-                    key={idx}
-                    className="content-animate rounded-full border-2 border-gray-200 bg-white px-5 py-2.5 text-sm font-medium text-gray-700 shadow-sm transition-all hover:border-gray-300 hover:shadow-md"
-                    style={{ animationDelay: `${0.3 + idx * 0.05}s`, opacity: 0 }}
-                  >
-                    {keyword}
-                  </span>
-                ))}
-              </div>
-            )} */}
           </div>
         </article>
       </div>
 
       {/* Mobile version */}
 
-      <div className=" lg:hidden flex flex-col items-center px-6 justify-center">
+      <div className="flex flex-col items-center justify-center px-6 lg:hidden">
         {/* Images carousel */}
         <div className="relative mb-6 w-full">
           <div className="flex items-center justify-center gap-2">
@@ -295,24 +275,24 @@ export default function ItemCarousel({
                 <img
                   src={items[getCircularIndex(currentIndex - 1)].videoUrl}
                   alt=""
-                  className="h-auto w-full grayscale"
+                  className="aspect-video h-auto w-full object-cover grayscale"
                 />
               </button>
             </div>
 
             {/* Image centrale */}
-            <article className="w-[60%]">
+            <article className="w-[80%]">
               <div className="overflow-hidden rounded-2xl shadow-2xl">
                 <img
                   src={currentItem.videoUrl}
                   alt={currentItem.alt}
-                  className="h-auto w-full transition-transform duration-500"
+                  className="aspect-video h-auto w-full object-cover transition-transform duration-500"
                 />
               </div>
             </article>
 
             {/* Image suivante */}
-            <div className="w-[20%]">
+            <div className="w-[10%]">
               <button
                 onClick={handleNext}
                 className="relative block overflow-hidden rounded-lg opacity-40 shadow-lg transition-all duration-300 hover:opacity-70 active:scale-95"
@@ -322,18 +302,18 @@ export default function ItemCarousel({
                 <img
                   src={items[getCircularIndex(currentIndex + 1)].videoUrl}
                   alt=""
-                  className="h-auto w-full grayscale"
+                  className="aspect-video h-auto w-full object-cover grayscale"
                 />
               </button>
             </div>
           </div>
         </div>
 
-        <nav className="mb-8 flex justify-center gap-4 ">
+        <nav className="mb-8 flex justify-center gap-4">
           <button
             onClick={handlePrev}
             disabled={isAnimating}
-            className="flex h-12 w-12 items-center justify-center rounded-full text-white shadow-lg transition-all duration-300 hover:shadow-xl active:scale-95 "
+            className="flex h-12 w-12 items-center justify-center rounded-full text-white shadow-lg transition-all duration-300 hover:shadow-xl active:scale-95"
             style={{ backgroundColor: brandColor }}
             aria-label="Élément précédent"
           >
@@ -354,7 +334,7 @@ export default function ItemCarousel({
           <button
             onClick={handleNext}
             disabled={isAnimating}
-            className="flex h-12 w-12 items-center justify-center rounded-full text-white shadow-lg transition-all duration-300 hover:shadow-xl active:scale-95 "
+            className="flex h-12 w-12 items-center justify-center rounded-full text-white shadow-lg transition-all duration-300 hover:shadow-xl active:scale-95"
             style={{ backgroundColor: brandColor }}
             aria-label="Élément suivant"
           >
@@ -374,39 +354,23 @@ export default function ItemCarousel({
           </button>
         </nav>
 
-        <div key={`mobile-content-${currentIndex}`} className="flex justify-center items-center w-full">
-          <div className="flex items-start gap-3 max-w-[80%]">
+        <div key={`mobile-content-${currentIndex}`} className="flex items-center justify-center">
+          <div className="flex max-w-[80%] items-start gap-3">
             <div
-              className="content-animate content-icon flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-xl text-white shadow-lg"
+              className="content-animate content-icon flex h-12 w-12 shrink-0 items-center justify-center rounded-xl text-white shadow-lg"
               style={{ backgroundColor: brandColor }}
             >
-              <span className="text-lg font-bold">
-                {currentIndex + 1}
-              </span>
+              <span className="text-lg font-bold">{currentIndex + 1}</span>
             </div>
             <div>
-              <h2 className="content-animate content-title text-3xl font-thunder font-bold text-gray-900 mb-1">
+              <h2 className="content-animate content-title font-thunder mb-1 text-3xl font-bold text-gray-900">
                 {currentItem.title}
               </h2>
-              <p className="content-animate content-desc text-sm font-roboto text-gray-600">
+              <p className="content-animate content-desc font-roboto text-sm text-gray-600">
                 {currentItem.description}
               </p>
             </div>
           </div>
-
-          {/* {currentItem.keywords && currentItem.keywords.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {currentItem.keywords.map((keyword, idx) => (
-                <span
-                  key={idx}
-                  className="content-animate rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs text-gray-700 shadow-sm"
-                  style={{ animationDelay: `${0.3 + idx * 0.05}s`, opacity: 0 }}
-                >
-                  {keyword}
-                </span>
-              ))}
-            </div>
-          )} */}
         </div>
       </div>
     </section>
