@@ -158,7 +158,7 @@ export default function TestimonialCarousel() {
     <Fragment>
       {/* Desktop */}
       <section
-        className="hidden w-full md:block"
+        className="hidden w-full lg:block"
         aria-labelledby="testimonials-heading"
         role="region"
       >
@@ -197,7 +197,7 @@ export default function TestimonialCarousel() {
       </section>
 
       {/* Mobile */}
-      <section className="w-full md:hidden" aria-labelledby="testimonials-heading" role="region">
+      <section className="w-full lg:hidden" aria-labelledby="testimonials-heading" role="region">
         <h2 id="testimonials-heading" className="sr-only">
           Nos clients en parlent
         </h2>
