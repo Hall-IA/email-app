@@ -2445,9 +2445,9 @@ export default function Settings() {
             )}
 
             {/* Modal d'abonnement requis */}
-            {showSubscriptionModal && (
+            {showSubscriptionModal && user && (
            <CheckoutAdditionalModal
-            userId={user.id}
+            userId={user!.id}
             onClose={() => setShowSubscriptionModal(false)}
             currentAdditionalAccounts={currentAdditionalAccounts}
             unlinkedSubscriptionsCount={unlinkedSubscriptions.length}
