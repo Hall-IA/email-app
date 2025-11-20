@@ -127,15 +127,15 @@ export default function Hero() {
           />
 
           {/* Logo */}
-          <div className="absolute -top-45 right-0 z-10 flex items-center gap-2">
-            <img
+          <div className="absolute -top-20 right-0 z-10 flex items-center gap-2">
+            <Image
               src="/assets/svg/hallia-black-logo.svg"
               alt="Logo HALL-IA"
               width={42}
               height={42}
               loading="lazy"
             />
-            <img
+            <Image
               src="/assets/svg/hallia-letter-picture-logo.svg"
               alt="HALL-IA"
               width={70}
@@ -146,13 +146,19 @@ export default function Hero() {
 
           {/* Badge Compatible Gmail */}
           <div className="absolute top-[25%] left-[4%] z-10 flex items-center gap-3 rounded-full bg-white/90 px-5 py-3 shadow-lg backdrop-blur-sm">
-            <img src="/assets/logos/gmail.png" alt="Gmail" width={28} height={28} loading="lazy" />
+            <Image
+              src="/assets/logos/gmail.png"
+              alt="Gmail"
+              width={28}
+              height={28}
+              loading="lazy"
+            />
             <span className="text-base font-medium text-gray-800">Compatible Gmail</span>
           </div>
 
           {/* Badge Compatible Outlook */}
           <div className="absolute top-[50%] right-0 z-10 flex items-center gap-3 rounded-full bg-white/90 px-5 py-3 shadow-lg backdrop-blur-sm">
-            <img
+            <Image
               src="/assets/logos/outlook.png"
               alt="Outlook"
               width={28}
