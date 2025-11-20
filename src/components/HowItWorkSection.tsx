@@ -109,7 +109,7 @@ export default function HowItWorkSection({ items, brandColor = '#f97316' }: Item
 
   return (
     <section
-      className="font-roboto flex w-full flex-col items-center gap-20 py-10 lg:h-[70vh]"
+      className="font-roboto flex w-full flex-col items-center gap-20 py-10 lg:h-[70vh] lg:mt-10"
       onMouseEnter={() => setIsPaused(true)}
       onMouseLeave={() => setIsPaused(false)}
     >

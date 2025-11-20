@@ -56,19 +56,26 @@ export default function AppPack() {
             <h3 className="font-thunder mb-5 text-5xl font-semibold text-white">Essai Gratuit</h3>
             <p className="font-roboto text-white">
               Testez notre solution gratuitement, c’est{' '}
-              <span className="underline underline-offset-2">sans engagement</span>
+              <span
+                className="cursor-pointer underline underline-offset-2 hover:font-medium"
+                onClick={() => setShowSubscriptionModal(true)}
+              >
+                sans engagement !
+              </span>
             </p>
-            <ul className="space-y-2 text-white">
+            <ul className="space-y-4 text-white">
               <li className="flex gap-2">
                 <BadgeCheck className="shrink-0" />
                 <span>
-                  <p className="font-medium">1 compte email</p>
-                  <p>Accès à l'ensemble des fonctionnalités de la solution Business</p>
+                  <p className="font-semibold">1 compte email</p>
+                  <p className="text-sm font-normal">
+                    Accès à l'ensemble des fonctionnalités de la solution Business
+                  </p>
                 </span>
               </li>
               <li className="flex gap-2">
                 <BadgeCheck className="shrink-0" />
-                <p>Activez votre essai avec le code promo</p>
+                <p className="font-semibold">Activez votre essai avec le code promo</p>
               </li>
             </ul>
             <CustomButton
@@ -79,22 +86,34 @@ export default function AppPack() {
             </CustomButton>
           </div>
           <div className="flex justify-end">
-            <img className="w-fit rounded-2xl" src="/assets/img/femme-pack.png" alt="" />
+            <Image
+              className="w-fit rounded-2xl"
+              width={600}
+              height={400}
+              src="/img/femme-pack.png"
+              alt=""
+            />
           </div>
         </div>
 
         <CardPack
           title="Business"
-          subtitle="L’automatisation de votre boîte mail, 
-sans engagement"
+          subtitle="L’automatisation de votre boîte mail, sans engagement"
           features={[
-            '1 compte mail inclus',
-            'Classification intelligente de vos emails (publicités, informations et email traités par IA)',
-            'Base de connaissances personnalisable incluse',
-            'Statistiques détaillées sur vos échanges et performances',
+            { title: '1 compte mail inclus' },
+            {
+              title: 'Classification intelligente de vos emails',
+            },
+            {
+              title:
+                'Réponses générées automatiquement par l’IA dans vos brouillons, prêtes à être envoyées',
+            },
+            {
+              title: 'Base de connaissances personnalisable incluse',
+              text: 'Une fois connecté à l’application, vous ajoutez les liens vers votre site internet, vos réseaux sociaux et importez vos documents PDF pour enrichir l’IA.',
+            },
+            { title: 'Statistiques détaillées sur vos échanges et performances' },
           ]}
-          clearText="Une fois connecté à l’application, vous ajoutez les liens vers votre site internet, vos réseaux sociaux et importez vos documents PDF pour enrichir l’IA."
-          id={2}
           price="20€"
           priceUnit="/par mois"
           buttonText="Commencer"
@@ -107,30 +126,46 @@ sans engagement"
 
         <CardPack
           topGradient={`radial-gradient(
-                ellipse 90% 90% at 50% 0%,
-                #9F78FF 0%,
-                #815AF3 50%,
-                #D1AAFF 50%,
-                transparent 80%
-            )`}
+              ellipse 90% 90% at 50% 0%,
+              #9F78FF 0%,
+              #815AF3 50%,
+              #D1AAFF 50%,
+              transparent 80%
+          )`}
           title="Solution sur mesure"
           subtitle="Entièrement dédiée à votre entreprise"
           features={[
-            'Développement d’une solution personnalisée parfaitement adaptée à votre structure',
-            'Conception sur mesure selon votre cahier des charges, avec création de fonctionnalités spécifiques',
-            'Définition ensemble du tri intelligent des emails, selon vos priorités et vos processus internes',
-            'Automatisation avancée des traitements pour optimiser vos flux et réduire les tâches répétitives',
-            'Réponses générées par l’IA : envoi automatique ou ajout dans vos brouillons selon le type d’email',
-            'Intégration complète avec vos outils CRM / ERP',
-            'Support dédié avec un accompagnement continu',
-            'API complète pour connecter ou étendre la solution à vos systèmes existants',
+            {
+              title: 'Développement d’une solution personnalisée',
+              text: 'Parfaitement adaptée à votre structure',
+            },
+            {
+              title: 'Conception sur mesure selon votre cahier des charges',
+              text: 'Avec création de fonctionnalités spécifiques',
+            },
+            {
+              title: 'Définition ensemble du tri intelligent des emails',
+              text: 'Selon vos priorités et vos processus internes',
+            },
+            {
+              title:
+                'Automatisation avancée des traitements pour optimiser vos flux et réduire les tâches répétitives',
+            },
+            {
+              title: 'Réponses générées par l’IA',
+              text: 'Envoi automatique ou ajout dans vos brouillons selon le type d’email',
+            },
+            { title: 'Intégration complète avec vos outils CRM / ERP' },
+            { title: 'Support dédié', text: 'Avec un accompagnement continu' },
+            {
+              title: 'API complète',
+              text: 'Pour connecter ou étendre la solution à vos systèmes existants',
+            },
           ]}
-          price="20€"
-          priceUnit="/par mois"
           buttonText="Nous contacter"
           buttonHref="https://hallia.ai/contact"
-          hidePrice={true}
-          classNameButton="mt-10 md:mt-0"
+          hidePrice
+          classNameButton="mt-10 xl:mt-0"
         />
       </section>
 

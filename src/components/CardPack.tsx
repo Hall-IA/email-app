@@ -1,16 +1,21 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import CustomButton from './CustomButton';
-import { Plus, Minus, BadgeCheck } from 'lucide-react';
+import { Plus, Minus, BadgeCheck, HelpCircle, XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
+
+interface Feature {
+  title: string;
+  text?: string;
+}
 
 interface CardPackProps {
   title: string;
   subtitle?: string;
-  features: string[];
-  price: string;
-  priceUnit: string;
+  features: Feature[];
+  price?: string;
+  priceUnit?: string;
   buttonText: string;
   buttonGradient?: string;
   topGradient?: string;
@@ -22,8 +27,6 @@ interface CardPackProps {
   additionalPrice?: number; // Prix par email additionnel
   localStorageKey?: string; // Clé pour le localStorage
   hidePrice?: boolean; // Masquer le prix et le hr dotted
-  clearText?: string; // Texte claire
-  id?: number; // Index pour placer le texte claire
   classNameButton?: string;
 }
 
@@ -56,13 +59,12 @@ export default function CardPack({
   additionalPrice = 19,
   localStorageKey = 'email_counter',
   hidePrice = false,
-  clearText,
-  id,
   classNameButton,
 }: CardPackProps) {
   // État pour le compteur d'emails additionnels
   const [additionalEmails, setAdditionalEmails] = useState(0);
   const [mounted, setMounted] = useState(false);
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
 
   // Charger depuis localStorage au montage
   useEffect(() => {
@@ -114,13 +116,15 @@ export default function CardPack({
 
         {subtitle && <p>{subtitle}</p>}
 
-        <ul className="space-y-2">
+        <ul className="space-y-4">
           {features.map((feature, index) => (
-            <li key={index} className="flex gap-2">
+            <li key={index} className="flex gap-2 font-medium">
               <BadgeCheck className="shrink-0" />
               <span>
-                {feature}
-                {index === id && <p className="mt-1 text-gray-400 text-xs">{clearText}</p>}
+                {feature.title}
+                {feature.text && (
+                  <p className="text-sm font-normal text-gray-600">{feature.text}</p>
+                )}
               </span>
             </li>
           ))}
@@ -134,7 +138,7 @@ export default function CardPack({
                 <button
                   onClick={decrementCounter}
                   disabled={additionalEmails === 0}
-                  className="flex w-12 items-center justify-center rounded-lg bg-black transition-all hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-black"
+                  className="flex w-12 cursor-pointer items-center justify-center rounded-l-lg bg-black transition-all hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:bg-black"
                   aria-label="Diminuer"
                 >
                   <Minus className="h-5 w-5 text-white" />
@@ -151,7 +155,7 @@ export default function CardPack({
 
                 <button
                   onClick={incrementCounter}
-                  className="flex w-12 items-center justify-center rounded-r-lg bg-black transition-all hover:bg-gray-800"
+                  className="flex w-12 cursor-pointer items-center justify-center rounded-r-lg bg-black transition-all hover:bg-gray-800"
                   aria-label="Augmenter"
                 >
                   <Plus className="h-5 w-5 text-white" />
@@ -183,23 +187,29 @@ export default function CardPack({
       <div className="relative z-20 space-y-5 px-10 pb-10">
         {/* Prix */}
         {!hidePrice && (
-          <div className="space-y-2">
-            <p className="font-thunder text-4xl font-black">
-              {calculateTotalPrice()}€ <span className="text-lg font-normal">{priceUnit}</span>
-            </p>
-
-            {/* Détail du prix si compteur activé */}
-            {enableCounter && additionalEmails > 0 && (
-              <p className="text-sm text-gray-500">
-                {basePrice}€ (base) + {additionalEmails * additionalPrice}€ ({additionalEmails}{' '}
-                email
-                {additionalEmails > 1 ? 's' : ''} additionnel{additionalEmails > 1 ? 's' : ''})
+          <div className="flex flex-col w-full gap-4">
+              <p className="font-thunder text-4xl font-black">
+                {calculateTotalPrice()}€ <span className="text-lg font-normal">{priceUnit}</span>
               </p>
-            )}
+
+              {/* Détail du prix si compteur activé */}
+              {enableCounter && additionalEmails > 0 && (
+                <p className="text-sm text-gray-500">
+                  {basePrice}€ (base) + {additionalEmails * additionalPrice}€ ({additionalEmails}{' '}
+                  email
+                  {additionalEmails > 1 ? 's' : ''} additionnel{additionalEmails > 1 ? 's' : ''})
+                </p>
+              )}
+            <button
+              onClick={() => setShowSubscriptionModal(true)}
+              className="flex cursor-pointer items-center gap-1 text-gray-600 transition-colors hover:text-gray-800"
+            >
+              <span className="text-sm">Sans engagement</span>
+              <HelpCircle className="h-4 w-5" />
+            </button>
           </div>
         )}
 
-        {/* Compteur d'emails additionnels */}
         <CustomButton
           style={{
             background: buttonGradient,
@@ -212,6 +222,108 @@ export default function CardPack({
           {buttonText}
         </CustomButton>
       </div>
+
+      {/* Modal Conditions d'abonnement */}
+      {showSubscriptionModal && (
+        <div
+          className="animate-in fade-in fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm duration-300"
+          onClick={() => setShowSubscriptionModal(false)}
+        >
+          <div
+            className="relative max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-2xl bg-white shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-200 bg-white px-6 py-4">
+              <div className="flex items-center gap-3">
+                <h2 className="text-2xl font-bold text-gray-900">Conditions d'abonnement</h2>
+              </div>
+              <button
+                onClick={() => setShowSubscriptionModal(false)}
+                className="group flex h-10 w-10 cursor-pointer items-center justify-center rounded-full bg-gray-200/50 transition-all duration-300 hover:bg-gray-300"
+              >
+                <XCircle className="h-5 w-5 text-black transition-transform duration-300 group-hover:scale-110" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="space-y-6 p-6">
+              <p className="text-base text-gray-700">
+                Nos applications sont disponibles sous forme d'abonnement mensuel ou annuel, selon
+                les conditions ci-dessous.
+              </p>
+
+              <div className="space-y-5">
+                <div>
+                  <h3 className="mb-2 text-lg font-bold text-gray-900">1. Durée et reconduction</h3>
+                  <p className="text-base text-gray-700">
+                    Chaque abonnement, qu'il soit mensuel ou annuel, est conclu pour la durée
+                    initialement choisie par le client. À l'issue de cette période, l'abonnement se
+                    renouvelle automatiquement par tacite reconduction pour une durée identique,
+                    sauf résiliation préalable du client.
+                  </p>
+                </div>
+
+                <div>
+                  <h3 className="mb-2 text-lg font-bold text-gray-900">2. Paiement</h3>
+                  <p className="mb-2 text-base text-gray-700">
+                    <strong>Abonnement mensuel :</strong> le montant est facturé et payable d'avance
+                    chaque mois.
+                  </p>
+                  <p className="text-base text-gray-700">
+                    <strong>Abonnement annuel :</strong> le montant est facturé et payable d'avance
+                    pour une période de 12 mois.
+                  </p>
+                </div>
+
+                <div>
+                  <h3 className="mb-2 text-lg font-bold text-gray-900">3. Résiliation</h3>
+                  <p className="mb-2 text-base text-gray-700">
+                    Le client peut demander la résiliation de son abonnement à tout moment.
+                  </p>
+                  <p className="mb-2 text-base text-gray-700">
+                    Pour un abonnement mensuel, la résiliation prend effet à la fin du mois en
+                    cours.
+                  </p>
+                  <p className="mb-2 text-base text-gray-700">
+                    Pour un abonnement annuel, la résiliation prend effet à la fin de la période
+                    annuelle en cours.
+                  </p>
+                  <p className="text-base text-gray-700">
+                    Aucun remboursement, même partiel, ne sera effectué pour une période déjà
+                    commencée, les abonnements étant payables d'avance.
+                  </p>
+                </div>
+
+                <div>
+                  <h3 className="mb-2 text-lg font-bold text-gray-900">
+                    4. Modalités d'annulation
+                  </h3>
+                  <p className="mb-2 text-base text-gray-700">
+                    La demande de résiliation peut être effectuée :
+                  </p>
+                  <ul className="ml-4 list-inside list-disc space-y-1 text-base text-gray-700">
+                    <li>Depuis l'espace client</li>
+                  </ul>
+                  <p className="mt-2 text-base text-gray-700">
+                    Une confirmation de résiliation sera envoyée par email. Pour éviter le
+                    renouvellement automatique, la résiliation doit être faite avant la date
+                    d'échéance de la période en cours.
+                  </p>
+                </div>
+
+                <div>
+                  <h3 className="mb-2 text-lg font-bold text-gray-900">5. Réactivation</h3>
+                  <p className="text-base text-gray-700">
+                    Le client peut réactiver son abonnement à tout moment en souscrivant à nouveau
+                    via la plateforme.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
