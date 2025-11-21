@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Image, Check, ChevronRight, ChevronLeft, AlertTriangle } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useToast } from './Toast';
@@ -13,11 +13,30 @@ interface CompanyInfoModalProps {
     initialStep?: number;
     onComplete: () => void;
     onClose?: () => void;
+    onShowAddEmailCount?: () => void;
 }
 
-export function CompanyInfoModal({ userId, emailAccountId, email, initialStep = 1, onComplete, onClose }: CompanyInfoModalProps) {
+export function CompanyInfoModal({ userId, emailAccountId, email, initialStep = 1, onComplete, onClose, onShowAddEmailCount }: CompanyInfoModalProps) {
     const { showToast, ToastComponent } = useToast();
-    const [currentStep, setCurrentStep] = useState(initialStep);
+    
+    // Clé unique pour sauvegarder l'étape dans localStorage
+    const stepStorageKey = email ? `company_info_step_${userId}_${email}` : `company_info_step_${userId}`;
+    
+    // Restaurer l'étape sauvegardée ou utiliser initialStep
+    const getSavedStep = () => {
+        if (typeof window !== 'undefined') {
+            const saved = localStorage.getItem(stepStorageKey);
+            if (saved) {
+                const step = parseInt(saved, 10);
+                if (step >= 1 && step <= 5) {
+                    return step;
+                }
+            }
+        }
+        return initialStep;
+    };
+    
+    const [currentStep, setCurrentStep] = useState(getSavedStep());
     const [loading, setLoading] = useState(false);
     const [formData, setFormData] = useState({
         company_name: '',
@@ -30,15 +49,109 @@ export function CompanyInfoModal({ userId, emailAccountId, email, initialStep = 
     const [isDraggingPdf, setIsDraggingPdf] = useState(false);
     const [isDraggingLogo, setIsDraggingLogo] = useState(false);
     const [validationError, setValidationError] = useState<{ step: number; message: string } | null>(null);
+    const [saveTimeout, setSaveTimeout] = useState<NodeJS.Timeout | null>(null);
 
     const totalSteps = 5;
+
+    // Fonction pour sauvegarder automatiquement les données dans la base de données
+    const saveProgress = useCallback(async (silent = true) => {
+        if (!userId || !email) return;
+
+        try {
+            const updateData: any = {
+                updated_at: new Date().toISOString(),
+            };
+
+            // Sauvegarder les données selon l'étape actuelle
+            if (formData.company_name?.trim()) {
+                updateData.company_name = formData.company_name.trim();
+            }
+            if (formData.activity_description?.trim()) {
+                updateData.activity_description = formData.activity_description.trim();
+            }
+            if (formData.services_offered?.trim()) {
+                updateData.services_offered = formData.services_offered.trim();
+            }
+            if (formData.signature_image_base64) {
+                updateData.signature_image_base64 = formData.signature_image_base64;
+            }
+
+            // Sauvegarder les URLs de la base de connaissances si elles existent
+            const validUrls = knowledgeUrls.filter(url => url.trim() !== '');
+            if (validUrls.length > 0) {
+                updateData.knowledge_base_urls = JSON.stringify(validUrls);
+            }
+
+            // Ne pas sauvegarder les PDFs ici car ils nécessitent un traitement spécial
+            // Ils seront sauvegardés lors de la soumission finale
+
+            // Mettre à jour dans la base de données
+            if (emailAccountId) {
+                await supabase
+                    .from('email_configurations')
+                    .update(updateData)
+                    .eq('id', emailAccountId);
+            } else if (email) {
+                await supabase
+                    .from('email_configurations')
+                    .update(updateData)
+                    .eq('user_id', userId)
+                    .eq('email', email);
+            }
+
+            if (!silent) {
+                console.log('[CompanyInfoModal] Progression sauvegardée automatiquement');
+            }
+        } catch (error) {
+            console.error('[CompanyInfoModal] Erreur lors de la sauvegarde automatique:', error);
+        }
+    }, [userId, email, emailAccountId, formData.company_name, formData.activity_description, formData.services_offered, formData.signature_image_base64, knowledgeUrls]);
+
+    // Sauvegarder l'étape dans localStorage quand elle change
+    useEffect(() => {
+        if (typeof window !== 'undefined' && currentStep >= 1 && currentStep <= 5) {
+            localStorage.setItem(stepStorageKey, currentStep.toString());
+            console.log(`[CompanyInfoModal] Étape sauvegardée: ${currentStep}`);
+        }
+    }, [currentStep, stepStorageKey]);
+
+    // Sauvegarder automatiquement les données avec debounce quand les champs changent
+    useEffect(() => {
+        // Annuler la sauvegarde précédente si elle existe
+        if (saveTimeout) {
+            clearTimeout(saveTimeout);
+        }
+
+        // Ne sauvegarder que si on a au moins un champ rempli
+        const hasData = formData.company_name?.trim() || 
+                       formData.activity_description?.trim() || 
+                       formData.services_offered?.trim() || 
+                       formData.signature_image_base64;
+
+        if (hasData && userId && email) {
+            // Sauvegarder après 2 secondes d'inactivité
+            const timeout = setTimeout(() => {
+                saveProgress(true); 
+            }, 2000);
+            setSaveTimeout(timeout);
+        }
+
+        return () => {
+            if (saveTimeout) {
+                clearTimeout(saveTimeout);
+            }
+        };
+    }, [formData.company_name, formData.activity_description, formData.services_offered, formData.signature_image_base64, userId, email, saveProgress]);
 
     useEffect(() => {
         loadCompanyData();
     }, [userId, email]);
 
     useEffect(() => {
-        setCurrentStep(initialStep);
+        // Si initialStep est fourni explicitement, l'utiliser (par exemple lors d'une réouverture depuis un lien)
+        if (initialStep && initialStep !== currentStep) {
+            setCurrentStep(initialStep);
+        }
     }, [initialStep]);
 
     const loadCompanyData = async () => {
@@ -72,13 +185,40 @@ export function CompanyInfoModal({ userId, emailAccountId, email, initialStep = 
                         : JSON.parse(data.knowledge_base_urls || '[]');
                     setKnowledgeUrls(urls.length > 0 ? urls : ['']);
                 }
+                
+                // Restaurer l'étape sauvegardée après avoir chargé les données
+                // Si aucune étape n'est sauvegardée, déterminer l'étape en fonction des données remplies
+                if (typeof window !== 'undefined') {
+                    const savedStep = localStorage.getItem(stepStorageKey);
+                    if (savedStep) {
+                        const step = parseInt(savedStep, 10);
+                        if (step >= 1 && step <= 5) {
+                            setCurrentStep(step);
+                            console.log(`[CompanyInfoModal] Étape restaurée depuis localStorage: ${step}`);
+                        }
+                    } else {
+                        // Déterminer l'étape en fonction des données remplies
+                        let determinedStep = 1;
+                        if (data.company_name) determinedStep = 2;
+                        if (data.activity_description) determinedStep = 3;
+                        if (data.services_offered) determinedStep = 4;
+                        if (data.signature_image_base64) determinedStep = 5;
+                        if (data.knowledge_base_urls || data.knowledge_base_pdfs) determinedStep = 5;
+                        
+                        if (determinedStep > 1) {
+                            setCurrentStep(determinedStep);
+                            localStorage.setItem(stepStorageKey, determinedStep.toString());
+                            console.log(`[CompanyInfoModal] Étape déterminée selon les données: ${determinedStep}`);
+                        }
+                    }
+                }
             }
         } catch (error) {
             console.error('Error:', error);
         }
     };
 
-    const handleNext = () => {
+    const handleNext = async () => {
         const trimmedCompanyName = formData.company_name?.trim();
         const trimmedActivityDescription = formData.activity_description?.trim();
         const trimmedSignature = formData.services_offered?.trim();
@@ -103,13 +243,19 @@ export function CompanyInfoModal({ userId, emailAccountId, email, initialStep = 
         }
 
         setValidationError(null);
+        
+        // Sauvegarder la progression avant de passer à l'étape suivante
+        await saveProgress();
+        
         if (currentStep < totalSteps) {
             setCurrentStep(currentStep + 1);
         }
     };
 
-    const handleBack = () => {
+    const handleBack = async () => {
         if (currentStep > 1) {
+            // Sauvegarder la progression avant de revenir en arrière
+            await saveProgress();
             setCurrentStep(currentStep - 1);
         }
     };
@@ -273,6 +419,7 @@ export function CompanyInfoModal({ userId, emailAccountId, email, initialStep = 
                 activity_description: activityDescription,
                 services_offered: signatureEmail, // Signature d'email
                 signature_image_base64: formData.signature_image_base64 || null,
+                is_active: true, // Activer le flux automatique de l'email
                 updated_at: new Date().toISOString(),
             };
 
@@ -361,7 +508,123 @@ export function CompanyInfoModal({ userId, emailAccountId, email, initialStep = 
                 return;
             }
 
+            // Récupérer l'ID de la configuration email pour l'appel du webhook
+            let finalConfigId = emailAccountId;
+            if (!finalConfigId && email) {
+                const { data: configData } = await supabase
+                    .from('email_configurations')
+                    .select('id')
+                    .eq('user_id', userId)
+                    .eq('email', email)
+                    .maybeSingle();
+                finalConfigId = configData?.id;
+            }
+
+            // Appeler le webhook N8N pour activer le flux automatique (si configuré)
+            if (finalConfigId) {
+                try {
+                    // Récupérer l'email depuis la config si pas fourni
+                    let emailForWebhook = email;
+                    if (!emailForWebhook) {
+                        const { data: emailConfigData } = await supabase
+                            .from('email_configurations')
+                            .select('email')
+                            .eq('id', finalConfigId)
+                            .maybeSingle();
+                        emailForWebhook = emailConfigData?.email;
+                    }
+
+                    if (emailForWebhook) {
+                        const { data: webhookData } = await supabase
+                            .from('webhook_settings')
+                            .select('n8n_webhook_url')
+                            .eq('user_id', userId)
+                            .maybeSingle();
+
+                        const webhookUrl = webhookData?.n8n_webhook_url;
+
+                        if (webhookUrl) {
+                            try {
+                                // Récupérer les informations complètes de l'email pour le webhook
+                                const { data: emailConfig } = await supabase
+                                    .from('email_configurations')
+                                    .select('email, password, imap_host, imap_port, provider, company_name, activity_description, services_offered')
+                                    .eq('id', finalConfigId)
+                                    .maybeSingle();
+
+                                if (emailConfig) {
+                                    // Préparer le payload pour le webhook N8N
+                                    const payload = {
+                                        user_id: userId,
+                                        email: emailConfig.email,
+                                        password: emailConfig.password || '',
+                                        imap_host: emailConfig.imap_host || '',
+                                        imap_port: emailConfig.imap_port || 993,
+                                        company_name: emailConfig.company_name || companyName,
+                                        activity_description: emailConfig.activity_description || activityDescription,
+                                        services: emailConfig.services_offered || signatureEmail,
+                                    };
+
+                                    // Appeler le webhook N8N (non bloquant)
+                                    const response = await fetch(webhookUrl, {
+                                        method: 'POST',
+                                        headers: {
+                                            'Content-Type': 'application/json',
+                                        },
+                                        body: JSON.stringify(payload),
+                                    });
+
+                                    if (response.ok) {
+                                        console.log('[CompanyInfoModal] Webhook N8N appelé avec succès - Flux automatique activé');
+                                    } else {
+                                        console.warn('[CompanyInfoModal] Erreur lors de l\'appel du webhook (non bloquant):', response.statusText);
+                                    }
+                                }
+                            } catch (webhookError) {
+                                // Erreur webhook non bloquante
+                                console.warn('[CompanyInfoModal] Erreur lors de l\'appel du webhook (non bloquant):', webhookError);
+                            }
+                        } else {
+                            console.log('[CompanyInfoModal] Webhook URL non configuré, is_active activé mais webhook non appelé');
+                        }
+                    }
+                } catch (error) {
+                    console.error('[CompanyInfoModal] Erreur lors de l\'appel du webhook:', error);
+                }
+            }
+
+            console.log('[CompanyInfoModal] Flux automatique activé (is_active = true)');
+
             showToast('Informations enregistrées avec succès !', 'success');
+            
+            // Nettoyer la sauvegarde de l'étape dans localStorage
+            if (typeof window !== 'undefined') {
+                localStorage.removeItem(stepStorageKey);
+                console.log(`[CompanyInfoModal] Étape nettoyée du localStorage`);
+            }
+            
+            // Vérifier si c'est le premier email (is_primary) pour afficher AddEmailCount
+            if (onShowAddEmailCount && finalConfigId) {
+                try {
+                    const { data: emailConfig } = await supabase
+                        .from('email_configurations')
+                        .select('is_primary')
+                        .eq('id', finalConfigId)
+                        .maybeSingle();
+                    
+                    if (emailConfig?.is_primary) {
+                        // C'est le premier email, fermer la modal et afficher AddEmailCount après un court délai
+                        setTimeout(() => {
+                            onComplete(); // Fermer CompanyInfoModal
+                            onShowAddEmailCount(); // Afficher AddEmailCount
+                        }, 500);
+                        return;
+                    }
+                } catch (error) {
+                    console.error('[CompanyInfoModal] Erreur lors de la vérification is_primary:', error);
+                }
+            }
+            
             setTimeout(() => onComplete(), 500);
         } catch (error) {
             console.error('Error:', error);
@@ -560,7 +823,7 @@ export function CompanyInfoModal({ userId, emailAccountId, email, initialStep = 
                                 <div className="space-y-3 font-inter">
                                     <div>
                                         <label className="block text-sm font-semibold text-gray-900 mb-2 font-inter">
-                                            Logo de signature
+                                            Logo de signature (optionnel)
                                         </label>
                                         <div
                                             onDragOver={handleLogoDragOver}
@@ -618,7 +881,7 @@ export function CompanyInfoModal({ userId, emailAccountId, email, initialStep = 
                                 <div className="space-y-3 font-inter">
                                     <div>
                                         <label className="block text-sm font-semibold text-gray-900 mb-3 font-inter">
-                                            Base de connaissance
+                                            Base de connaissance (optionnel)
                                         </label>
                                         
                                         {/* URLs */}

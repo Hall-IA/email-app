@@ -80,10 +80,38 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Récupérer la subscription depuis Stripe
-    const subscription = await stripe.subscriptions.retrieve(subscription_id, {
+    // Si c'est un slot artificiel (créé par le webhook), retourner 1 directement
+    // Les slots ont un subscription_id avec "_slot_" dedans
+    if (subscription_id.includes('_slot_')) {
+      console.log(`[GET-SUBSCRIPTION-QUANTITY] Slot artificiel détecté: ${subscription_id}, retour de 1`);
+      return new Response(
+        JSON.stringify({ 
+          subscription_id,
+          quantity: 1, // Chaque slot = 1 email payé
+          subscription_type: userSub.subscription_type
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Pour les vraies subscriptions Stripe, récupérer depuis Stripe
+    let subscription;
+    try {
+      subscription = await stripe.subscriptions.retrieve(subscription_id, {
       expand: ['items'],
     });
+    } catch (error: any) {
+      console.error(`[GET-SUBSCRIPTION-QUANTITY] Erreur lors de la récupération depuis Stripe:`, error);
+      // Si la subscription n'existe pas dans Stripe, retourner 1 par défaut
+      return new Response(
+        JSON.stringify({ 
+          subscription_id,
+          quantity: 1,
+          subscription_type: userSub.subscription_type
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     const additionalAccountPriceId = Deno.env.get('STRIPE_ADDITIONAL_ACCOUNT_PRICE_ID');
     

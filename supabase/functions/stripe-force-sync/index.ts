@@ -225,6 +225,66 @@ Deno.serve(async (req) => {
         .eq('is_active', true);
     }
 
+    // Créer les slots pour les comptes additionnels (même logique que dans le webhook)
+    let slotsCreated = 0;
+    if (additionalAccountPriceId && premierSubscription && isActive && additionalAccounts > 0) {
+      console.info(`[STRIPE-FORCE-SYNC] Premier subscription has ${additionalAccounts} additional account(s) - Creating slots`);
+      
+      // Vérifier combien de slots existent déjà pour cet utilisateur (non liés)
+      const { data: existingSlots } = await supabase
+        .from('stripe_user_subscriptions')
+        .select('subscription_id')
+        .eq('user_id', user.id)
+        .eq('subscription_type', 'additional_account')
+        .is('email_configuration_id', null)
+        .in('status', ['active', 'trialing']);
+      
+      const existingSlotsCount = existingSlots?.length || 0;
+      const slotsToCreate = additionalAccounts - existingSlotsCount;
+      
+      if (slotsToCreate > 0) {
+        console.info(`[STRIPE-FORCE-SYNC] Creating ${slotsToCreate} additional account slot(s) for user ${user.id}`);
+        
+        // Créer des slots pour chaque compte additionnel non configuré
+        for (let i = 0; i < slotsToCreate; i++) {
+          const slotSubscriptionId = `${premierSubscription.id}_slot_${Date.now()}_${i}`;
+          
+          const slotData = {
+            user_id: user.id,
+            customer_id: customerId,
+            subscription_id: slotSubscriptionId,
+            subscription_type: 'additional_account',
+            status: premierSubscription.status,
+            price_id: additionalAccountPriceId,
+            current_period_start: premierSubscription.current_period_start,
+            current_period_end: premierSubscription.current_period_end,
+            cancel_at_period_end: premierSubscription.cancel_at_period_end,
+            email_configuration_id: null, // Slot non configuré
+            ...(premierSubscription.default_payment_method && typeof premierSubscription.default_payment_method !== 'string'
+              ? {
+                  payment_method_brand: premierSubscription.default_payment_method.card?.brand ?? null,
+                  payment_method_last4: premierSubscription.default_payment_method.card?.last4 ?? null,
+                }
+              : {}),
+            updated_at: new Date().toISOString(),
+          };
+          
+          const { error: slotError } = await supabase
+            .from('stripe_user_subscriptions')
+            .insert(slotData);
+          
+          if (slotError) {
+            console.error(`[STRIPE-FORCE-SYNC] Error creating slot ${i + 1}:`, slotError);
+          } else {
+            console.info(`[STRIPE-FORCE-SYNC] Successfully created slot ${i + 1} with ID: ${slotSubscriptionId}`);
+            slotsCreated++;
+          }
+        }
+      } else {
+        console.info(`[STRIPE-FORCE-SYNC] All ${additionalAccounts} slots already exist for user ${user.id}`);
+      }
+    }
+
     return new Response(JSON.stringify({
       message: 'Subscription synced successfully',
       synced: true,
@@ -233,6 +293,8 @@ Deno.serve(async (req) => {
         status: premierSubscription.status,
         cancel_at_period_end: premierSubscription.cancel_at_period_end,
       },
+      additionalAccounts,
+      slotsCreated,
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

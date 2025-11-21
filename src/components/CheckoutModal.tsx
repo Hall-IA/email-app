@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Minus, CreditCard, Check, X, Star, Mail, Info } from 'lucide-react';
+import { Plus, Minus, CreditCard, Check, X, Star, Mail, Info, Lock } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from './Toast';
@@ -9,21 +9,103 @@ import { useToast } from './Toast';
 interface CheckoutModalProps {
     userId: string;
     onComplete: () => void;
-    onClose?: () => void; // Pour fermer le modal sans action
-    isUpgrade?: boolean; // true si c'est un upgrade, false si premier abonnement
+    onClose?: () => void;
+    isUpgrade?: boolean;
     currentAdditionalAccounts?: number;
-    unlinkedSubscriptionsCount?: number; // Nombre de slots payés mais non configurés
+    // On garde la prop mais on va la recalculer dynamiquement
+    unlinkedSubscriptionsCount?: number;
 }
 
-export function CheckoutModal({ userId, onComplete, onClose, isUpgrade = false, currentAdditionalAccounts = 0, unlinkedSubscriptionsCount = 0 }: CheckoutModalProps) {
+export function CheckoutModal({ 
+    userId, 
+    onComplete, 
+    onClose, 
+    isUpgrade = false, 
+    currentAdditionalAccounts = 0,
+    unlinkedSubscriptionsCount: initialUnlinkedCount = 0 
+}: CheckoutModalProps) {
     const { user } = useAuth();
     const { showToast, ToastComponent } = useToast();
     const [loading, setLoading] = useState(false);
     const [showConfirmation, setShowConfirmation] = useState(false);
     const [additionalEmails, setAdditionalEmails] = useState(0);
-    const [basePrice, setBasePrice] = useState(29); // Valeur par défaut en attendant le chargement
-    const [additionalPrice, setAdditionalPrice] = useState(19); // Valeur par défaut en attendant le chargement
+    const [basePrice, setBasePrice] = useState(49);
+    const [additionalPrice, setAdditionalPrice] = useState(39);
     
+    // État local pour les slots non configurés - calculé dynamiquement
+    const [unlinkedSubscriptionsCount, setUnlinkedSubscriptionsCount] = useState(initialUnlinkedCount);
+    const [unlinkedSubscriptions, setUnlinkedSubscriptions] = useState<any[]>([]);
+
+    // Fonction pour récupérer les slots non configurés (même logique que AdditionalEmailModal)
+    const fetchUnlinkedSubscriptions = async () => {
+        try {
+            console.log('[CheckoutModal] Récupération des slots non configurés...');
+            
+            // 1. Récupérer toutes les subscriptions actives
+            const { data: subscriptions, error: subsError } = await supabase
+                .from('stripe_subscriptions')
+                .select('*')
+                .eq('user_id', user?.id)
+                .eq('status', 'active');
+            
+                console.log('[CheckoutModal] Raw subscriptions data:', subscriptions);
+                subscriptions?.forEach((sub, idx) => {
+                    console.log(`[CheckoutModal] Subscription ${idx}:`, {
+                        id: sub.id,
+                        stripe_subscription_id: sub.stripe_subscription_id,
+                        additional_accounts: sub.additional_accounts,
+                        subscription_items: sub.subscription_items // Si vous avez cette colonne
+                    });
+                });
+
+            if (subsError) {
+                console.error('[CheckoutModal] Erreur subscriptions:', subsError);
+                return;
+            }
+
+            // 2. Récupérer tous les comptes email connectés
+            const { data: accounts, error: accountsError } = await supabase
+                .from('email_configurations')
+                .select('*')
+                .eq('user_id', user?.id)
+                .eq('is_connected', true);
+
+            if (accountsError) {
+                console.error('[CheckoutModal] Erreur accounts:', accountsError);
+                return;
+            }
+
+            // 3. Calculer le total de slots payés
+            const totalPaidSlots = subscriptions?.reduce((sum, sub) => {
+                return sum + (sub.additional_accounts || 0);
+            }, 0) || 0;
+
+            // 4. Calculer les slots non configurés
+            const accountsLength = accounts?.length || 0;
+            const calculatedUnconfigured = Math.max(0, totalPaidSlots - accountsLength);
+
+            // 5. Identifier les subscriptions non liées
+            const unlinked = subscriptions?.filter(sub => {
+                // Si la subscription n'a pas d'email_configuration_id, elle est non liée
+                return !sub.email_configuration_id && sub.additional_accounts > 0;
+            }) || [];
+
+            console.log('[CheckoutModal] Résultats:', {
+                totalPaidSlots,
+                accountsLength,
+                calculatedUnconfigured,
+                unlinkedSubscriptions: unlinked,
+                unlinkedCount: unlinked.length
+            });
+
+            setUnlinkedSubscriptionsCount(calculatedUnconfigured);
+            setUnlinkedSubscriptions(unlinked);
+
+        } catch (error) {
+            console.error('[CheckoutModal] Erreur lors de la récupération des slots:', error);
+        }
+    };
+
     // Récupérer les prix depuis Stripe
     useEffect(() => {
         const fetchStripePrices = async () => {
@@ -32,7 +114,7 @@ export function CheckoutModal({ userId, onComplete, onClose, isUpgrade = false, 
                 if (!session) return;
 
                 const response = await fetch(
-                    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/get-stripe-prices`,
+                    `${process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, '')}/functions/v1/get-stripe-prices`,
                     {
                         method: 'GET',
                         headers: {
@@ -52,29 +134,153 @@ export function CheckoutModal({ userId, onComplete, onClose, isUpgrade = false, 
                 }
             } catch (error) {
                 console.error('Erreur lors de la récupération des prix Stripe:', error);
-                // Garder les valeurs par défaut en cas d'erreur
             }
         };
 
         fetchStripePrices();
     }, []);
 
+    // Récupérer les slots non configurés au montage et quand l'utilisateur change
+    useEffect(() => {
+        if (user?.id && isUpgrade) {
+            fetchUnlinkedSubscriptions();
+        }
+    }, [user?.id, isUpgrade]);
+
+    // Écouter les changements en temps réel sur les subscriptions et email_configurations
+    useEffect(() => {
+        if (!user?.id || !isUpgrade) return;
+
+        console.log('[CheckoutModal] Configuration real-time...');
+
+        const subscriptionsChannel = supabase
+            .channel('checkout_subscriptions_changes')
+            .on('postgres_changes', 
+                { 
+                    event: '*', 
+                    schema: 'public', 
+                    table: 'stripe_subscriptions',
+                    filter: `user_id=eq.${user.id}`
+                }, 
+                (payload) => {
+                    console.log('[CheckoutModal] Changement détecté sur subscriptions:', payload);
+                    fetchUnlinkedSubscriptions();
+                }
+            )
+            .subscribe();
+
+        const emailConfigsChannel = supabase
+            .channel('checkout_email_configs_changes')
+            .on('postgres_changes', 
+                { 
+                    event: '*', 
+                    schema: 'public', 
+                    table: 'email_configurations',
+                    filter: `user_id=eq.${user.id}`
+                }, 
+                (payload) => {
+                    console.log('[CheckoutModal] Changement détecté sur email_configurations:', payload);
+                    fetchUnlinkedSubscriptions();
+                }
+            )
+            .subscribe();
+
+        return () => {
+            subscriptionsChannel.unsubscribe();
+            emailConfigsChannel.unsubscribe();
+        };
+    }, [user?.id, isUpgrade]);
+
+    // Vérifier le retour de Stripe
+    useEffect(() => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const upgraded = urlParams.get('upgraded');
+        const payment = urlParams.get('payment');
+        
+        if ((upgraded === 'success' || payment === 'success') && isUpgrade) {
+            console.log('[CheckoutModal] Retour de Stripe détecté, refresh des slots...');
+            
+            // Attendre un peu que le webhook Stripe ait traité
+            setTimeout(() => {
+                fetchUnlinkedSubscriptions();
+            }, 2000);
+        }
+    }, [isUpgrade]);
+
+    // Fonction pour récupérer le compteur depuis localStorage
+    const loadEmailCounter = () => {
+        if (!isUpgrade && typeof window !== 'undefined') {
+            const saved = localStorage.getItem('business_pass_email_counter');
+            console.log('[CheckoutModal] Compteur récupéré depuis localStorage:', saved);
+            if (saved) {
+                const count = parseInt(saved, 10) || 0;
+                console.log('[CheckoutModal] Compteur parsé:', count);
+                setAdditionalEmails(count);
+                return count;
+            } else {
+                console.log('[CheckoutModal] Aucun compteur trouvé dans localStorage, utilisation de 0');
+                setAdditionalEmails(0);
+                return 0;
+            }
+        }
+        return additionalEmails;
+    };
+
+    // Récupérer le compteur au montage et quand isUpgrade change
+    useEffect(() => {
+        loadEmailCounter();
+    }, [isUpgrade]);
+
+    // Re-vérifier le compteur au montage de la modal
     useEffect(() => {
         if (!isUpgrade && typeof window !== 'undefined') {
-            // Premier abonnement : récupérer depuis localStorage
-            const saved = localStorage.getItem('business_pass_email_counter');
-            if (saved) {
-                setAdditionalEmails(parseInt(saved, 10));
-            }
+            loadEmailCounter();
+            
+            const timeout = setTimeout(() => {
+                loadEmailCounter();
+            }, 100);
+            
+            const timeout2 = setTimeout(() => {
+                loadEmailCounter();
+            }, 500);
+            
+            return () => {
+                clearTimeout(timeout);
+                clearTimeout(timeout2);
+            };
+        }
+    }, []);
+    
+    // Écouter les changements dans localStorage
+    useEffect(() => {
+        if (!isUpgrade && typeof window !== 'undefined') {
+            const handleStorageChange = (e: StorageEvent) => {
+                if (e.key === 'business_pass_email_counter') {
+                    console.log('[CheckoutModal] Changement détecté dans localStorage:', e.newValue);
+                    loadEmailCounter();
+                }
+            };
+            
+            window.addEventListener('storage', handleStorageChange);
+            
+            const handleCustomStorageChange = () => {
+                console.log('[CheckoutModal] Changement détecté via custom event');
+                loadEmailCounter();
+            };
+            
+            window.addEventListener('localStorageChange', handleCustomStorageChange);
+            
+            return () => {
+                window.removeEventListener('storage', handleStorageChange);
+                window.removeEventListener('localStorageChange', handleCustomStorageChange);
+            };
         }
     }, [isUpgrade]);
 
     const calculateTotal = () => {
         if (isUpgrade) {
-            // Upgrade : compter à partir de 1
             return (additionalEmails + 1) * additionalPrice;
         }
-        // Premier abonnement : base + additionnels
         return basePrice + (additionalEmails * additionalPrice);
     };
 
@@ -98,10 +304,8 @@ export function CheckoutModal({ userId, onComplete, onClose, isUpgrade = false, 
 
     const handleInitialClick = () => {
         if (isUpgrade) {
-            // Pour upgrade, afficher confirmation
             setShowConfirmation(true);
         } else {
-            // Pour premier abonnement, payer directement
             handleCheckout();
         }
     };
@@ -110,6 +314,27 @@ export function CheckoutModal({ userId, onComplete, onClose, isUpgrade = false, 
         setLoading(true);
         
         try {
+            let finalAdditionalEmails = additionalEmails;
+            if (!isUpgrade && typeof window !== 'undefined') {
+                const saved = localStorage.getItem('business_pass_email_counter');
+                console.log('[CheckoutModal] handleCheckout - Compteur depuis localStorage:', saved);
+                if (saved) {
+                    const count = parseInt(saved, 10) || 0;
+                    console.log('[CheckoutModal] handleCheckout - Compteur parsé:', count);
+                    finalAdditionalEmails = count;
+                    setAdditionalEmails(count);
+                } else {
+                    console.log('[CheckoutModal] handleCheckout - Aucun compteur trouvé, utilisation de additionalEmails:', additionalEmails);
+                }
+            }
+            
+            console.log('[CheckoutModal] handleCheckout - Valeur finale utilisée:', {
+                isUpgrade,
+                additionalEmails,
+                finalAdditionalEmails,
+                fromLocalStorage: !isUpgrade && typeof window !== 'undefined' ? localStorage.getItem('business_pass_email_counter') : null
+            });
+            
             const { data: { session } } = await supabase.auth.getSession();
             
             if (!session) {
@@ -121,15 +346,13 @@ export function CheckoutModal({ userId, onComplete, onClose, isUpgrade = false, 
             let endpoint, body;
 
             if (isUpgrade) {
-                // Upgrade : ajouter des comptes
                 endpoint = 'stripe-add-account-checkout';
                 body = {
-                    additional_accounts: additionalEmails + 1, // +1 car on commence à 0
+                    additional_accounts: additionalEmails + 1,
                     success_url: `${window.location.origin}/settings?upgraded=success`,
                     cancel_url: `${window.location.origin}/settings?upgraded=cancelled`,
                 };
             } else {
-                // Premier abonnement
                 const basePlanPriceId = process.env.NEXT_PUBLIC_STRIPE_BASE_PLAN_PRICE_ID;
                 const additionalAccountPriceId = process.env.NEXT_PUBLIC_STRIPE_ADDITIONAL_ACCOUNT_PRICE_ID;
                 
@@ -149,15 +372,23 @@ export function CheckoutModal({ userId, onComplete, onClose, isUpgrade = false, 
                 body = {
                     price_id: basePlanPriceId,
                     additional_account_price_id: additionalAccountPriceId,
-                    additional_accounts: additionalEmails,
+                    additional_accounts: finalAdditionalEmails,
                     success_url: `${window.location.origin}/dashboard?payment=success`,
                     cancel_url: `${window.location.origin}/dashboard?payment=cancelled`,
                     mode: 'subscription',
                 };
+                
+                console.log('[CheckoutModal] handleCheckout - Body envoyé à Stripe:', body);
             }
+            
+            console.log('[CheckoutModal] Envoi à Stripe:', {
+                endpoint,
+                body,
+                finalAdditionalEmails: !isUpgrade ? finalAdditionalEmails : undefined
+            });
 
             const response = await fetch(
-                `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/${endpoint}`,
+                `${process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, '')}/functions/v1/${endpoint}`,
                 {
                     method: 'POST',
                     headers: {
@@ -188,6 +419,9 @@ export function CheckoutModal({ userId, onComplete, onClose, isUpgrade = false, 
 
     const totalPrice = calculateTotal();
 
+    // Le reste du JSX reste identique...
+    // (showConfirmation et le return avec tout le JSX)
+    
     if (showConfirmation) {
         const nbComptes = additionalEmails + 1;
         const prixTotal = totalPrice;
@@ -255,13 +489,12 @@ export function CheckoutModal({ userId, onComplete, onClose, isUpgrade = false, 
                                 </p>
                             </div>
 
-                            {/* Avertissement pour les comptes non configurés */}
                             {unlinkedSubscriptionsCount > 0 && (
                                 <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mt-4">
                                     <div className="flex items-start gap-2">
                                         <Info className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
                                         <p className="text-xs text-amber-800">
-                                            Impossible de résilier un compte non configuré. Configurez-le d'abord dans les paramètres.
+                                            Vous avez {unlinkedSubscriptionsCount} slot{unlinkedSubscriptionsCount > 1 ? 's' : ''} non configuré{unlinkedSubscriptionsCount > 1 ? 's' : ''}. Configurez-le{unlinkedSubscriptionsCount > 1 ? 's' : ''} avant de pouvoir résilier.
                                         </p>
                                     </div>
                                 </div>
@@ -306,58 +539,93 @@ export function CheckoutModal({ userId, onComplete, onClose, isUpgrade = false, 
     return (
         <>
             <ToastComponent />
-            <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full font-inter max-h-[90vh] overflow-y-auto">
-                <div className="p-6">
-                    <div className="mb-6 relative">
+            
+            {/* Overlay - non cliquable */}
+            <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm" />
+
+            {/* Modal centré - style similaire à CompanyInfoModal */}
+            <div className="fixed inset-0 z-[51] flex items-center justify-center p-4">
+                <div className="relative bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[80vh] overflow-hidden flex flex-col">
+                    
+                    {/* Header avec gradient conique */}
+                    <div 
+                        className="relative px-6 pt-7 pb-0 overflow-hidden"
+                       
+                    >
+                        {/* Pattern de plus signs */}
+                        <div 
+                            className="absolute inset-0 opacity-10"
+                            style={{
+                                backgroundImage: `repeating-linear-gradient(0deg, transparent, transparent 20px, rgba(255,255,255,0.3) 20px, rgba(255,255,255,0.3) 22px),
+                                                  repeating-linear-gradient(90deg, transparent, transparent 20px, rgba(255,255,255,0.3) 20px, rgba(255,255,255,0.3) 22px)`,
+                            }}
+                        />
+                        
+                        {/* Bouton fermer en haut à droite */}
                         {isUpgrade && onClose && (
                             <button
                                 onClick={onClose}
-                                className="absolute -top-2 -right-2 p-2 hover:bg-gray-100 rounded-full transition-colors"
+                                className="absolute top-4 right-4 p-2 hover:bg-white/20 rounded-full transition-colors z-20"
                                 aria-label="Fermer"
                             >
-                                <X className="w-5 h-5 text-gray-500" />
+                                <X className="w-5 h-5 text-white" />
                             </button>
                         )}
-                        <h2 className="text-2xl font-bold text-gray-900 text-center">
-                            {isUpgrade ? 'Ajouter un compte' : 'Finaliser l\'abonnement'}
-                        </h2>
-                        <p className="text-sm text-gray-600 text-center mt-1">
-                            {isUpgrade ? 'Upgrade de votre plan' : 'Cette étape est obligatoire'}
-                        </p>
+                        
+                        <div className="relative z-10 py-5">
+                            {/* Icône cadenas */}
+                            <div className="w-16 h-16 bg-gradient-to-br from-[#F35F4F] to-[#FFAD5A] rounded-full flex items-center justify-center mx-auto mb-4">
+                                <Lock className="w-8 h-8 text-white" />
+                            </div>
+                            
+                            <h2 className='text-4xl font-bold font-thunder text-black mb-2 text-center'>
+                                {isUpgrade ? 'Ajouter un compte' : 'Finaliser l\'abonnement'}
+                            </h2>
+                            <p className="text-gray-600 text-sm mt-1 text-center">
+                                {isUpgrade ? 'Upgrade de votre plan' : 'Passez au paiement de votre premier email pour commencer à utiliser Business Pass !'}
+                            </p>
+                            {!isUpgrade && (
+                                <p className="text-orange-600 text-xs text-center font-semibold mt-2 font-roboto!important">
+                                    Étape obligatoire
+                                </p>
+                            )}
+                        </div>
                     </div>
 
-                    <div className="mb-6">
-                        {/* Informations de prix */}
-                        <div className=" rounded-lg p-4 mb-4">
-                            <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                                
-                                Tarification :
-                            </h4>
-                            <div className="space-y-2">
-                                <div className="flex items-center justify-between">
-                                    <span className="text-sm text-gray-700">
-                                        {isUpgrade ? 'Compte additionnel' : 'Votre premier email'}
-                                    </span>
-                                    <span className="text-sm font-semibold text-gray-900">
-                                        {isUpgrade ? `${additionalPrice}€` : `${basePrice}€`} HT/mois
-                                    </span>
-                                </div>
-                                {!isUpgrade && (
-                                    <div className="flex items-center justify-between pt-2 border-t border-gray-200">
-                                        <span className="text-sm text-gray-700">
-                                            Les suivants
-                                        </span>
-                                        <span className="text-sm font-semibold text-gray-900">
-                                            {additionalPrice}€ HT/mois
-                                        </span>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
+                    {/* Ligne blanche de séparation */}
+                    <div className="h-1 bg-white"></div>
 
-                        {/* Compteur d'emails additionnels */}
-                        <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-4">
+                    {/* Contenu scrollable */}
+                    <div className="relative overflow-y-auto flex-1 min-h-0 py-5">
+                        <div className="px-6">
+                            <div className="mb-6">
+                                <div className="rounded-lg p-4 mb-4">
+                                    <h4 className="font-semibold text-gray-900 mb-3 flex items-center gap-2 font-inter">
+                                        Tarification :
+                                    </h4>
+                                    <div className="space-y-2">
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-sm text-gray-700 font-inter">
+                                                {isUpgrade ? 'Compte additionnel' : 'Votre premier email'}
+                                            </span>
+                                            <span className="text-sm font-semibold text-gray-900 font-inter">
+                                                {isUpgrade ? `${additionalPrice}€` : `${basePrice}€`} HT/mois
+                                            </span>
+                                        </div>
+                                        {!isUpgrade && (
+                                            <div className="flex items-center justify-between pt-2 border-t border-gray-200">
+                                                <span className="text-sm text-gray-700 font-inter">
+                                                    Les suivants
+                                                </span>
+                                                <span className="text-sm font-semibold text-gray-900 font-inter">
+                                                    {additionalPrice}€ HT/mois
+                                                </span>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                {/*<div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-4">
                                 <div className="flex items-center gap-2 mb-3">
                                     <Mail className="w-5 h-5 text-orange-600" />
                                     <h4 className="font-semibold text-gray-900">Emails additionnels</h4>
@@ -395,72 +663,72 @@ export function CheckoutModal({ userId, onComplete, onClose, isUpgrade = false, 
                                 <p className="text-xs text-center text-gray-600">
                                     +{additionalPrice}€ HT/mois par email additionnel
                                 </p>
-                            </div>
+                            </div>*/}
 
-                        {/* Récapitulatif prix */}
-                        <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-sm font-medium text-gray-700">
-                                        {isUpgrade ? 'Compte additionnel' : 'Total de votre abonnement'}
-                                    </p>
-                                    <p className="text-xs text-gray-600 mt-1">Facturé mensuellement</p>
+                                <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <p className="text-sm font-medium text-gray-700 font-inter">
+                                                {isUpgrade ? 'Compte additionnel' : 'Total de votre abonnement'}
+                                            </p>
+                                            <p className="text-xs text-gray-600 mt-1 font-inter">Facturé mensuellement</p>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-2xl font-bold text-orange-600">{totalPrice}€</p>
+                                            <p className="text-xs text-gray-600 font-inter">HT/mois</p>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div className="text-right">
-                                    <p className="text-2xl font-bold text-orange-600">{totalPrice}€</p>
-                                    <p className="text-xs text-gray-600">HT/mois</p>
-                                </div>
-                            </div>
-                        </div>
 
-                        {/* Message sans engagement */}
-                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
-                            <p className="text-sm font-medium text-blue-900 text-center">
-                                ✓ Sans engagement - Résiliez à tout moment
-                            </p>
-                        </div>
-
-                        {/* Avertissement pour les comptes non configurés */}
-                        {isUpgrade && unlinkedSubscriptionsCount > 0 && (
-                            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mt-4">
-                                <div className="flex items-start gap-2">
-                                    <Info className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
-                                    <p className="text-xs text-amber-800">
-                                        Impossible de résilier un compte non configuré. Configurez-le d'abord dans les paramètres.
+                                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
+                                    <p className="text-sm font-medium text-blue-900 text-center font-inter">
+                                        ✓ Sans engagement - Résiliez à tout moment
                                     </p>
                                 </div>
-                            </div>
-                        )}
+
+                            {isUpgrade && unlinkedSubscriptionsCount > 0 && (
+                                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mt-4">
+                                    <div className="flex items-start gap-2">
+                                        <Info className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                                        <p className="text-xs text-amber-800">
+                                            Vous avez {unlinkedSubscriptionsCount} slot{unlinkedSubscriptionsCount > 1 ? 's' : ''} non configuré{unlinkedSubscriptionsCount > 1 ? 's' : ''}. Configurez-le{unlinkedSubscriptionsCount > 1 ? 's' : ''} avant de pouvoir résilier.
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                     </div>
+                </div>
 
-                    {/* Bouton */}
-                    <button
-                        onClick={handleInitialClick}
-                        disabled={loading}
-                        className="group relative w-full inline-flex items-center justify-center gap-2 overflow-hidden rounded-full bg-gradient-to-br from-[#F35F4F] to-[#FFAD5A] px-4 py-3 font-medium text-white shadow-lg transition-all duration-300 ease-out hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        <span className="relative z-10 transition-transform duration-300 group-hover:-translate-x-1">
-                            {loading ? 'Traitement...' : isUpgrade ? 'Continuer' : 'Procéder au paiement'}
-                        </span>
-                        {!loading && (
-                            <svg
-                                className="relative z-10 h-5 w-5 -translate-x-2 opacity-0 transition-all duration-300 group-hover:translate-x-0 group-hover:opacity-100"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                stroke="currentColor"
-                                strokeWidth={2}
-                            >
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                            </svg>
-                        )}
-                    </button>
+                    {/* Footer avec boutons */}
+                    <div className="px-6 pb-5 pt-4 border-t border-gray-100 bg-white">
+                        <button
+                            onClick={handleInitialClick}
+                            disabled={loading}
+                            className="group relative w-full inline-flex items-center justify-center gap-2 overflow-hidden rounded-full bg-gradient-to-br from-[#F35F4F] to-[#FFAD5A] px-4 py-3 font-medium text-white shadow-lg transition-all duration-300 ease-out hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed font-inter"
+                        >
+                            <span className="relative z-10 transition-transform duration-300 group-hover:-translate-x-1">
+                                {loading ? 'Traitement...' : isUpgrade ? 'Continuer' : 'Procéder au paiement'}
+                            </span>
+                            {!loading && (
+                                <svg
+                                    className="relative z-10 h-5 w-5 -translate-x-2 opacity-0 transition-all duration-300 group-hover:translate-x-0 group-hover:opacity-100"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                    strokeWidth={2}
+                                >
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                                </svg>
+                            )}
+                        </button>
 
-                    <p className="text-xs text-gray-500 text-center mt-4">
-                        Paiement sécurisé par Stripe
-                    </p>
+                        <p className="text-xs text-gray-500 text-center mt-4 font-inter">
+                            Paiement sécurisé par Stripe
+                        </p>
+                    </div>
                 </div>
             </div>
-        </div>
         </>
     );
 }

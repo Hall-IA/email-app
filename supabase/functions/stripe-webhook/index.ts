@@ -414,6 +414,79 @@ async function syncCustomerFromStripe(customerId: string) {
       }
     }
 
+    // Après avoir traité toutes les subscriptions, créer les slots pour les comptes additionnels
+    // lors du premier paiement (quand une subscription "premier" a des line items additionnels)
+    if (additionalAccountPriceId) {
+      const premierSubscription = subscriptions.data.find(sub => {
+        const firstPriceId = sub.items.data[0]?.price.id;
+        return sub.metadata?.type !== 'additional_account' && firstPriceId !== additionalAccountPriceId;
+      });
+      
+      if (premierSubscription && ['active', 'trialing'].includes(premierSubscription.status)) {
+        const additionalAccountItem = premierSubscription.items.data.find(
+          item => item.price.id === additionalAccountPriceId
+        );
+        
+        if (additionalAccountItem && additionalAccountItem.quantity > 0) {
+          const quantity = additionalAccountItem.quantity || 0;
+          console.info(`[STRIPE WEBHOOK] Premier subscription has ${quantity} additional account(s) - Creating slots`);
+          
+          // Vérifier combien de slots existent déjà pour cet utilisateur (non liés)
+          const { data: existingSlots } = await supabase
+            .from('stripe_user_subscriptions')
+            .select('subscription_id')
+            .eq('user_id', userId)
+            .eq('subscription_type', 'additional_account')
+            .is('email_configuration_id', null)
+            .in('status', ['active', 'trialing']);
+          
+          const existingSlotsCount = existingSlots?.length || 0;
+          const slotsToCreate = quantity - existingSlotsCount;
+          
+          if (slotsToCreate > 0) {
+            console.info(`[STRIPE WEBHOOK] Creating ${slotsToCreate} additional account slot(s) for user ${userId}`);
+            
+            // Créer des slots pour chaque compte additionnel non configuré
+            for (let i = 0; i < slotsToCreate; i++) {
+              const slotSubscriptionId = `${premierSubscription.id}_slot_${Date.now()}_${i}`;
+              
+              const slotData = {
+                user_id: userId,
+                customer_id: customerId,
+                subscription_id: slotSubscriptionId,
+                subscription_type: 'additional_account',
+                status: premierSubscription.status,
+                price_id: additionalAccountPriceId,
+                current_period_start: premierSubscription.current_period_start,
+                current_period_end: premierSubscription.current_period_end,
+                cancel_at_period_end: premierSubscription.cancel_at_period_end,
+                email_configuration_id: null, // Slot non configuré
+                ...(premierSubscription.default_payment_method && typeof premierSubscription.default_payment_method !== 'string'
+                  ? {
+                      payment_method_brand: premierSubscription.default_payment_method.card?.brand ?? null,
+                      payment_method_last4: premierSubscription.default_payment_method.card?.last4 ?? null,
+                    }
+                  : {}),
+                updated_at: new Date().toISOString(),
+              };
+              
+              const { error: slotError } = await supabase
+                .from('stripe_user_subscriptions')
+                .insert(slotData);
+              
+              if (slotError) {
+                console.error(`[STRIPE WEBHOOK] Error creating slot ${i + 1}:`, slotError);
+              } else {
+                console.info(`[STRIPE WEBHOOK] Successfully created slot ${i + 1} with ID: ${slotSubscriptionId}`);
+              }
+            }
+          } else {
+            console.info(`[STRIPE WEBHOOK] All ${quantity} slots already exist for user ${userId}`);
+          }
+        }
+      }
+    }
+
     // Also update the old table for backward compatibility (use the first premier subscription)
     const premierSubscription = subscriptions.data.find(sub => {
       const firstPriceId = sub.items.data[0]?.price.id;

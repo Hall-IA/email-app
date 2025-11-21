@@ -118,8 +118,8 @@ export default function AppPack() {
           priceUnit="/par mois"
           buttonText="Commencer"
           enableCounter={true}
-          basePrice={29}
-          additionalPrice={19}
+          basePrice={49}
+          additionalPrice={39}
           localStorageKey="business_pass_email_counter"
           onButtonClick={() => handleStartClick('business_pass')}
         />

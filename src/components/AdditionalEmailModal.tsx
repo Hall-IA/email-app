@@ -9,7 +9,7 @@ import { useToast } from './Toast';
 interface AdditionalEmailModalProps {
     userId: string;
     subscriptionId?: string;
-    onComplete: () => void;
+    onComplete: (emailConfigId?: string, email?: string) => void;
     onClose?: () => void;
 }
 
@@ -43,7 +43,7 @@ export function AdditionalEmailModal({ userId, subscriptionId, onComplete, onClo
         try {
             const { data: { session } } = await supabase.auth.getSession();
             const response = await fetch(
-                `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/gmail-oauth-init`,
+                `${process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, '')}/functions/v1/gmail-oauth-init`,
                 {
                     method: 'POST',
                     headers: {
@@ -86,7 +86,14 @@ export function AdditionalEmailModal({ userId, subscriptionId, onComplete, onClo
                         .maybeSingle();
 
                     if (data) {
-                        onComplete();
+                        // Récupérer l'email configuré pour le passer à onComplete
+                        const { data: emailConfig } = await supabase
+                            .from('email_configurations')
+                            .select('id, email')
+                            .eq('id', data.id)
+                            .maybeSingle();
+                        
+                        onComplete(emailConfig?.id, emailConfig?.email);
                     } else {
                         setStep(1);
                     }
@@ -117,7 +124,7 @@ export function AdditionalEmailModal({ userId, subscriptionId, onComplete, onClo
             }
 
             const response = await fetch(
-                `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/verify-email-connection`,
+                `${process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, '')}/functions/v1/verify-email-connection`,
                 {
                     method: 'POST',
                     headers: {
@@ -200,8 +207,16 @@ export function AdditionalEmailModal({ userId, subscriptionId, onComplete, onClo
 
             if (error) throw error;
 
+            // Récupérer l'email configuré pour le passer à onComplete
+            const { data: emailConfig } = await supabase
+                .from('email_configurations')
+                .select('id, email')
+                .eq('user_id', user?.id)
+                .eq('email', formData.email)
+                .maybeSingle();
+
             showToast('Email configuré avec succès !', 'success');
-            onComplete();
+            onComplete(emailConfig?.id, emailConfig?.email);
         } catch (err) {
             console.error('Error adding email:', err);
             showToast('Erreur lors de l\'ajout du compte email', 'error');

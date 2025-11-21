@@ -21,7 +21,7 @@ export function CheckoutAdditionalModal({
     const { showToast, ToastComponent } = useToast();
     const [loading, setLoading] = useState(false);
     const [additionalAccounts, setAdditionalAccounts] = useState(0);
-    const [additionalPrice, setAdditionalPrice] = useState(19); // Valeur par défaut en attendant le chargement
+    const [additionalPrice, setAdditionalPrice] = useState(39); // Valeur par défaut en attendant le chargement
 
     // Récupérer les prix depuis Stripe
     useEffect(() => {
@@ -79,7 +79,7 @@ export function CheckoutAdditionalModal({
             }
 
             const response = await fetch(
-                `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/stripe-add-account-checkout`,
+                `${process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, '')}/functions/v1/stripe-add-account-checkout`,
                 {
                     method: 'POST',
                     headers: {
@@ -119,25 +119,38 @@ export function CheckoutAdditionalModal({
         <>
             <ToastComponent />
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-                <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full font-inter max-h-[90vh] overflow-y-auto">
+                <div className="relative bg-white rounded-2xl shadow-2xl max-w-md w-full font-inter max-h-[90vh] overflow-y-auto">
+                    {/* Bouton fermer en haut à droite */}
+                    {onClose && (
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            className="absolute top-4 right-4 p-2 hover:bg-gray-100 rounded-lg transition-colors z-20 text-gray-600 hover:text-gray-900"
+                        >
+                            <X className="w-5 h-5" />
+                        </button>
+                    )}
+                    
                     <div className="p-6">
                         <div className="flex items-center justify-between mb-6">
-                            <div>
-                                <p className="text-sm uppercase tracking-wide text-orange-500 font-semibold">Ajout de compte</p>
-                                <h2 className="text-2xl font-bold text-gray-900 mt-1">Compte additionnel</h2>
-                               
-                            </div>
-                            {onClose && (
-                                <button
-                                    onClick={onClose}
-                                    className="p-2 text-gray-400 hover:text-gray-600 transition-colors rounded-full hover:bg-gray-100"
-                                >
-                                    <X className="w-5 h-5" />
-                                </button>
-                            )}
+                            
+                       
                         </div>
 
-                        <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-4 flex gap-3">
+                        <div className="relative px-6  pb-0 overflow-hidden">
+                        <div className="w-16 h-16 bg-gradient-to-br from-[#F35F4F] to-[#FFAD5A] rounded-full flex items-center justify-center mx-auto mb-4">
+                            <Mail className="w-8 h-8 text-white" />
+                        </div>
+                     
+                        <div className="relative z-10 py-5">
+                            <h2 className='text-4xl font-bold font-thunder text-black text-center mb-2'>Compte additionnel</h2>
+                            <p className="text-gray-600 text-sm mt-1 text-center">
+                                Ajoutez des comptes email que vous pouvez configurerez plus tard
+                            </p>
+                        </div>
+                    </div>
+
+                        {/* <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-4 flex gap-3">
                             <CreditCard className="w-5 h-5 text-orange-600 flex-shrink-0 mt-0.5" />
                             <div>
                                 <p className="text-sm font-medium text-orange-900 mb-2">
@@ -147,28 +160,28 @@ export function CheckoutAdditionalModal({
                                     Chaque compte additionnel coûte <strong>{additionalPrice}€ HT</strong> par mois. Le nombre minimum est de 1.
                                 </p>
                             </div>
-                        </div>
+                        </div> */}
 
-                        <div className="bg-gray-50 rounded-lg p-4 mb-4">
+                        <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-4">
                             <div className="flex items-center gap-2 mb-3">
-                                <Mail className="w-5 h-5 text-gray-600" />
-                                <p className="text-sm font-semibold text-gray-900">Nombre de comptes à ajouter</p>
+                                <Mail className="w-5 h-5 text-orange-600" />
+                                <h4 className="font-semibold text-gray-900 font-inter">Nombre de comptes à ajouter</h4>
                             </div>
 
                             <div className="flex items-center justify-between gap-4 mb-3">
                                 <button
                                     onClick={decrementAccounts}
                                     disabled={additionalAccounts === 0 || loading}
-                                    className="w-10 h-10 rounded-lg bg-white border-2 border-gray-200 hover:border-orange-400 hover:bg-orange-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all flex items-center justify-center"
+                                    className="w-10 h-10 rounded-lg bg-white border-2 border-gray-300 hover:border-orange-400 hover:bg-orange-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all flex items-center justify-center"
                                 >
                                     <Minus className="w-5 h-5 text-gray-700" />
                                 </button>
 
                                 <div className="flex flex-col items-center flex-1">
-                                    <span className="text-3xl font-bold text-gray-900">
+                                    <span className="text-2xl font-bold text-gray-900">
                                         {nbAccounts}
                                     </span>
-                                    <span className="text-xs text-gray-500">
+                                    <span className="text-xs text-gray-600 font-inter">
                                         {nbAccounts} compte{nbAccounts > 1 ? 's' : ''} additionnel{nbAccounts > 1 ? 's' : ''} seront ajoutés
                                     </span>
                                 </div>
@@ -176,40 +189,32 @@ export function CheckoutAdditionalModal({
                                 <button
                                     onClick={incrementAccounts}
                                     disabled={loading}
-                                    className="w-10 h-10 rounded-lg bg-white border-2 border-gray-200 hover:border-orange-400 hover:bg-orange-50 transition-all flex items-center justify-center"
+                                    className="w-10 h-10 rounded-lg bg-white border-2 border-gray-300 hover:border-orange-400 hover:bg-orange-50 transition-all flex items-center justify-center"
                                 >
                                     <Plus className="w-5 h-5 text-gray-700" />
                                 </button>
                             </div>
 
-                            <div className="text-xs text-gray-500 text-center">
+                            <p className="text-xs text-center text-gray-600 font-inter">
                                 {additionalPrice}€ HT / compte additionnel / mois
-                            </div>
+                            </p>
                         </div>
 
-                        <div className="bg-white border border-gray-200 rounded-lg p-4 mb-4">
+                        <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-4">
                             <div className="flex items-center justify-between">
                                 <div>
-                                    <p className="text-sm font-medium text-gray-700">
+                                    <p className="text-sm font-medium text-gray-700 font-inter">
                                         Montant total
                                     </p>
-                                    <p className="text-xs text-gray-500 mt-1">Facturé mensuellement</p>
+                                    <p className="text-xs text-gray-600 mt-1 font-inter">Facturé mensuellement</p>
                                 </div>
                                 <div className="text-right">
-                                    <p className="text-3xl font-bold text-orange-600">{totalPrice}€</p>
-                                    <p className="text-xs text-gray-500">HT / mois</p>
+                                    <p className="text-2xl font-bold text-orange-600">{totalPrice}€</p>
+                                    <p className="text-xs text-gray-600 font-inter">HT / mois</p>
                                 </div>
                             </div>
                         </div>
 
-                        {unlinkedSubscriptionsCount > 0 && (
-                            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4 flex items-start gap-2">
-                                <Info className="w-4 h-4 text-amber-600 mt-0.5" />
-                                <p className="text-xs text-amber-800">
-                                    Vous avez {unlinkedSubscriptionsCount} slot{unlinkedSubscriptionsCount > 1 ? 's' : ''} payé{unlinkedSubscriptionsCount > 1 ? 's' : ''} mais non configuré{unlinkedSubscriptionsCount > 1 ? 's' : ''}. Configurez-les avant d'en acheter de nouveaux pour éviter des frais inutiles.
-                                </p>
-                            </div>
-                        )}
 
                         <button
                             onClick={handleCheckout}

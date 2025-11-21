@@ -9,21 +9,26 @@ import { OnboardingModal } from '@/components/OnBoardingModal';
 import { CheckoutModal } from '@/components/CheckoutModal';
 import { SetupEmailModal } from '@/components/SetupEmailModal';
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
-  const router = useRouter();
-  const pathname = usePathname();
-  const [hasEmail, setHasEmail] = useState<boolean | null>(null);
-  const [showOnboarding, setShowOnboarding] = useState(false);
-  const [showCheckout, setShowCheckout] = useState(false);
-  const [showSetupEmail, setShowSetupEmail] = useState(false);
-  const [isChecked, setIsChecked] = useState(false);
+export default function DashboardLayout({
+    children,
+}: {
+    children: React.ReactNode;
+}) {
+    const { user, loading } = useAuth();
+    const router = useRouter();
+    const pathname = usePathname();
+    const [hasEmail, setHasEmail] = useState<boolean | null>(null);
+    const [showOnboarding, setShowOnboarding] = useState(false);
+    const [showCheckout, setShowCheckout] = useState(false);
+    const [showSetupEmail, setShowSetupEmail] = useState(false);
+    const [isChecked, setIsChecked] = useState(false);
+    const [isProcessingPaymentReturn, setIsProcessingPaymentReturn] = useState(false);
 
-  // Vérifier tout en une seule fois au chargement
-  useEffect(() => {
-    if (!user || loading || isChecked) return;
-    checkAllRequirements();
-  }, [user, loading]);
+    // Vérifier tout en une seule fois au chargement
+    useEffect(() => {
+        if (!user || loading || isChecked || isProcessingPaymentReturn) return;
+        checkAllRequirements();
+    }, [user, loading, isProcessingPaymentReturn]);
 
     // Gérer le retour du paiement Stripe
     useEffect(() => {
@@ -36,21 +41,52 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             // Nettoyer l'URL
             window.history.replaceState({}, '', pathname);
             
+            // Marquer qu'on est en train de traiter le retour du paiement
+            setIsProcessingPaymentReturn(true);
+            
+            // Réinitialiser l'état pour permettre un nouveau check
+            setIsChecked(false);
+            setHasEmail(false); // Permettre l'affichage de SetupEmail si nécessaire
+            setShowCheckout(false); // Masquer la modal checkout
+            
             // Synchroniser les factures depuis Stripe immédiatement
             syncInvoicesFromStripe();
             
-            // Polling pour attendre la mise à jour du webhook
-            const pollInterval = setInterval(() => {
-                checkPaymentStatus();
-                checkEmailStatus();
-            }, 2000);
+            // Vérifier immédiatement le statut du paiement
+            const handlePaymentReturn = async () => {
+                // Attendre un peu pour que la synchronisation soit terminée
+                await new Promise(resolve => setTimeout(resolve, 1500));
+                
+                // Vérifier le paiement
+                const hasPayment = await checkPaymentStatus();
+                
+                if (hasPayment) {
+                    // Paiement confirmé, vérifier l'email immédiatement
+                    await checkEmailStatus();
+                    setIsProcessingPaymentReturn(false);
+                } else {
+                    // Continuer le polling si le paiement n'est pas encore détecté
+                    let pollCount = 0;
+                    const maxPolls = 5; // 5 tentatives = 10 secondes max
+                    
+                    const pollInterval = setInterval(async () => {
+                        pollCount++;
+                        const hasPayment = await checkPaymentStatus();
+                        
+                        if (hasPayment || pollCount >= maxPolls) {
+                            clearInterval(pollInterval);
+                            await checkEmailStatus();
+                            setIsProcessingPaymentReturn(false);
+                        }
+                    }, 2000);
+                }
+            };
             
-            setTimeout(() => {
-                clearInterval(pollInterval);
-            }, 10000);
+            handlePaymentReturn();
         } else if (paymentStatus === 'cancelled') {
             window.history.replaceState({}, '', pathname);
             setShowCheckout(true);
+            setHasEmail(false);
         }
     }, [user, loading, pathname]);
 
@@ -67,7 +103,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             }
 
             const response = await fetch(
-                `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/stripe-sync-invoices`,
+                `${process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, '')}/functions/v1/stripe-sync-invoices`,
                 {
                     method: 'POST',
                     headers: {
@@ -89,24 +125,24 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         }
     };
 
-  const checkAllRequirements = async () => {
-    if (!user) return;
+    const checkAllRequirements = async () => {
+        if (!user) return;
+        
+        setIsChecked(true);
 
-    setIsChecked(true);
+        try {
+            // 1. Vérifier onboarding
+            const { data: profile } = await supabase
+                .from('profiles')
+                .select('is_configured')
+                .eq('id', user.id)
+                .maybeSingle();
 
-    try {
-      // 1. Vérifier onboarding
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('is_configured')
-        .eq('id', user.id)
-        .maybeSingle();
-
-      if (!profile?.is_configured) {
-        setShowOnboarding(true);
-        setHasEmail(false);
-        return;
-      }
+            if (!profile?.is_configured) {
+                setShowOnboarding(true);
+                setHasEmail(false);
+                return;
+            }
 
             // 2. Vérifier paiement - Même logique que pour SetupEmail
             // Si on arrive à SetupEmail, c'est que le paiement est passé
@@ -215,31 +251,31 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 console.log('✅ [CHECKOUT MODAL] Paiement trouvé - Pas d\'affichage de la modal checkout');
             }
 
-      // 3. Vérifier email
-      const { data: emailData } = await supabase
-        .from('email_configurations')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('is_connected', true);
+            // 3. Vérifier email
+            const { data: emailData } = await supabase
+                .from('email_configurations')
+                .select('id')
+                .eq('user_id', user.id)
+                .eq('is_connected', true);
 
-      const hasConfiguredEmail = (emailData?.length || 0) > 0;
+            const hasConfiguredEmail = (emailData?.length || 0) > 0;
 
-      if (!hasConfiguredEmail) {
-        setShowSetupEmail(true);
-        setHasEmail(false);
-      } else {
-        setHasEmail(true);
-        // Vérifier les étapes obligatoires de description de l'activité
-        checkCompanyInfo();
-      }
-    } catch (error) {
-      console.error('Error checking requirements:', error);
-      setHasEmail(true); // En cas d'erreur, laisser passer
-    }
-  };
+            if (!hasConfiguredEmail) {
+                setShowSetupEmail(true);
+                setHasEmail(false);
+            } else {
+                setHasEmail(true);
+                // Vérifier les étapes obligatoires de description de l'activité
+                checkCompanyInfo();
+            }
+        } catch (error) {
+            console.error('Error checking requirements:', error);
+            setHasEmail(true); // En cas d'erreur, laisser passer
+        }
+    };
 
-  const checkPaymentStatus = async () => {
-    if (!user) return;
+    const checkPaymentStatus = async (): Promise<boolean> => {
+        if (!user) return false;
 
         console.log('🔄 [CHECKOUT MODAL] checkPaymentStatus appelé pour user_id:', user.id);
 
@@ -316,12 +352,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         });
 
         if (!hasPayment) {
-            console.log('⚠️ [CHECKOUT MODAL] checkPaymentStatus - Aucun paiement trouvé - Tentative de synchronisation');
-            // Essayer de synchroniser les factures depuis Stripe
-            await syncInvoicesFromStripe();
-            
-            // Attendre un peu puis re-vérifier
-            setTimeout(async () => {
+            console.log('⚠️ [CHECKOUT MODAL] checkPaymentStatus - Aucun paiement trouvé');
+            // Synchroniser en arrière-plan sans bloquer l'affichage de la modal
+            syncInvoicesFromStripe().then(async () => {
+                // Re-vérifier après synchronisation (en arrière-plan)
                 const { data: recheckInvoices } = await supabase
                     .from('stripe_invoices')
                     .select('invoice_id, status, amount_paid, paid_at')
@@ -334,41 +368,44 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     console.log('✅ [CHECKOUT MODAL] checkPaymentStatus - Factures trouvées après synchronisation - Masquage modal');
                     setShowCheckout(false);
                     checkEmailStatus();
-                } else {
-                    console.log('⚠️ [CHECKOUT MODAL] checkPaymentStatus - Aucune facture trouvée après synchronisation - Affichage modal');
-                    setShowCheckout(true);
                 }
-            }, 2000);
+            }).catch(err => {
+                console.error('Erreur lors de la synchronisation:', err);
+            });
+            // Retourner false immédiatement pour permettre l'affichage de la modal
+            return false;
         } else {
             console.log('✅ [CHECKOUT MODAL] checkPaymentStatus - Paiement trouvé - Masquage modal');
             setShowCheckout(false);
             checkEmailStatus();
+            return true;
         }
     };
 
-  const checkEmailStatus = async () => {
-    if (!user) return;
+    const checkEmailStatus = async () => {
+        if (!user) return;
 
-    const { data: emailData } = await supabase
-      .from('email_configurations')
-      .select('id')
-      .eq('user_id', user.id)
-      .eq('is_connected', true);
+        const { data: emailData } = await supabase
+            .from('email_configurations')
+            .select('id')
+            .eq('user_id', user.id)
+            .eq('is_connected', true);
 
-    const hasConfiguredEmail = (emailData?.length || 0) > 0;
+        const hasConfiguredEmail = (emailData?.length || 0) > 0;
 
-    if (!hasConfiguredEmail) {
-      setShowSetupEmail(true);
-    } else {
-      setShowSetupEmail(false);
-      setHasEmail(true);
-      // Vérifier les étapes obligatoires de description de l'activité
-      checkCompanyInfo();
-    }
-  };
+        if (!hasConfiguredEmail) {
+            setShowSetupEmail(true);
+            setHasEmail(false); // S'assurer que hasEmail est false pour permettre l'affichage
+        } else {
+            setShowSetupEmail(false);
+            setHasEmail(true);
+            // Vérifier les étapes obligatoires de description de l'activité
+            checkCompanyInfo();
+        }
+    };
 
-  const checkCompanyInfo = async () => {
-    if (!user) return;
+    const checkCompanyInfo = async () => {
+        if (!user) return;
 
         try {
             const { data: allConfigs } = await supabase
@@ -377,7 +414,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 .eq('user_id', user.id)
                 .eq('is_connected', true);
 
-      if (!allConfigs || allConfigs.length === 0) return;
+            if (!allConfigs || allConfigs.length === 0) return;
 
             // Vérifier les 3 champs obligatoires : nom, description, signature email
             const accountWithoutInfo = allConfigs.find(
@@ -398,66 +435,76 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         }
     };
 
-  useEffect(() => {
-    if (!loading && !user) {
-      router.push('/');
+    useEffect(() => {
+        if (!loading && !user) {
+            router.push('/');
+        }
+    }, [user, loading, router]);
+
+    if (loading || hasEmail === null) {
+        return (
+            <div className="min-h-screen flex items-center justify-center">
+                <div className="text-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+                    <p className="mt-4 text-gray-600">Chargement...</p>
+                </div>
+            </div>
+        );
     }
-  }, [user, loading, router]);
 
-  if (loading || hasEmail === null) {
+    if (!user) {
+        return null;
+    }
+
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-center">
-          <div className="mx-auto h-12 w-12 animate-spin rounded-full border-b-2 border-blue-600"></div>
-          <p className="mt-4 text-gray-600">Chargement...</p>
+        <div className="min-h-screen bg-gray-100">
+            <AppNavbar />
+            <main className="container mx-auto px-4 py-8">
+                {children}
+            </main>
+
+            {/* Modals obligatoires */}
+            {showOnboarding && user && (
+                <OnboardingModal
+                    userId={user.id}
+                    onComplete={async () => {
+                        setShowOnboarding(false);
+                        // Vérifier rapidement le statut du paiement
+                        const hasPayment = await checkPaymentStatus();
+                        // Si aucun paiement, afficher immédiatement la CheckoutModal
+                        if (!hasPayment) {
+                            setShowCheckout(true);
+                        }
+                    }}
+                />
+            )}
+
+            {showCheckout && user && (
+                <CheckoutModal
+                    userId={user.id}
+                    onComplete={() => {
+                        setShowCheckout(false);
+                        checkEmailStatus();
+                    }}
+                />
+            )}
+
+
+            {showSetupEmail && user && (
+                <SetupEmailModal
+                    userId={user.id}
+                    onComplete={() => {
+                        // Fermer toutes les modals
+                        setShowOnboarding(false);
+                        setShowCheckout(false);
+                        setShowSetupEmail(false);
+                        setHasEmail(true);
+                        setTimeout(() => {
+                            checkCompanyInfo();
+                        }, 1000);
+                    }}
+                />
+            )}
         </div>
-      </div>
     );
-  }
-
-  if (!user) {
-    return null;
-  }
-
-  return (
-    <div className="flex min-h-screen flex-1 flex-col">
-      <AppNavbar />
-      <main className="bg-silverchalice-100 flex-1 py-8 px-4">{children}</main>
-
-      {/* Modals obligatoires */}
-      {showOnboarding && user && (
-        <OnboardingModal
-          userId={user.id}
-          onComplete={() => {
-            setShowOnboarding(false);
-            checkPaymentStatus();
-          }}
-        />
-      )}
-
-      {showCheckout && user && (
-        <CheckoutModal
-          userId={user.id}
-          onComplete={() => {
-            setShowCheckout(false);
-            checkEmailStatus();
-          }}
-        />
-      )}
-
-      {showSetupEmail && user && (
-        <SetupEmailModal
-          userId={user.id}
-          onComplete={() => {
-            setShowSetupEmail(false);
-            setHasEmail(true);
-            // Vérifier les étapes obligatoires après la configuration de l'email
-            setTimeout(() => {
-              checkCompanyInfo();
-            }, 1000);
-          }}
-        />
-      )}
-    </div>
-  );
 }
