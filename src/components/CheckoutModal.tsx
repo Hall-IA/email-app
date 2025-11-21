@@ -574,14 +574,14 @@ export function CheckoutModal({
                         
                         <div className="relative z-10 py-5">
                             {/* Icône cadenas */}
-                            <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <div className="w-16 h-16 bg-gradient-to-br from-[#F35F4F] to-[#FFAD5A] rounded-full flex items-center justify-center mx-auto mb-4">
                                 <Lock className="w-8 h-8 text-white" />
                             </div>
                             
                             <h2 className='text-4xl font-bold font-thunder text-black mb-2 text-center'>
                                 {isUpgrade ? 'Ajouter un compte' : 'Finaliser l\'abonnement'}
                             </h2>
-                            <p className="text-gray-600 text-sm font-roboto text-center">
+                            <p className="text-gray-600 text-sm mt-1 text-center">
                                 {isUpgrade ? 'Upgrade de votre plan' : 'Passez au paiement de votre premier email pour commencer à utiliser Business Pass !'}
                             </p>
                             {!isUpgrade && (

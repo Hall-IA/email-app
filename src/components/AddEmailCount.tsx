@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { Mail, Plus, Minus } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Mail, Plus, Minus, X } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '../../context/AuthContext';
+import { useToast } from './Toast';
 
 interface AddEmailCountProps {
     onComplete?: () => void;
@@ -12,14 +13,11 @@ interface AddEmailCountProps {
 
 export default function AddEmailCount({ onComplete, onClose }: AddEmailCountProps) {
     const { user } = useAuth();
+    const { showToast, ToastComponent } = useToast();
+    const [loading, setLoading] = useState(false);
     const [additionalEmails, setAdditionalEmails] = useState(0);
-    const [basePrice, setBasePrice] = useState(49);
     const [additionalPrice, setAdditionalPrice] = useState(39);
-    const [timeRemaining, setTimeRemaining] = useState(5); // 5 secondes
-    const [isPaused, setIsPaused] = useState(false);
     const [isVisible, setIsVisible] = useState(true);
-    const intervalRef = useRef<NodeJS.Timeout | null>(null);
-    const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     // Récupérer les prix depuis Stripe
     useEffect(() => {
@@ -40,9 +38,6 @@ export default function AddEmailCount({ onComplete, onClose }: AddEmailCountProp
 
                 if (response.ok) {
                     const data = await response.json();
-                    if (data.basePlan?.amount) {
-                        setBasePrice(data.basePlan.amount);
-                    }
                     if (data.additionalAccount?.amount) {
                         setAdditionalPrice(data.additionalAccount.amount);
                     }
@@ -55,56 +50,20 @@ export default function AddEmailCount({ onComplete, onClose }: AddEmailCountProp
         fetchStripePrices();
     }, []);
 
-    // Charger le compteur depuis localStorage au montage
-    useEffect(() => {
-        if (typeof window !== 'undefined') {
-            const saved = localStorage.getItem('business_pass_email_counter');
-            if (saved) {
-                const count = parseInt(saved, 10) || 0;
-                setAdditionalEmails(count);
-            }
-        }
-    }, []);
+    // On commence toujours à 0 (affichage 1 compte additionnel minimum)
+    // Pas de chargement depuis localStorage car on est dans le mode "additionnel uniquement"
 
-    // Gérer le compte à rebours de 5 secondes
-    useEffect(() => {
-        if (!isVisible || isPaused) return;
-
-        setTimeRemaining(5);
-
-        intervalRef.current = setInterval(() => {
-            setTimeRemaining((prev) => {
-                if (prev <= 1) {
-                    // Fermer la modal après 5 secondes
-                    setIsVisible(false);
-                    if (onClose) {
-                        onClose();
-                    }
-                    return 0;
-                }
-                return prev - 1;
-            });
-        }, 1000);
-
-        return () => {
-            if (intervalRef.current) {
-                clearInterval(intervalRef.current);
-            }
-        };
-    }, [isVisible, isPaused]);
-
-    // Calculer le total
+    // Calculer le total (comme CheckoutAdditionalModal : (additionalEmails + 1) * additionalPrice)
     const calculateTotal = () => {
-        return basePrice + (additionalEmails * additionalPrice);
+        return (additionalEmails + 1) * additionalPrice;
     };
 
     // Incrémenter les emails
     const incrementEmails = () => {
         const newValue = additionalEmails + 1;
         setAdditionalEmails(newValue);
-        if (typeof window !== 'undefined') {
-            localStorage.setItem('business_pass_email_counter', newValue.toString());
-        }
+        // Ne pas sauvegarder dans localStorage car on est dans le mode "additionnel uniquement"
+        // Le localStorage est utilisé pour le premier checkout, pas pour les additions
     };
 
     // Décrémenter les emails
@@ -112,17 +71,7 @@ export default function AddEmailCount({ onComplete, onClose }: AddEmailCountProp
         if (additionalEmails > 0) {
             const newValue = additionalEmails - 1;
             setAdditionalEmails(newValue);
-            if (typeof window !== 'undefined') {
-                localStorage.setItem('business_pass_email_counter', newValue.toString());
-            }
-        }
-    };
-
-    // Gérer le clic sur la modal (pause le compte à rebours)
-    const handleModalClick = () => {
-        setIsPaused(true);
-        if (intervalRef.current) {
-            clearInterval(intervalRef.current);
+            // Ne pas sauvegarder dans localStorage car on est dans le mode "additionnel uniquement"
         }
     };
 
@@ -134,60 +83,96 @@ export default function AddEmailCount({ onComplete, onClose }: AddEmailCountProp
         }
     };
 
-    // Continuer vers le checkout
-    const handleContinue = () => {
-        setIsVisible(false);
-        if (onComplete) {
-            onComplete();
+    // Continuer vers le checkout Stripe (comme CheckoutAdditionalModal)
+    const handleContinue = async () => {
+        setLoading(true);
+        
+        try {
+            const { data: { session } } = await supabase.auth.getSession();
+            
+            if (!session) {
+                showToast('Vous devez être connecté', 'error');
+                setLoading(false);
+                return;
+            }
+
+            const response = await fetch(
+                `${process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, '')}/functions/v1/stripe-add-account-checkout`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${session.access_token}`,
+                        'Content-Type': 'application/json',
+                        'Apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
+                    },
+                    body: JSON.stringify({
+                        additional_accounts: additionalEmails + 1,
+                        success_url: `${window.location.origin}/settings?upgraded=success`,
+                        cancel_url: `${window.location.origin}/settings?upgraded=cancelled`,
+                    }),
+                }
+            );
+
+            const data = await response.json();
+            if (data.error) {
+                showToast(`Erreur: ${data.error}`, 'error');
+                setLoading(false);
+                return;
+            }
+
+            if (data.url) {
+                // Fermer les modals avant de rediriger
+                setIsVisible(false);
+                if (onComplete) {
+                    onComplete();
+                }
+                // Rediriger vers Stripe
+                window.location.href = data.url;
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            showToast('Erreur lors de la création de la session de paiement', 'error');
+            setLoading(false);
         }
     };
 
     if (!isVisible) return null;
 
     const totalPrice = calculateTotal();
-    const progressPercentage = ((5 - timeRemaining) / 5) * 100;
 
     return (
         <>
+            <ToastComponent />
+            
             {/* Overlay - non cliquable */}
             <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm" />
 
             {/* Modal centré - style similaire à CompanyInfoModal */}
             <div className="fixed inset-0 z-[51] flex items-center justify-center p-4">
-                <div 
-                    className="relative bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[80vh] overflow-hidden flex flex-col"
-                    onClick={handleModalClick}
-                >
+                <div className="relative bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[80vh] overflow-hidden flex flex-col">
+                    
+                    {/* Bouton fermer en haut à droite */}
+                    {onClose && (
+                        <button
+                            type="button"
+                            onClick={handleClose}
+                            className="absolute top-4 right-4 p-2 hover:bg-gray-100 rounded-lg transition-colors z-10 text-gray-600 hover:text-gray-900"
+                        >
+                            <X className="w-5 h-5" />
+                        </button>
+                    )}
                     
                     {/* Header avec gradient conique */}
-                    <div 
-                        className="relative px-6 pt-7 pb-0 overflow-hidden"
-                        style={{
-                            background: `conic-gradient(from 194deg at 84% -3.1%, #FF9A34 0deg, #F35F4F 76.15384697914124deg, #CE7D2A 197.30769395828247deg, #FFAD5A 245.76922416687012deg), #F9F7F5`,
-                        }}
-                    >
-                        {/* Pattern de plus signs */}
-                        <div 
-                            className="absolute inset-0 opacity-10"
-                            style={{
-                                backgroundImage: `repeating-linear-gradient(0deg, transparent, transparent 20px, rgba(255,255,255,0.3) 20px, rgba(255,255,255,0.3) 22px),
-                                                  repeating-linear-gradient(90deg, transparent, transparent 20px, rgba(255,255,255,0.3) 20px, rgba(255,255,255,0.3) 22px)`,
-                            }}
-                        />
-                        <div className="relative z-10 py-5">
-                            <h2 className='text-4xl font-bold font-thunder text-white mb-2'>Emails additionnels</h2>
-                            <p className="text-white/90 text-sm font-inter">
-                                Ajoutez des emails que vous configurerez plus tard
-                            </p>
+                    <div className="relative px-6 pt-10 pb-0 overflow-hidden">
+                        <div className="w-16 h-16 bg-gradient-to-br from-[#F35F4F] to-[#FFAD5A] rounded-full flex items-center justify-center mx-auto mb-4">
+                            <Mail className="w-8 h-8 text-white" />
                         </div>
-                        {/* Barre de progression en bas du header orange */}
-                        <div className="relative z-10 px-0 pb-3">
-                            <div className="w-full bg-orange-500/30 rounded-full h-1.5 overflow-hidden">
-                                <div 
-                                    className="bg-white h-full rounded-full transition-all duration-1000 ease-linear"
-                                    style={{ width: `${progressPercentage}%` }}
-                                />
-                            </div>
+                     
+                        <div className="relative z-10 py-5">
+                            <h2 className='text-4xl font-bold font-thunder text-black text-center mb-2'>Compte additionnel</h2>
+                            <p className="text-gray-600 text-sm mt-1 text-center">
+                                Ajoutez des comptes email que vous configurerez plus tard
+                            </p>
                         </div>
                     </div>
 
@@ -200,7 +185,7 @@ export default function AddEmailCount({ onComplete, onClose }: AddEmailCountProp
                             <div className="bg-orange-50 border border-orange-200 rounded-lg p-4 mb-4">
                                 <div className="flex items-center gap-2 mb-3">
                                     <Mail className="w-5 h-5 text-orange-600" />
-                                    <h4 className="font-semibold text-gray-900 font-inter">Emails additionnels</h4>
+                                    <h4 className="font-semibold text-gray-900 font-inter">Nombre de comptes à ajouter</h4>
                                 </div>
                                 
                                 <div className="flex items-center justify-between gap-4 mb-3">
@@ -214,10 +199,10 @@ export default function AddEmailCount({ onComplete, onClose }: AddEmailCountProp
 
                                     <div className="flex flex-col items-center flex-1">
                                         <span className="text-2xl font-bold text-gray-900">
-                                            {additionalEmails}
+                                            {additionalEmails + 1}
                                         </span>
                                         <span className="text-xs text-gray-600 font-inter">
-                                            {additionalEmails === 0 ? '1 email inclus' : `${additionalEmails + 1} emails au total`}
+                                            {additionalEmails + 1} compte{(additionalEmails + 1) > 1 ? 's' : ''} additionnel{(additionalEmails + 1) > 1 ? 's' : ''} seront ajoutés
                                         </span>
                                     </div>
 
@@ -230,7 +215,7 @@ export default function AddEmailCount({ onComplete, onClose }: AddEmailCountProp
                                 </div>
 
                                 <p className="text-xs text-center text-gray-600 font-inter">
-                                    +{additionalPrice}€ HT/mois par email additionnel
+                                    {additionalPrice}€ HT / compte additionnel / mois
                                 </p>
                             </div>
 
@@ -238,27 +223,16 @@ export default function AddEmailCount({ onComplete, onClose }: AddEmailCountProp
                                 <div className="flex items-center justify-between">
                                     <div>
                                         <p className="text-sm font-medium text-gray-700 font-inter">
-                                            Total de votre abonnement
+                                            Montant total
                                         </p>
                                         <p className="text-xs text-gray-600 mt-1 font-inter">Facturé mensuellement</p>
                                     </div>
                                     <div className="text-right">
                                         <p className="text-2xl font-bold text-orange-600">{totalPrice}€</p>
-                                        <p className="text-xs text-gray-600 font-inter">HT/mois</p>
+                                        <p className="text-xs text-gray-600 font-inter">HT / mois</p>
                                     </div>
                                 </div>
                             </div>
-
-                            {!isPaused && (
-                                <div className="mt-4 text-center">
-                                    <p className="text-xs text-gray-500 font-inter">
-                                        La modal se fermera automatiquement dans {timeRemaining} seconde{timeRemaining > 1 ? 's' : ''}
-                                    </p>
-                                    <p className="text-xs text-gray-400 font-inter mt-1">
-                                        Cliquez sur la modal pour la garder ouverte
-                                    </p>
-                                </div>
-                            )}
                         </div>
                     </div>
 
@@ -276,9 +250,10 @@ export default function AddEmailCount({ onComplete, onClose }: AddEmailCountProp
                             <button
                                 type="button"
                                 onClick={handleContinue}
-                                className="flex-1 max-w-[200px] mx-auto flex items-center justify-center gap-2 bg-gradient-to-br from-[#F35F4F] to-[#FFAD5A] px-6 py-2.5 font-semibold text-white rounded-lg shadow-lg transition-all duration-300 ease-out hover:shadow-xl font-inter text-sm"
+                                disabled={loading}
+                                className="flex-1 max-w-[200px] mx-auto flex items-center justify-center gap-2 bg-gradient-to-br from-[#F35F4F] to-[#FFAD5A] px-6 py-2.5 font-semibold text-white rounded-lg shadow-lg transition-all duration-300 ease-out hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed font-inter text-sm"
                             >
-                                Continuer
+                                {loading ? 'Redirection...' : 'Continuer'}
                             </button>
                         </div>
                     </div>

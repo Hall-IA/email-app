@@ -607,11 +607,12 @@ export function CompanyInfoModal({ userId, emailAccountId, email, initialStep = 
                         .maybeSingle();
                     
                     if (emailConfig?.is_primary) {
-                        // C'est le premier email, afficher AddEmailCount après un court délai
+                        // C'est le premier email, fermer la modal et afficher AddEmailCount après un court délai
                         setTimeout(() => {
-                            onShowAddEmailCount();
+                            onComplete(); // Fermer CompanyInfoModal
+                            onShowAddEmailCount(); // Afficher AddEmailCount
                         }, 500);
-                        return; // Ne pas appeler onComplete immédiatement, AddEmailCount le fera
+                        return;
                     }
                 } catch (error) {
                     console.error('[CompanyInfoModal] Erreur lors de la vérification is_primary:', error);

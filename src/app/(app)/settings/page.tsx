@@ -47,7 +47,7 @@ export default function Settings() {
     const [showAddAccountModal, setShowAddAccountModal] = useState(false);
     const [showImapModal, setShowImapModal] = useState(false);
     const [showSlotConfigModal, setShowSlotConfigModal] = useState(false);
-    const [selectedSlotForConfig, setSelectedSlotForConfig] = useState<{ index: number; subscription_id: string } | null>(null);
+    const [selectedSlotForConfig, setSelectedSlotForConfig] = useState<{ index: number; subscription_id?: string | null } | null>(null);
     const [showEditCompanyModal, setShowEditCompanyModal] = useState(false);
     const [showCompanyInfoModal, setShowCompanyInfoModal] = useState(false);
     const [companyInfoStep, setCompanyInfoStep] = useState(1);
@@ -420,7 +420,6 @@ export default function Settings() {
 
     const handleUpgradeReturn = async () => {
         console.log('[Settings] handleUpgradeReturn - Début de la synchronisation');
-        showToast('Synchronisation des données de paiement en cours...', 'info');
         
         // Forcer la synchronisation avec Stripe
         try {
@@ -471,7 +470,6 @@ export default function Settings() {
             if (pollCount >= maxPolls) {
                 clearInterval(pollInterval);
                 console.log('[Settings] Polling terminé');
-                showToast('Synchronisation terminée', 'success');
             }
         }, 2000);
         
@@ -1604,16 +1602,22 @@ export default function Settings() {
                                             transition={{ duration: 0.3, delay: 0.3 + (accounts.length + index) * 0.1 }}
                                             onClick={(e) => {
                                                 e.stopPropagation();
+                                                // Toujours ouvrir AdditionalEmailModal pour les slots non configurés
                                                 if (slotItem.subscription_id) {
-                                                    // Ouvrir directement la modal de configuration
+                                                    // Slot avec subscription_id, ouvrir la modal de configuration
                                                     setSelectedSlotForConfig({ index, subscription_id: slotItem.subscription_id });
                                                     setShowSlotConfigModal(true);
                                                     // Sélectionner aussi le slot pour afficher la colonne de droite
                                                     setSelectedSlot({ index, subscription_id: slotItem.subscription_id });
                                                     setSelectedAccount(null); // Désélectionner le compte configuré
                                                 } else {
-                                                    // Slot artificiel sans subscription_id, ouvrir la modal d'ajout
-                                                    setShowAddAccountModal(true);
+                                                    // Slot artificiel sans subscription_id, ouvrir aussi AdditionalEmailModal
+                                                    // La modal gérera la création sans subscription_id
+                                                    setSelectedSlotForConfig({ index, subscription_id: undefined });
+                                                    setShowSlotConfigModal(true);
+                                                    // Sélectionner aussi le slot pour afficher la colonne de droite
+                                                    setSelectedSlot({ index, subscription_id: undefined as any });
+                                                    setSelectedAccount(null); // Désélectionner le compte configuré
                                                 }
                                             }}
                                             className={`w-full px-4 py-3 bg-gray-50 border-2 border-dashed transition-all text-left ${
@@ -2495,6 +2499,7 @@ export default function Settings() {
                 <AddEmailCount
                     onComplete={async () => {
                         setShowAddEmailCount(false);
+                        setShowCompanyInfoModal(false);
                         setHasCheckedCompanyInfo(false);
                         setNotificationMessage('Informations mises à jour avec succès');
                         setShowNotification(true);
@@ -2508,6 +2513,10 @@ export default function Settings() {
                     }}
                 />
             )}
+
+
+
+
 
             {/* Modal de suppression de compte utilisateur */}
             {showDeleteUserModal && (
@@ -3219,7 +3228,7 @@ export default function Settings() {
             {showSlotConfigModal && selectedSlotForConfig && user && (
                 <AdditionalEmailModal
                     userId={user.id}
-                    subscriptionId={selectedSlotForConfig.subscription_id}
+                    subscriptionId={selectedSlotForConfig.subscription_id ?? undefined}
                     onComplete={async () => {
                         setShowSlotConfigModal(false);
                         setSelectedSlotForConfig(null);
