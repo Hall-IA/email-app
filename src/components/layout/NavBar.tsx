@@ -141,100 +141,221 @@ export default function NavBar() {
 
   return (
     <>
-    <nav
-      className={cn(
-        'fixed inset-x-4 z-50 mx-auto mt-4 max-w-7xl rounded-2xl bg-transparent text-white shadow-lg backdrop-blur-md transition-all duration-300',
-        isOpen ? 'border border-[#656462] bg-gray-800/60' : 'bg-gray-800/40',
-      )}
-    >
-      {/* Top bar */}
-      <div className="grid grid-cols-3 items-center p-3 md:flex md:justify-between">
-        {/* Left - Menu button */}
-        <button
-          onClick={() => setIsOpen(!isOpen)}
-          className="w-fit rounded-md bg-[#333231]/70 p-2 transition-colors hover:bg-[#333231]/70 md:hidden"
-          aria-label="Toggle menu"
-        >
-          {isOpen ? <X size={22} /> : <Menu size={22} />}
-        </button>
+      <nav
+        className={cn(
+          'fixed inset-x-4 z-50 mx-auto mt-4 max-w-7xl rounded-2xl bg-transparent text-white shadow-lg backdrop-blur-md transition-all duration-300',
+          isOpen ? 'border border-[#656462] bg-gray-800/60' : 'bg-gray-800/40',
+        )}
+      >
+        {/* Top bar */}
+        <div className="grid grid-cols-3 items-center p-3 md:flex md:justify-between">
+          {/* Left - Menu button */}
+          <button
+            onClick={() => setIsOpen(!isOpen)}
+            className="w-fit rounded-md bg-[#333231]/70 p-2 transition-colors hover:bg-[#333231]/70 md:hidden"
+            aria-label="Toggle menu"
+          >
+            {isOpen ? <X size={22} /> : <Menu size={22} />}
+          </button>
 
-        {/* Center - Logo */}
-        <Link
-          href={'/'}
-          className="flex items-center justify-center transition-transform hover:scale-105 md:justify-start"
-          onClick={() => setIsOpen(false)}
-        >
-          <Image
-            src="/assets/svg/hallia-orange-logo.svg"
-            width={40}
-            height={40}
-            alt="HALL-IA Logo"
-            className="drop-shadow-md"
-            style={{ height: 'auto' }}
-          />
-          <Image
-            src="/assets/svg/hallia-letter-navbar-logo.svg"
-            width={120}
-            height={24}
-            alt="HALL-IA"
-            className="opacity-90"
-            style={{ height: 'auto' }}
-          />
-        </Link>
+          {/* Center - Logo */}
+          <Link
+            href={'/'}
+            className="flex items-center justify-center transition-transform hover:scale-105 md:justify-start"
+            onClick={() => setIsOpen(false)}
+          >
+            <Image
+              src="/assets/svg/hallia-orange-logo.svg"
+              width={40}
+              height={40}
+              alt="HALL-IA Logo"
+              className="drop-shadow-md"
+              style={{ height: 'auto' }}
+            />
+            <Image
+              src="/assets/svg/hallia-letter-navbar-logo.svg"
+              width={120}
+              height={24}
+              alt="HALL-IA"
+              className="opacity-90"
+              style={{ height: 'auto' }}
+            />
+          </Link>
 
-        {/* Desktop Navigation */}
-        <div className="hidden justify-center md:flex">
-          <ul className="flex gap-2">
-            <li>
-              <ButtonLink href="/#etapes" text="Étapes" onClick={() => setIsOpen(false)} />
-            </li>
-          
-            <li>
-              <ButtonLink href="/#avantages" text="Avantages" onClick={() => setIsOpen(false)} />
-            </li>
+          {/* Desktop Navigation */}
+          <div className="hidden justify-center md:flex">
+            <ul className="flex gap-2">
+              <li>
+                <ButtonLink href="/#etapes" text="Étapes" onClick={() => setIsOpen(false)} />
+              </li>
 
-            <li>
-              <ButtonLink href="/#prix" text="Prix" onClick={() => setIsOpen(false)} />
-            </li>
-          </ul>
+              <li>
+                <ButtonLink href="/#avantages" text="Avantages" onClick={() => setIsOpen(false)} />
+              </li>
+
+              <li>
+                <ButtonLink href="/#prix" text="Prix" onClick={() => setIsOpen(false)} />
+              </li>
+            </ul>
+          </div>
+
+          {/* Right - User menu or Login button */}
+          <div className="flex items-center justify-end">
+            {user ? (
+              <div
+                className="relative"
+                onMouseEnter={() => setIsUserMenuOpen(true)}
+                onMouseLeave={() => setIsUserMenuOpen(false)}
+              >
+                {/* Avatar avec initiale */}
+                <button
+                  className="flex h-10 w-10 cursor-pointer items-center justify-center rounded-full bg-gradient-to-br from-[#F35F4F] to-[#FFAD5A] text-base font-semibold text-white transition-all hover:scale-110 hover:shadow-lg"
+                  aria-label="Menu utilisateur"
+                >
+                  {getInitial()}
+                </button>
+
+                {/* Menu dropdown */}
+                <div
+                  className={cn(
+                    'absolute top-12 right-0 max-w-xs min-w-48 overflow-hidden rounded-lg bg-white shadow-xl transition-all duration-200',
+                    isUserMenuOpen
+                      ? 'visible translate-y-0 opacity-100'
+                      : 'invisible -translate-y-2 opacity-0',
+                  )}
+                >
+                  <div className="py-2">
+                    <div className="border-b border-gray-100 px-4 py-2 text-sm break-words text-gray-500">
+                      {user.email}
+                    </div>
+                    <Link
+                      href="/dashboard"
+                      className="flex cursor-pointer items-center gap-2 px-4 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-50"
+                      onClick={() => setIsUserMenuOpen(false)}
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <rect x="3" y="3" width="7" height="7" />
+                        <rect x="14" y="3" width="7" height="7" />
+                        <rect x="14" y="14" width="7" height="7" />
+                        <rect x="3" y="14" width="7" height="7" />
+                      </svg>
+                      Dashboard
+                    </Link>
+                    <button
+                      onClick={handleLogout}
+                      className="flex w-full cursor-pointer items-center gap-2 px-4 py-2 text-sm text-red-600 transition-colors hover:bg-red-50"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="16"
+                        height="16"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                        <polyline points="16 17 21 12 16 7" />
+                        <line x1="21" y1="12" x2="9" y2="12" />
+                      </svg>
+                      Se déconnecter
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={() => setIsLoginModalOpen(true)}
+                className="w-fit cursor-pointer rounded-full bg-white/10 px-4 py-1.5 text-sm font-medium text-nowrap transition-colors hover:bg-white hover:text-gray-600 md:text-base"
+              >
+                Se connecter
+              </button>
+            )}
+          </div>
         </div>
 
-        {/* Right - User menu or Login button */}
-        <div className="flex items-center justify-end">
-          {user ? (
-            <div 
-              className="relative"
-              onMouseEnter={() => setIsUserMenuOpen(true)}
-              onMouseLeave={() => setIsUserMenuOpen(false)}
-            >
-              {/* Avatar avec initiale */}
-              <button
-                className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-[#F35F4F] to-[#FFAD5A] text-white font-semibold text-base transition-all hover:scale-110 hover:shadow-lg"
-                aria-label="Menu utilisateur"
+        {/* Dropdown menu */}
+        <div
+          className={cn(
+            'overflow-hidden transition-all duration-300',
+            isOpen ? 'mt-4 max-h-[800px] opacity-100 lg:mt-0 lg:max-h-0' : 'max-h-0 opacity-0',
+          )}
+        >
+          <div className="grid gap-4 divide-[#656462] max-md:divide-y-1 md:grid-cols-1 md:gap-8">
+            {/* Section - Étapes */}
+            <div className="space-y-3 px-3 pb-4 md:hidden">
+              <h3 className="text-sm font-semibold tracking-wide text-gray-300 uppercase">
+                Étapes
+              </h3>
+              <Link
+                href="/#etapes"
+                className="group flex items-center gap-3"
+                onClick={() => setIsOpen(false)}
               >
-                {getInitial()}
-              </button>
+                <p className="font-semibold transition-colors group-hover:text-orange-400">
+                  Étapes <span className="font-normal text-white">– Comment ça marche</span>
+                </p>
+              </Link>
+            </div>
 
-              {/* Menu dropdown */}
-              <div
-                className={cn(
-                  'absolute right-0 top-12 min-w-48 max-w-xs rounded-lg bg-white shadow-xl transition-all duration-200 overflow-hidden',
-                  isUserMenuOpen ? 'opacity-100 translate-y-0 visible' : 'opacity-0 -translate-y-2 invisible'
-                )}
+            {/* Section - Avantages */}
+            <div className="space-y-3 px-3 pb-4 md:hidden">
+              <h3 className="text-sm font-semibold tracking-wide text-gray-300 uppercase">
+                Avantages
+              </h3>
+              <Link
+                href="/#avantages"
+                className="group flex items-center gap-3"
+                onClick={() => setIsOpen(false)}
               >
-                <div className="py-2">
-                  <div className="px-4 py-2 text-sm text-gray-500 border-b border-gray-100 break-words">
+                <p className="font-semibold transition-colors group-hover:text-orange-400">
+                  Avantages <span className="font-normal text-white">– Pourquoi nous choisir</span>
+                </p>
+              </Link>
+            </div>
+
+            {/* Section - Prix */}
+            <div className="space-y-3 px-3 pb-3 md:hidden">
+              <h3 className="text-sm font-semibold tracking-wide text-gray-300 uppercase">Prix</h3>
+              <Link
+                href="/#prix"
+                className="group flex items-center gap-3"
+                onClick={() => setIsOpen(false)}
+              >
+                <p className="font-semibold transition-colors group-hover:text-orange-400">
+                  Prix <span className="font-normal text-white">– Nos offres</span>
+                </p>
+              </Link>
+            </div>
+
+            {/* Section - Connexion/Déconnexion (mobile) */}
+            <div className="space-y-3 border-t border-[#656462] px-3 pt-4 pb-4 md:hidden">
+              {user ? (
+                <>
+                  <div className="border-b border-[#656462] px-4 py-2 text-sm text-gray-300">
                     {user.email}
                   </div>
                   <Link
                     href="/dashboard"
-                    className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
-                    onClick={() => setIsUserMenuOpen(false)}
+                    onClick={() => setIsOpen(false)}
+                    className="flex w-full items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-white/10"
                   >
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
-                      width="16"
-                      height="16"
+                      width="18"
+                      height="18"
                       viewBox="0 0 24 24"
                       fill="none"
                       stroke="currentColor"
@@ -247,16 +368,16 @@ export default function NavBar() {
                       <rect x="14" y="14" width="7" height="7" />
                       <rect x="3" y="14" width="7" height="7" />
                     </svg>
-                    Dashboard
+                    Tableau de bord
                   </Link>
                   <button
                     onClick={handleLogout}
-                    className="flex w-full items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                    className="flex w-full items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-medium text-red-400 transition-colors hover:bg-red-500/10"
                   >
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
-                      width="16"
-                      height="16"
+                      width="18"
+                      height="18"
                       viewBox="0 0 24 24"
                       fill="none"
                       stroke="currentColor"
@@ -270,145 +391,25 @@ export default function NavBar() {
                     </svg>
                     Se déconnecter
                   </button>
-                </div>
-              </div>
-            </div>
-          ) : (
-            <button
-              onClick={() => setIsLoginModalOpen(true)}
-              className="w-fit rounded-full bg-white/10 px-4 py-1.5 text-sm font-medium text-nowrap transition-colors hover:bg-white hover:text-gray-600 md:text-base"
-            >
-              Se connecter
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Dropdown menu */}
-      <div
-        className={cn(
-          'overflow-hidden transition-all duration-300',
-          isOpen ? 'mt-4 max-h-[800px] opacity-100 lg:mt-0 lg:max-h-0' : 'max-h-0 opacity-0',
-        )}
-      >
-        <div className="grid gap-4 divide-[#656462] max-md:divide-y-1 md:grid-cols-1 md:gap-8">
-          {/* Section - Étapes */}
-          <div className="space-y-3 px-3 pb-4 md:hidden">
-            <h3 className="text-sm font-semibold tracking-wide text-gray-300 uppercase">Étapes</h3>
-            <Link
-              href="/#etapes"
-              className="group flex items-center gap-3"
-              onClick={() => setIsOpen(false)}
-            >
-              <p className="font-semibold transition-colors group-hover:text-orange-400">
-                Étapes{' '}
-                <span className="font-normal text-white">– Comment ça marche</span>
-              </p>
-            </Link>
-          </div>
-
-          {/* Section - Avantages */}
-          <div className="space-y-3 px-3 pb-4 md:hidden">
-            <h3 className="text-sm font-semibold tracking-wide text-gray-300 uppercase">Avantages</h3>
-            <Link
-              href="/#avantages"
-              className="group flex items-center gap-3"
-              onClick={() => setIsOpen(false)}
-            >
-              <p className="font-semibold transition-colors group-hover:text-orange-400">
-                Avantages{' '}
-                <span className="font-normal text-white">– Pourquoi nous choisir</span>
-              </p>
-            </Link>
-          </div>
-
-          {/* Section - Prix */}
-          <div className="space-y-3 px-3 pb-3 md:hidden">
-            <h3 className="text-sm font-semibold tracking-wide text-gray-300 uppercase">
-              Prix
-            </h3>
-            <Link
-              href="/#prix"
-              className="group flex items-center gap-3"
-              onClick={() => setIsOpen(false)}
-            >
-              <p className="font-semibold transition-colors group-hover:text-orange-400">
-                Prix{' '}
-                <span className="font-normal text-white">– Nos offres</span>
-              </p>
-            </Link>
-          </div>
-
-          {/* Section - Connexion/Déconnexion (mobile) */}
-          <div className="space-y-3 px-3 pb-4 md:hidden border-t border-[#656462] pt-4">
-            {user ? (
-              <>
-                <div className="px-4 py-2 text-sm text-gray-300 border-b border-[#656462]">
-                  {user.email}
-                </div>
-                <Link
-                  href="/dashboard"
-                  onClick={() => setIsOpen(false)}
-                  className="flex items-center gap-3 w-full rounded-lg px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-white/10"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="18"
-                    height="18"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <rect x="3" y="3" width="7" height="7" />
-                    <rect x="14" y="3" width="7" height="7" />
-                    <rect x="14" y="14" width="7" height="7" />
-                    <rect x="3" y="14" width="7" height="7" />
-                  </svg>
-                  Tableau de bord 
-                </Link>
+                </>
+              ) : (
                 <button
-                  onClick={handleLogout}
-                  className="flex items-center gap-3 w-full rounded-lg px-4 py-2.5 text-sm font-medium text-red-400 transition-colors hover:bg-red-500/10"
+                  onClick={() => {
+                    setIsOpen(false);
+                    setIsLoginModalOpen(true);
+                  }}
+                  className="w-full rounded-full bg-gradient-to-br from-[#F35F4F] to-[#FFAD5A] px-4 py-2.5 text-sm font-medium text-white transition-all hover:scale-105"
                 >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="18"
-                    height="18"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                    <polyline points="16 17 21 12 16 7" />
-                    <line x1="21" y1="12" x2="9" y2="12" />
-                  </svg>
-                  Se déconnecter
+                  Se connecter
                 </button>
-              </>
-            ) : (
-              <button
-                onClick={() => {
-                  setIsOpen(false);
-                  setIsLoginModalOpen(true);
-                }}
-                className="w-full rounded-full bg-gradient-to-br from-[#F35F4F] to-[#FFAD5A] px-4 py-2.5 text-sm font-medium text-white transition-all hover:scale-105"
-              >
-                Se connecter
-              </button>
-            )}
+              )}
+            </div>
           </div>
         </div>
-      </div>
-    </nav>
+      </nav>
 
-    {/* Modal de connexion - rendu en dehors de la nav */}
-    <LoginModal isOpen={isLoginModalOpen} onClose={() => setIsLoginModalOpen(false)} />
+      {/* Modal de connexion - rendu en dehors de la nav */}
+      <LoginModal isOpen={isLoginModalOpen} onClose={() => setIsLoginModalOpen(false)} />
     </>
   );
 }
