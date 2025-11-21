@@ -81,7 +81,7 @@ export default function AnimatedCards() {
         />
 
         {/* Enveloppes avec catégories */}
-        <div className="absolute top-8 right-0 left-0 px-4">
+        <div className="absolute top-8 right-0 left-0 ps-4">
           <div className="absolute top-14 right-40 left-0 h-0.5 -translate-y-1/2 bg-white/30" />
           <div className="relative flex items-center justify-between">
             {/* Groupe d'enveloppes à gauche */}
@@ -108,21 +108,21 @@ export default function AnimatedCards() {
             </div>
 
             {/* Badges à droite */}
-            <div className="flex flex-col gap-4">
+            <div className="flex w-full flex-col gap-3.5 justify-end ml-[52px]">
               {/* Badge Traité */}
-              <div className="flex items-center gap-1.5 rounded-md bg-green-500 px-3 py-1.5 text-xs font-semibold whitespace-nowrap text-white shadow-md">
+              <div className="flex items-center gap-1.5 rounded-l-md bg-green-500 px-3 py-1.5 text-xs font-semibold whitespace-nowrap text-white shadow-md">
                 <CheckCircle className="h-3.5 w-3.5" strokeWidth={2.5} />
                 <span>Traité</span>
               </div>
 
               {/* Badge Info */}
-              <div className="flex items-center gap-1.5 rounded-md bg-blue-500 px-3 py-1.5 text-xs font-semibold whitespace-nowrap text-white shadow-md">
+              <div className="flex items-center gap-1.5 rounded-l-md bg-blue-500 px-3 py-1.5 text-xs font-semibold whitespace-nowrap text-white shadow-md">
                 <Info className="h-3.5 w-3.5" strokeWidth={2.5} />
                 <span>Info</span>
               </div>
 
               {/* Badge Pub */}
-              <div className="flex items-center gap-1.5 rounded-md bg-red-500 px-3 py-1.5 text-xs font-semibold whitespace-nowrap text-white shadow-md">
+              <div className="flex items-center gap-1.5 rounded-l-md bg-red-500 px-3 py-1.5 text-xs font-semibold whitespace-nowrap text-white shadow-md">
                 <X className="h-3.5 w-3.5" strokeWidth={2.5} />
                 <span>Pub</span>
               </div>
@@ -135,7 +135,7 @@ export default function AnimatedCards() {
             >
               {/* Ligne vers Traité */}
               <line
-                x1="25%"
+                x1="40%"
                 y1="50%"
                 x2="70%"
                 y2="25%"
@@ -145,7 +145,7 @@ export default function AnimatedCards() {
               />
               {/* Ligne vers Info */}
               <line
-                x1="25%"
+                x1="40%"
                 y1="50%"
                 x2="70%"
                 y2="50%"
@@ -155,7 +155,7 @@ export default function AnimatedCards() {
               />
               {/* Ligne vers Pub */}
               <line
-                x1="25%"
+                x1="40%"
                 y1="50%"
                 x2="70%"
                 y2="75%"
@@ -265,7 +265,7 @@ export default function AnimatedCards() {
         />
 
         {/* Champ Brouillons et Crayon */}
-        <div className="absolute top-8 left-1/2 flex -translate-x-1/2 items-center gap-3">
+        <div className="absolute top-15 left-1/2 flex -translate-x-1/2 items-center gap-3">
           {/* Champ Brouillons */}
           <div className="rounded-lg bg-white px-8 py-3 shadow-lg">
             <span className="text-lg font-semibold text-gray-800">Brouillons</span>

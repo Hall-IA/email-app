@@ -294,7 +294,7 @@ export function SetupEmailModal({ userId, onComplete }: SetupEmailModalProps) {
                             </div>
                             <h2 className="text-3xl font-bold font-thunder text-gray-900">Configuration Email</h2>
                             <p className="text-gray-600 text-sm mt-1">Configurez votre premier compte email pour commencer</p>
-                            <p className="text-orange-600 text-xs font-semibold mt-2">Étape obligatoire</p>
+                            <p className="text-orange-600 text-xs font-semibold mt-2 font-roboto">Étape obligatoire</p>
                         </div>
                     </div>
 

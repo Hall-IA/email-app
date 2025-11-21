@@ -95,20 +95,28 @@ export default function Hero() {
               Démarrez maintenant
             </button>
           </form>
-          <div className="flex items-center gap-6">
-            <p className="flex justify-center font-bold">Excellent</p>
-            <div className="flex justify-center gap-4">
-              {Array.from({ length: 5 }).map((_, index) => {
-                return (
-                  <div className="bg-[#219653] p-1.5" key={index}>
-                    <Image src={'/assets/svg/star.svg'} width={19.6} height={18.55} alt="" />
-                  </div>
-                );
-              })}
+          <div className="font-roboto flex flex-col items-center gap-6 sm:flex-row">
+            <div className="flex items-center gap-6">
+              <p className="font-bold">Excellent</p>
+              <div className="flex justify-center gap-2">
+                {Array.from({ length: 5 }).map((_, index) => {
+                  return (
+                    <div className="bg-[#219653] p-1.5" key={index}>
+                      <Image src={'/assets/svg/star.svg'} width={19.6} height={18.55} alt="" />
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-            <p className="text-center">
-              Basé sur <span className="font-semibold underline">456 avis</span>
-            </p>
+            <div className="flex items-center gap-6">
+              <p className="text-center">
+                Basé sur <span className="font-semibold underline">456 avis</span>
+              </p>
+              <div className="flex gap-1.5 items-center">
+                <Image src={'/assets/svg/Shape.svg'} width={30} height={30} alt='' />
+                <p className="font-bold text-xl">Trustpilot</p>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -183,7 +191,7 @@ export default function Hero() {
         </div>
       </section>
 
-      <section className="md:my-20 flex w-full justify-center px-6">
+      <section className="flex w-full justify-center px-6 md:my-20">
         <AnimatedCards />
       </section>
 

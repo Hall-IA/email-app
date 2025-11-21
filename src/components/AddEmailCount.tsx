@@ -15,7 +15,7 @@ export default function AddEmailCount({ onComplete, onClose }: AddEmailCountProp
     const { user } = useAuth();
     const { showToast, ToastComponent } = useToast();
     const [loading, setLoading] = useState(false);
-    const [additionalEmails, setAdditionalEmails] = useState(0);
+    const [additionalEmails, setAdditionalEmails] = useState(1);
     const [additionalPrice, setAdditionalPrice] = useState(39);
     const [isVisible, setIsVisible] = useState(true);
 
@@ -251,7 +251,7 @@ export default function AddEmailCount({ onComplete, onClose }: AddEmailCountProp
                                 type="button"
                                 onClick={handleContinue}
                                 disabled={loading}
-                                className="flex-1 max-w-[200px] mx-auto flex items-center justify-center gap-2 bg-gradient-to-br from-[#F35F4F] to-[#FFAD5A] px-6 py-2.5 font-semibold text-white rounded-lg shadow-lg transition-all duration-300 ease-out hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed font-inter text-sm"
+                                className="flex-1 max-w-[200px] flex items-center justify-center gap-2 bg-gradient-to-br from-[#F35F4F] to-[#FFAD5A] px-6 py-2.5 font-semibold text-white rounded-lg shadow-lg transition-all duration-300 ease-out hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed font-inter text-sm"
                             >
                                 {loading ? 'Redirection...' : 'Continuer'}
                             </button>

@@ -281,7 +281,8 @@ export function CheckoutModal({
         if (isUpgrade) {
             return (additionalEmails + 1) * additionalPrice;
         }
-        return basePrice + (additionalEmails * additionalPrice);
+        // Pour le premier abonnement, on paie uniquement le basePrice
+        return basePrice;
     };
 
     const incrementEmails = () => {
@@ -314,27 +315,6 @@ export function CheckoutModal({
         setLoading(true);
         
         try {
-            let finalAdditionalEmails = additionalEmails;
-            if (!isUpgrade && typeof window !== 'undefined') {
-                const saved = localStorage.getItem('business_pass_email_counter');
-                console.log('[CheckoutModal] handleCheckout - Compteur depuis localStorage:', saved);
-                if (saved) {
-                    const count = parseInt(saved, 10) || 0;
-                    console.log('[CheckoutModal] handleCheckout - Compteur parsé:', count);
-                    finalAdditionalEmails = count;
-                    setAdditionalEmails(count);
-                } else {
-                    console.log('[CheckoutModal] handleCheckout - Aucun compteur trouvé, utilisation de additionalEmails:', additionalEmails);
-                }
-            }
-            
-            console.log('[CheckoutModal] handleCheckout - Valeur finale utilisée:', {
-                isUpgrade,
-                additionalEmails,
-                finalAdditionalEmails,
-                fromLocalStorage: !isUpgrade && typeof window !== 'undefined' ? localStorage.getItem('business_pass_email_counter') : null
-            });
-            
             const { data: { session } } = await supabase.auth.getSession();
             
             if (!session) {
@@ -353,17 +333,11 @@ export function CheckoutModal({
                     cancel_url: `${window.location.origin}/settings?upgraded=cancelled`,
                 };
             } else {
+                // Pour le premier abonnement, on paie uniquement le plan de base (pas de compteur)
                 const basePlanPriceId = process.env.NEXT_PUBLIC_STRIPE_BASE_PLAN_PRICE_ID;
-                const additionalAccountPriceId = process.env.NEXT_PUBLIC_STRIPE_ADDITIONAL_ACCOUNT_PRICE_ID;
                 
                 if (!basePlanPriceId) {
                     showToast('Configuration Stripe manquante - Plan de base', 'error');
-                    setLoading(false);
-                    return;
-                }
-                
-                if (!additionalAccountPriceId) {
-                    showToast('Configuration Stripe incomplète - Prix additionnel manquant', 'error');
                     setLoading(false);
                     return;
                 }
@@ -371,20 +345,19 @@ export function CheckoutModal({
                 endpoint = 'stripe-checkout';
                 body = {
                     price_id: basePlanPriceId,
-                    additional_account_price_id: additionalAccountPriceId,
-                    additional_accounts: finalAdditionalEmails,
+                    additional_account_price_id: null,
+                    additional_accounts: 0,
                     success_url: `${window.location.origin}/dashboard?payment=success`,
                     cancel_url: `${window.location.origin}/dashboard?payment=cancelled`,
                     mode: 'subscription',
                 };
                 
-                console.log('[CheckoutModal] handleCheckout - Body envoyé à Stripe:', body);
+                console.log('[CheckoutModal] handleCheckout - Body envoyé à Stripe (premier abonnement uniquement):', body);
             }
             
             console.log('[CheckoutModal] Envoi à Stripe:', {
                 endpoint,
-                body,
-                finalAdditionalEmails: !isUpgrade ? finalAdditionalEmails : undefined
+                body
             });
 
             const response = await fetch(
@@ -665,20 +638,22 @@ export function CheckoutModal({
                                 </p>
                             </div>*/}
 
-                                <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
-                                    <div className="flex items-center justify-between">
-                                        <div>
-                                            <p className="text-sm font-medium text-gray-700 font-inter">
-                                                {isUpgrade ? 'Compte additionnel' : 'Total de votre abonnement'}
-                                            </p>
-                                            <p className="text-xs text-gray-600 mt-1 font-inter">Facturé mensuellement</p>
-                                        </div>
-                                        <div className="text-right">
-                                            <p className="text-2xl font-bold text-orange-600">{totalPrice}€</p>
-                                            <p className="text-xs text-gray-600 font-inter">HT/mois</p>
+                                {!isUpgrade && (
+                                    <div className="bg-orange-50 border border-orange-200 rounded-lg p-4">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <p className="text-sm font-medium text-gray-700 font-inter">
+                                                    Montant total
+                                                </p>
+                                                <p className="text-xs text-gray-600 mt-1 font-inter">Facturé mensuellement</p>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="text-2xl font-bold text-orange-600">{basePrice}€</p>
+                                                <p className="text-xs text-gray-600 font-inter">HT/mois</p>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
+                                )}
 
                                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
                                     <p className="text-sm font-medium text-blue-900 text-center font-inter">

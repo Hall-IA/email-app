@@ -32,7 +32,7 @@ export default function AppNavbar() {
         <div className="flex items-center justify-between">
           <span className="flex items-center gap-2">
             <Image src={'/logo/logo-navbar.png'} alt="Logo" width={35} height={35} />
-            <h1 className="font-thunder text-2xl font-semibold text-black">HALL MAIL</h1>
+            <h1 className="font-thunder text-3xl font-semibold text-black -mb-4">HALL MAIL</h1>
           </span>
           {/* Email et bouton déconnexion */}
           {user && (

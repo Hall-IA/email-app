@@ -4,14 +4,18 @@ import Image from 'next/image';
 import CustomButton from '../../CustomButton';
 import CardPack from '../../CardPack';
 import { useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { LoginModal } from '../../LoginModal';
 import { BadgeCheck, HelpCircle, XCircle } from 'lucide-react';
 
 export default function AppPack() {
+  const searchParams = useSearchParams();
+  const showFreeTrial = searchParams.get('promo') === 'true';
+  
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
-
+  
   const handleStartClick = (planType: string) => {
     setSelectedPlan(planType);
     localStorage.setItem('selected_plan', planType);
@@ -39,62 +43,65 @@ export default function AppPack() {
       </h2>
 
       <section className="flex w-full max-w-7xl flex-col justify-center gap-8 lg:flex-row">
-        <div
-          className="flex w-full flex-col justify-between rounded-2xl lg:w-96"
-          style={{
-            background: `conic-gradient(
-                    from 195.77deg at 84.44% -1.66%,
-                    #FE9736 0deg,
-                    #F4664C 76.15deg,
-                    #F97E41 197.31deg,
-                    #E3AB8D 245.77deg,
-                    #FE9736 360deg
-                )`,
-          }}
-        >
-          <div className="space-y-5 px-10 pt-30 pb-10">
-            <h3 className="font-thunder mb-5 text-5xl font-semibold text-white">Essai Gratuit</h3>
-            <p className="font-roboto text-white">
-              Testez notre solution gratuitement, c’est{' '}
-              <span
-                className="cursor-pointer underline underline-offset-2 hover:font-medium"
-                onClick={() => setShowSubscriptionModal(true)}
-              >
-                sans engagement !
-              </span>
-            </p>
-            <ul className="space-y-4 text-white">
-              <li className="flex gap-2">
-                <BadgeCheck className="shrink-0" />
-                <span>
-                  <p className="font-semibold">1 compte email</p>
-                  <p className="text-sm font-normal">
-                    Accès à l'ensemble des fonctionnalités de la solution Business
-                  </p>
+        {/* Essai Gratuit */}
+        {showFreeTrial && (
+          <div
+            className="flex w-full flex-col justify-between rounded-2xl lg:w-96"
+            style={{
+              background: `conic-gradient(
+                  from 195.77deg at 84.44% -1.66%,
+                  #FE9736 0deg,
+                  #F4664C 76.15deg,
+                  #F97E41 197.31deg,
+                  #E3AB8D 245.77deg,
+                  #FE9736 360deg
+              )`,
+            }}
+          >
+            <div className="space-y-5 px-10 pt-30 pb-10">
+              <h3 className="font-thunder mb-5 text-5xl font-semibold text-white">Essai Gratuit</h3>
+              <p className="font-roboto text-white">
+                Testez notre solution gratuitement, c'est{' '}
+                <span
+                  className="cursor-pointer underline underline-offset-2 hover:font-medium"
+                  onClick={() => setShowSubscriptionModal(true)}
+                >
+                  sans engagement !
                 </span>
-              </li>
-              <li className="flex gap-2">
-                <BadgeCheck className="shrink-0" />
-                <p className="font-semibold">Activez votre essai avec le code promo</p>
-              </li>
-            </ul>
-            <CustomButton
-              onClick={() => handleStartClick('free_trial')}
-              className="animate-fade-in-left-long w-full rounded-full! bg-white px-6 py-3 text-base font-medium text-orange-500! shadow-lg transition-colors hover:bg-white/20 hover:text-white! sm:w-auto sm:px-7 sm:py-3.5 sm:text-lg md:px-8 md:py-4 md:text-xl"
-            >
-              Commencer
-            </CustomButton>
+              </p>
+              <ul className="space-y-4 text-white">
+                <li className="flex gap-2">
+                  <BadgeCheck className="shrink-0" />
+                  <span>
+                    <p className="font-semibold">1 compte email</p>
+                    <p className="text-sm font-normal">
+                      Accès à l'ensemble des fonctionnalités de la solution Business
+                    </p>
+                  </span>
+                </li>
+                <li className="flex gap-2">
+                  <BadgeCheck className="shrink-0" />
+                  <p className="font-semibold">Activez votre essai avec le code promo</p>
+                </li>
+              </ul>
+              <CustomButton
+                onClick={() => handleStartClick('free_trial')}
+                className="animate-fade-in-left-long w-full rounded-full! bg-white px-6 py-3 text-base font-medium text-orange-500! shadow-lg transition-colors hover:bg-white/20 hover:text-white! sm:w-auto sm:px-7 sm:py-3.5 sm:text-lg md:px-8 md:py-4 md:text-xl"
+              >
+                Commencer
+              </CustomButton>
+            </div>
+            <div className="flex justify-end">
+              <Image
+                className="rounded-2xl"
+                width={600}
+                height={400}
+                src="/img/femme-pack.png"
+                alt=""
+              />
+            </div>
           </div>
-          <div className="flex justify-end">
-            <Image
-              className="w-fit rounded-2xl"
-              width={600}
-              height={400}
-              src="/img/femme-pack.png"
-              alt=""
-            />
-          </div>
-        </div>
+        )}
 
         <CardPack
           title="Business"
