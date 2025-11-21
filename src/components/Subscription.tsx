@@ -21,6 +21,7 @@ import { useAuth } from '../../context/AuthContext';
 import { motion, AnimatePresence } from 'motion/react';
 import { SetupEmailModal } from './SetupEmailModal';
 import { CheckoutModal } from './CheckoutModal';
+import { CheckoutAdditionalModal } from './CheckoutAdditionalModal';
 
 interface SubscriptionData {
   id: string;
@@ -96,6 +97,7 @@ export function Subscription() {
   const [showSetupEmailModal, setShowSetupEmailModal] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
+  const [showCheckoutAdditionalModal, setShowCheckoutAdditionalModal] = useState(false);
 
   const premierSubscription = subscriptions.find((sub) => sub.subscription_type === 'premier');
   const additionalAccountSubscriptions = subscriptions.filter(
@@ -1240,8 +1242,8 @@ export function Subscription() {
       return;
     }
 
-    // Ouvrir directement le modal de paiement pour ajouter un compte additionnel
-    setShowUpgradeModal(true);
+    // Ouvrir directement CheckoutAdditionalModal pour ajouter un compte additionnel
+    setShowCheckoutAdditionalModal(true);
   };
   const openReactivateModal = (subscriptionId: string, email: string, isPrimary: boolean) => {
     setSubscriptionToReactivate({ subscriptionId, email, isPrimary });
@@ -2043,32 +2045,17 @@ export function Subscription() {
       )}
 
       {/* Modal Checkout pour upgrade (ajouter un compte additionnel) */}
-      {showUpgradeModal && user && (
-        <CheckoutModal
-          userId={user.id}
-          isUpgrade={true}
-          onComplete={() => {
-            setShowUpgradeModal(false);
-            fetchEmailAccountsCount();
-            fetchSubscription();
-            fetchPaidAdditionalAccounts();
-          }}
-          onClose={() => setShowUpgradeModal(false)}
-        />
-      )}
+    
 
-      {/* Modal Checkout pour subscription (premier abonnement) */}
-      {showSubscriptionModal && user && (
-        <CheckoutModal
+   
+
+      {/* Modal CheckoutAdditionalModal pour ajouter des comptes additionnels */}
+      {showCheckoutAdditionalModal && user && (
+        <CheckoutAdditionalModal
           userId={user.id}
-          isUpgrade={false}
-          onComplete={() => {
-            setShowSubscriptionModal(false);
-            fetchEmailAccountsCount();
-            fetchSubscription();
-            fetchPaidAdditionalAccounts();
-          }}
-          onClose={() => setShowSubscriptionModal(false)}
+          onClose={() => setShowCheckoutAdditionalModal(false)}
+          currentAdditionalAccounts={additionalAccounts}
+          unlinkedSubscriptionsCount={Math.max(0, additionalAccounts - emailAccounts.length)}
         />
       )}
     </div>

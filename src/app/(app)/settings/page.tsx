@@ -53,6 +53,7 @@ export default function Settings() {
     const [companyInfoStep, setCompanyInfoStep] = useState(1);
     const [accountMissingInfo, setAccountMissingInfo] = useState<string>('');
     const [hasCheckedCompanyInfo, setHasCheckedCompanyInfo] = useState(false);
+    const [hasCheckedMissingInfo, setHasCheckedMissingInfo] = useState(false);
     const [showAddEmailCount, setShowAddEmailCount] = useState(false);
     const [showSuccessModal, setShowSuccessModal] = useState(false);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -309,22 +310,146 @@ export default function Settings() {
         fetchPaidEmailSlots(); // Charger les slots payés au démarrage
     }, [user]);
 
+    // Vérifier automatiquement les emails avec informations manquantes au chargement (une seule fois)
+    useEffect(() => {
+        if (!user || hasCheckedMissingInfo || showCompanyInfoModal) return;
+
+        const checkMissingCompanyInfo = async () => {
+            try {
+                // Attendre que les comptes soient chargés
+                if (accounts.length === 0) {
+                    // Réessayer après un délai si les comptes ne sont pas encore chargés
+                    setTimeout(() => {
+                        if (!hasCheckedMissingInfo && !showCompanyInfoModal) {
+                            checkMissingCompanyInfo();
+                        }
+                    }, 500);
+                    return;
+                }
+
+                const { data: allConfigs } = await supabase
+                    .from('email_configurations')
+                    .select('id, email, company_name, activity_description, services_offered, provider')
+                    .eq('user_id', user.id)
+                    .eq('is_connected', true);
+
+                if (!allConfigs || allConfigs.length === 0) {
+                    setHasCheckedMissingInfo(true);
+                    return;
+                }
+
+                // Trouver le premier email avec informations manquantes
+                const accountWithoutInfo = allConfigs.find(
+                    config => !config.company_name?.trim() || 
+                             !config.activity_description?.trim() || 
+                             !config.services_offered?.trim()
+                );
+
+                if (accountWithoutInfo) {
+                    // Déterminer l'étape manquante
+                    let missingStep = 1;
+                    if (accountWithoutInfo.company_name?.trim()) missingStep = 2;
+                    if (accountWithoutInfo.activity_description?.trim()) missingStep = 3;
+                    if (accountWithoutInfo.services_offered?.trim()) missingStep = 4;
+
+                    // Ouvrir CompanyInfoModal
+                    setAccountMissingInfo(accountWithoutInfo.email);
+                    setCompanyInfoStep(missingStep);
+                    setSelectedAccount({
+                        id: accountWithoutInfo.id,
+                        email: accountWithoutInfo.email,
+                        provider: accountWithoutInfo.provider || 'smtp_imap'
+                    } as EmailAccount);
+                    setShowCompanyInfoModal(true);
+                    setHasCheckedMissingInfo(true);
+                } else {
+                    setHasCheckedMissingInfo(true);
+                }
+            } catch (error) {
+                console.error('Error checking missing company info:', error);
+                setHasCheckedMissingInfo(true);
+            }
+        };
+
+        // Vérifier après un court délai pour laisser le temps aux données de se charger
+        const timeout = setTimeout(() => {
+            checkMissingCompanyInfo();
+        }, 1500);
+
+        return () => clearTimeout(timeout);
+    }, [user, accounts.length]);
+
+    // Écouter le paramètre URL et l'événement personnalisé (une seule fois)
+    useEffect(() => {
+        if (!user || showCompanyInfoModal) return;
+
+        const companyInfoParam = searchParams.get('companyInfo');
+        if (companyInfoParam === 'required') {
+            // Nettoyer l'URL
+            router.replace('/settings');
+            // Réinitialiser le flag pour permettre la vérification
+            setHasCheckedMissingInfo(false);
+        }
+
+        // Écouter l'événement personnalisé
+        const handleOpenCompanyInfoModal = async () => {
+            if (!user || showCompanyInfoModal) return;
+            
+            const { data: allConfigs } = await supabase
+                .from('email_configurations')
+                .select('id, email, company_name, activity_description, services_offered, provider')
+                .eq('user_id', user.id)
+                .eq('is_connected', true);
+
+            if (allConfigs && allConfigs.length > 0) {
+                const accountWithoutInfo = allConfigs.find(
+                    config => !config.company_name?.trim() || 
+                             !config.activity_description?.trim() || 
+                             !config.services_offered?.trim()
+                );
+
+                if (accountWithoutInfo) {
+                    let missingStep = 1;
+                    if (accountWithoutInfo.company_name?.trim()) missingStep = 2;
+                    if (accountWithoutInfo.activity_description?.trim()) missingStep = 3;
+                    if (accountWithoutInfo.services_offered?.trim()) missingStep = 4;
+
+                    setAccountMissingInfo(accountWithoutInfo.email);
+                    setCompanyInfoStep(missingStep);
+                    setSelectedAccount({
+                        id: accountWithoutInfo.id,
+                        email: accountWithoutInfo.email,
+                        provider: accountWithoutInfo.provider || 'smtp_imap'
+                    } as EmailAccount);
+                    setShowCompanyInfoModal(true);
+                }
+            }
+        };
+
+        window.addEventListener('openCompanyInfoModal', handleOpenCompanyInfoModal);
+        return () => {
+            window.removeEventListener('openCompanyInfoModal', handleOpenCompanyInfoModal);
+        };
+    }, [user, searchParams, router]);
+
 
     useEffect(() => {
         if (selectedAccount) {
-            // Réinitialiser le flag quand on change de compte
-            setHasCheckedCompanyInfo(false);
-            // Ne pas afficher la modal immédiatement - attendre que les données soient chargées
-            setShowCompanyInfoModal(false);
-            // Charger les données d'abord, puis vérifier
-            const loadAndCheck = async () => {
-                await loadCompanyData();
-                await loadCurrentConfig();
-                // Attendre que le state soit mis à jour
-                await new Promise(resolve => setTimeout(resolve, 200));
-                checkCompanyInfoForAccount();
-            };
-            loadAndCheck();
+            // Ne pas fermer la modal si elle est déjà ouverte pour ce compte
+            // Seulement vérifier si on n'est pas déjà en train d'afficher la modal
+            if (!showCompanyInfoModal) {
+                // Réinitialiser le flag quand on change de compte
+                setHasCheckedCompanyInfo(false);
+                // Charger les données d'abord, puis vérifier
+                const loadAndCheck = async () => {
+                    await loadCompanyData();
+                    await loadCurrentConfig();
+                    // Attendre que le state soit mis à jour
+                    await new Promise(resolve => setTimeout(resolve, 200));
+                    checkCompanyInfoForAccount();
+                };
+                loadAndCheck();
+            }
         } else if (selectedSlot && !selectedAccount) {
             // Pour les slots non configurés, réinitialiser les données (ne pas charger celles du compte principal)
             setCompanyFormData({
@@ -2480,6 +2605,7 @@ export default function Settings() {
                     onComplete={async () => {
                         setShowCompanyInfoModal(false);
                         setHasCheckedCompanyInfo(false);
+                        setHasCheckedMissingInfo(false);
                         setNotificationMessage('Informations mises à jour avec succès');
                         setShowNotification(true);
                         setTimeout(() => setShowNotification(false), 3000);
@@ -2488,6 +2614,7 @@ export default function Settings() {
                     onClose={() => {
                         setShowCompanyInfoModal(false);
                         setHasCheckedCompanyInfo(false);
+                        setHasCheckedMissingInfo(false);
                     }}
                     onShowAddEmailCount={() => {
                         setShowAddEmailCount(true);
@@ -3229,11 +3356,45 @@ export default function Settings() {
                 <AdditionalEmailModal
                     userId={user.id}
                     subscriptionId={selectedSlotForConfig.subscription_id ?? undefined}
-                    onComplete={async () => {
+                    onComplete={async (emailConfigId, email) => {
                         setShowSlotConfigModal(false);
                         setSelectedSlotForConfig(null);
                         setSelectedSlot(null);
                         await loadAccounts();
+                        
+                        // Si un email a été configuré, ouvrir CompanyInfoModal pour les informations manquantes
+                        if (emailConfigId && email) {
+                            // Vérifier si les informations sont complètes
+                            const { data: emailConfig } = await supabase
+                                .from('email_configurations')
+                                .select('company_name, activity_description, services_offered')
+                                .eq('id', emailConfigId)
+                                .maybeSingle();
+                            
+                            const hasMissingInfo = !emailConfig?.company_name?.trim() || 
+                                                   !emailConfig?.activity_description?.trim() || 
+                                                   !emailConfig?.services_offered?.trim();
+                            
+                            if (hasMissingInfo) {
+                                // Trouver l'étape manquante
+                                let missingStep = 1;
+                                if (emailConfig?.company_name?.trim()) missingStep = 2;
+                                if (emailConfig?.activity_description?.trim()) missingStep = 3;
+                                if (emailConfig?.services_offered?.trim()) missingStep = 4;
+                                
+                                // Ouvrir CompanyInfoModal pour compléter les informations
+                                setTimeout(() => {
+                                    setAccountMissingInfo(email);
+                                    setCompanyInfoStep(missingStep);
+                                    setSelectedAccount({ 
+                                        id: emailConfigId, 
+                                        email: email,
+                                        provider: 'smtp_imap' 
+                                    } as EmailAccount);
+                                    setShowCompanyInfoModal(true);
+                                }, 500);
+                            }
+                        }
                     }}
                     onClose={() => {
                         setShowSlotConfigModal(false);

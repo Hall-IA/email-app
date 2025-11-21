@@ -33,7 +33,7 @@ Deno.serve(async (req: Request) => {
     const googleClientId = Deno.env.get('GOOGLE_CLIENT_ID');
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
 
-    const state = btoa(JSON.stringify({ userId, redirectUrl }));
+    const state = btoa(JSON.stringify({ userId, redirectUrl, token }));
 
     const scopes = [
       // IMAP/SMTP XOAUTH2 requires the full mail scope
@@ -46,7 +46,7 @@ Deno.serve(async (req: Request) => {
 
     const authUrl = new URL('https://accounts.google.com/o/oauth2/v2/auth');
     authUrl.searchParams.set('client_id', googleClientId!);
-    authUrl.searchParams.set('redirect_uri', `${supabaseUrl}/functions/v1/gmail-oauth-callback`);
+    authUrl.searchParams.set('redirect_uri', `${redirectUrl}/gmail-callback`);
     authUrl.searchParams.set('response_type', 'code');
     authUrl.searchParams.set('scope', scopes);
     authUrl.searchParams.set('access_type', 'offline');

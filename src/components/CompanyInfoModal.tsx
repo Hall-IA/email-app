@@ -419,6 +419,7 @@ export function CompanyInfoModal({ userId, emailAccountId, email, initialStep = 
                 activity_description: activityDescription,
                 services_offered: signatureEmail, // Signature d'email
                 signature_image_base64: formData.signature_image_base64 || null,
+                is_active: true, // Activer le flux automatique de l'email
                 updated_at: new Date().toISOString(),
             };
 
@@ -507,7 +508,7 @@ export function CompanyInfoModal({ userId, emailAccountId, email, initialStep = 
                 return;
             }
 
-            // Récupérer l'ID de la configuration email pour l'activation
+            // Récupérer l'ID de la configuration email pour l'appel du webhook
             let finalConfigId = emailAccountId;
             if (!finalConfigId && email) {
                 const { data: configData } = await supabase
@@ -519,75 +520,80 @@ export function CompanyInfoModal({ userId, emailAccountId, email, initialStep = 
                 finalConfigId = configData?.id;
             }
 
-            // Activer le traitement automatique de l'email
-            if (finalConfigId && email) {
+            // Appeler le webhook N8N pour activer le flux automatique (si configuré)
+            if (finalConfigId) {
                 try {
-                    // Récupérer le webhook URL
-                    const { data: webhookData } = await supabase
-                        .from('webhook_settings')
-                        .select('n8n_webhook_url')
-                        .eq('user_id', userId)
-                        .maybeSingle();
-
-                    const webhookUrl = webhookData?.n8n_webhook_url;
-
-                    if (webhookUrl) {
-                        // Récupérer les informations complètes de l'email pour le webhook
-                        const { data: emailConfig } = await supabase
+                    // Récupérer l'email depuis la config si pas fourni
+                    let emailForWebhook = email;
+                    if (!emailForWebhook) {
+                        const { data: emailConfigData } = await supabase
                             .from('email_configurations')
-                            .select('email, password, imap_host, imap_port, provider, company_name, activity_description, services_offered')
+                            .select('email')
                             .eq('id', finalConfigId)
                             .maybeSingle();
-
-                        if (emailConfig) {
-                            // Préparer le payload pour le webhook N8N
-                            const payload = {
-                                user_id: userId,
-                                email: emailConfig.email,
-                                password: emailConfig.password || '',
-                                imap_host: emailConfig.imap_host || '',
-                                imap_port: emailConfig.imap_port || 993,
-                                company_name: emailConfig.company_name || companyName,
-                                activity_description: emailConfig.activity_description || activityDescription,
-                                services: emailConfig.services_offered || signatureEmail,
-                            };
-
-                            // Appeler le webhook N8N
-                            const response = await fetch(webhookUrl, {
-                                method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                },
-                                body: JSON.stringify(payload),
-                            });
-
-                            if (response.ok) {
-                                // Mettre à jour is_active à true
-                                await supabase
-                                    .from('email_configurations')
-                                    .update({
-                                        is_active: true,
-                                        updated_at: new Date().toISOString(),
-                                    })
-                                    .eq('id', finalConfigId);
-
-                                console.log('[CompanyInfoModal] Traitement automatique activé avec succès');
-                            } else {
-                                console.error('[CompanyInfoModal] Erreur lors de l\'appel du webhook:', response.statusText);
-                                // Ne pas bloquer si le webhook échoue, mais informer l'utilisateur
-                                showToast('Informations enregistrées, mais l\'activation du traitement automatique a échoué. Vous pouvez l\'activer manuellement dans les paramètres.', 'warning');
-                            }
-                        }
-                    } else {
-                        console.warn('[CompanyInfoModal] Webhook URL non configuré, activation du traitement automatique ignorée');
-                        // Ne pas bloquer si le webhook n'est pas configuré
+                        emailForWebhook = emailConfigData?.email;
                     }
-                } catch (activationError) {
-                    console.error('[CompanyInfoModal] Erreur lors de l\'activation du traitement automatique:', activationError);
-                    // Ne pas bloquer si l'activation échoue, mais informer l'utilisateur
-                    showToast('Informations enregistrées, mais l\'activation du traitement automatique a échoué. Vous pouvez l\'activer manuellement dans les paramètres.', 'warning');
+
+                    if (emailForWebhook) {
+                        const { data: webhookData } = await supabase
+                            .from('webhook_settings')
+                            .select('n8n_webhook_url')
+                            .eq('user_id', userId)
+                            .maybeSingle();
+
+                        const webhookUrl = webhookData?.n8n_webhook_url;
+
+                        if (webhookUrl) {
+                            try {
+                                // Récupérer les informations complètes de l'email pour le webhook
+                                const { data: emailConfig } = await supabase
+                                    .from('email_configurations')
+                                    .select('email, password, imap_host, imap_port, provider, company_name, activity_description, services_offered')
+                                    .eq('id', finalConfigId)
+                                    .maybeSingle();
+
+                                if (emailConfig) {
+                                    // Préparer le payload pour le webhook N8N
+                                    const payload = {
+                                        user_id: userId,
+                                        email: emailConfig.email,
+                                        password: emailConfig.password || '',
+                                        imap_host: emailConfig.imap_host || '',
+                                        imap_port: emailConfig.imap_port || 993,
+                                        company_name: emailConfig.company_name || companyName,
+                                        activity_description: emailConfig.activity_description || activityDescription,
+                                        services: emailConfig.services_offered || signatureEmail,
+                                    };
+
+                                    // Appeler le webhook N8N (non bloquant)
+                                    const response = await fetch(webhookUrl, {
+                                        method: 'POST',
+                                        headers: {
+                                            'Content-Type': 'application/json',
+                                        },
+                                        body: JSON.stringify(payload),
+                                    });
+
+                                    if (response.ok) {
+                                        console.log('[CompanyInfoModal] Webhook N8N appelé avec succès - Flux automatique activé');
+                                    } else {
+                                        console.warn('[CompanyInfoModal] Erreur lors de l\'appel du webhook (non bloquant):', response.statusText);
+                                    }
+                                }
+                            } catch (webhookError) {
+                                // Erreur webhook non bloquante
+                                console.warn('[CompanyInfoModal] Erreur lors de l\'appel du webhook (non bloquant):', webhookError);
+                            }
+                        } else {
+                            console.log('[CompanyInfoModal] Webhook URL non configuré, is_active activé mais webhook non appelé');
+                        }
+                    }
+                } catch (error) {
+                    console.error('[CompanyInfoModal] Erreur lors de l\'appel du webhook:', error);
                 }
             }
+
+            console.log('[CompanyInfoModal] Flux automatique activé (is_active = true)');
 
             showToast('Informations enregistrées avec succès !', 'success');
             
