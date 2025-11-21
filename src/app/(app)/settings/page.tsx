@@ -506,47 +506,7 @@ export default function Settings() {
                 signature_image_base64: '',
             });
             setAutoSort(false);
-            // Ne pas charger les données du compte principal
-            /* const loadPrimaryForSlot = async () => {
-                if (!user) return;
-                const primaryAccount = accounts.find(acc => acc.is_active !== false && acc.cancel_at_period_end !== true) || accounts[0];
-                if (primaryAccount) {
-                    // Charger les données du compte principal
-                    const { data: config } = await supabase
-                        .from('email_configurations')
-                        .select('company_name, activity_description, services_offered, is_classement, signature_image_base64')
-                        .eq('user_id', user.id)
-                        .eq('email', primaryAccount.email)
-                        .maybeSingle();
-
-                    if (config) {
-                        setCompanyFormData({
-                            company_name: config.company_name || '',
-                            activity_description: config.activity_description || '',
-                            services_proposed: '',
-                            services_offered: config.services_offered || '',
-                            signature_image_base64: config.signature_image_base64 || '',
-                        });
-                    }
-
-                    // Charger la config pour la base de connaissances
-                    const { data: knowledgeConfig } = await supabase
-                        .from('email_configurations')
-                        .select('id, email, knowledge_base_urls, knowledge_base_pdfs')
-                        .eq('user_id', user.id)
-                        .eq('email', primaryAccount.email)
-                        .maybeSingle();
-
-                    if (knowledgeConfig) {
-                        setCurrentConfig({
-                            id: knowledgeConfig.id,
-                            email: knowledgeConfig.email,
-                            knowledge_base_urls: knowledgeConfig.knowledge_base_urls,
-                            knowledge_base_pdfs: knowledgeConfig.knowledge_base_pdfs,
-                        });
-                    }
-                }
-            }; */
+          
       // Ne plus charger les données du compte principal pour les slots non configurés
       // Réinitialiser aussi la config de la base de connaissances
       setCurrentConfig(null);
@@ -583,73 +543,68 @@ export default function Settings() {
     if (upgraded === 'success' || payment === 'success') {
             // Nettoyer l'URL
       router.replace('/settings');
-            console.log('[Settings] Retour du paiement détecté, synchronisation en cours...');
       handleUpgradeReturn();
     }
   }, [searchParams]);
 
-    const handleUpgradeReturn = async () => {
-        console.log('[Settings] handleUpgradeReturn - Début de la synchronisation');
-        
-        // Forcer la synchronisation avec Stripe
-        try {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (session) {
-                console.log('[Settings] Appel de stripe-force-sync...');
-                const syncResponse = await fetch(
-                    `${process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, '')}/functions/v1/stripe-force-sync`,
-                    {
-                        method: 'POST',
-                        headers: {
-                            'Authorization': `Bearer ${session.access_token}`,
-                            'Content-Type': 'application/json',
-                        },
-                    }
-                );
-                
-                if (syncResponse.ok) {
-                    console.log('[Settings] stripe-force-sync réussi');
-                } else {
-                    console.error('[Settings] Erreur stripe-force-sync:', await syncResponse.text());
+  const handleUpgradeReturn = async () => {
+    // Forcer la synchronisation avec Stripe
+    try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+            const syncResponse = await fetch(
+                `${process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, '')}/functions/v1/stripe-force-sync`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${session.access_token}`,
+                        'Content-Type': 'application/json',
+                    },
                 }
+            );
+            
+            if (syncResponse.ok) {
+                // Attendre un peu pour que le webhook Stripe traite tout
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                
+                // Recharger la page complètement
+                window.location.reload();
+                return;
+            } else {
+                console.error('[Settings] Erreur stripe-force-sync:', await syncResponse.text());
             }
-        } catch (error) {
-            console.error('[Settings] Erreur lors de la synchronisation:', error);
         }
-        
-        // Attendre un peu pour que le webhook Stripe ait le temps de créer les slots
-        console.log('[Settings] Attente de 2 secondes pour que le webhook crée les slots...');
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
-        // Rafraîchir les données immédiatement
-        console.log('[Settings] Rechargement des données...');
+    } catch (error) {
+        console.error('[Settings] Erreur lors de la synchronisation:', error);
+    }
+    
+    // Fallback si la sync échoue : recharger quand même après polling
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    await fetchPaidEmailSlots();
+    await checkSubscription();
+    await loadAccounts();
+    
+    // Polling pendant 15 secondes
+    let pollCount = 0;
+    const maxPolls = 7;
+    
+    const pollInterval = setInterval(async () => {
+        pollCount++;
         await fetchPaidEmailSlots();
-        await checkSubscription();
         await loadAccounts();
         
-        // Polling pendant 15 secondes pour s'assurer que tous les slots sont créés
-        let pollCount = 0;
-        const maxPolls = 7; // 7 tentatives = 14 secondes
-        
-        const pollInterval = setInterval(async () => {
-            pollCount++;
-            console.log(`[Settings] Polling ${pollCount}/${maxPolls} - Rechargement des slots...`);
-            await fetchPaidEmailSlots();
-            await loadAccounts();
-            
-            if (pollCount >= maxPolls) {
-                clearInterval(pollInterval);
-                console.log('[Settings] Polling terminé');
-            }
-        }, 2000);
-        
-        // Nettoyer l'intervalle après 15 secondes au cas où
-        setTimeout(() => {
+        if (pollCount >= maxPolls) {
             clearInterval(pollInterval);
-            console.log('[Settings] Polling arrêté (timeout)');
-        }, 15000);
-    };
-
+            // Recharger la page après le polling
+            window.location.reload();
+        }
+    }, 2000);
+    
+    // Cleanup après 15 secondes
+    setTimeout(() => {
+        clearInterval(pollInterval);
+    }, 15000);
+};
   const checkSubscription = async () => {
     if (!user) return;
 
@@ -723,7 +678,7 @@ export default function Settings() {
     if (!user) return;
 
     try {
-            console.log('[Settings] ===== DÉBUT CALCUL EMAILS PAYÉS =====');
+        
       // Compter DIRECTEMENT depuis stripe_user_subscriptions (pas stripe_subscriptions)
       const { data: allSubs, error: subsError } = await supabase
         .from('stripe_user_subscriptions')
@@ -732,15 +687,8 @@ export default function Settings() {
         .in('status', ['active', 'trialing'])
         .is('deleted_at', null);
 
-            console.log('[Settings] Toutes les subscriptions récupérées:', {
-                total: allSubs?.length || 0,
-                subscriptions: allSubs?.map(s => ({
-                    subscription_id: s.subscription_id,
-                    type: s.subscription_type,
-                    status: s.status,
-                    isSlot: s.subscription_id?.includes('_slot_')
-                }))
-            });
+           
+        
       if (subsError) {
         // Si la table n'existe pas ou si les colonnes sont manquantes
         if (
@@ -749,7 +697,6 @@ export default function Settings() {
           subsError.message?.includes('does not exist') ||
           subsError.message?.includes('column')
         ) {
-          console.warn('[Settings] stripe_user_subscriptions table or columns not found:', subsError);
           setTotalPaidSlots(0);
           return;
         }
@@ -759,14 +706,12 @@ export default function Settings() {
       }
 
       if (!allSubs || allSubs.length === 0) {
-                console.log('[Settings] Aucune subscription trouvée');
         setTotalPaidSlots(0);
         return;
       }
 
             // Utiliser EXACTEMENT la même méthode que Subscription.tsx
             const premierCount = allSubs.filter(s => s.subscription_type === 'premier').length;
-            console.log('[Settings] Nombre de subscriptions premier:', premierCount);
             
             // Récupérer la quantité réelle depuis Stripe pour chaque subscription additionnelle
             const { data: { session } } = await supabase.auth.getSession();
@@ -776,13 +721,7 @@ export default function Settings() {
                 // Récupérer les quantités réelles depuis Stripe (comme dans Subscription.tsx)
             const additionalSubs = allSubs.filter(s => s.subscription_type === 'additional_account');
             
-                console.log('[Settings] Subscriptions additionnelles trouvées:', {
-                    count: additionalSubs.length,
-                    subscriptions: additionalSubs.map(s => ({
-                        subscription_id: s.subscription_id,
-                        isSlot: s.subscription_id?.includes('_slot_')
-                    }))
-                });
+            
             
             for (const sub of additionalSubs) {
                 try {
@@ -803,12 +742,9 @@ export default function Settings() {
           if (response.ok) {
             const data = await response.json();
             const quantity = data.quantity || 1; // Par défaut 1 si pas de quantité
-                            console.log(`[Settings] Quantité pour ${sub.subscription_id}:`, quantity);
+                           
             totalAdditionalQuantity += quantity;
           } else {
-                console.warn(
-              `[Settings] Erreur pour ${sub.subscription_id}, fallback à 1`,
-            );
             totalAdditionalQuantity += 1; // Fallback : 1 par défaut
           }
         } catch (error) {
@@ -820,24 +756,16 @@ export default function Settings() {
         }
                 }
                 
-                console.log('[Settings] Total quantité additionnelle:', totalAdditionalQuantity);
             } else {
                 // Fallback si pas de session : compter les lignes (ancienne méthode)
                 const additionalCount = allSubs.filter(s => s.subscription_type === 'additional_account').length;
-                console.log('[Settings] Pas de session, fallback - comptage des lignes:', additionalCount);
                 totalAdditionalQuantity = additionalCount;
       }
 
       const total = premierCount > 0 ? 1 + totalAdditionalQuantity : 0;
-            console.log('[Settings] Résultat final:', {
-                premierCount,
-                totalAdditionalQuantity,
-                totalPaidSlots: total,
-                accountsLength: accounts.length,
-                unlinkedSubscriptionsCount: unlinkedSubscriptions.length
-            });
+          
             
-            console.log('[Settings] ===== FIN CALCUL EMAILS PAYÉS =====');
+           
 
       setTotalPaidSlots(total);
     } catch (error) {
@@ -1010,7 +938,6 @@ export default function Settings() {
       setAccounts(sortedAccounts);
 
       // Récupérer les subscriptions non liées (slots non configurés)
-            console.log('[Settings] ===== DÉBUT RÉCUPÉRATION SLOTS NON CONFIGURÉS =====');
             
       const { data: unlinkedSubs, error: unlinkedError } = await supabase
         .from('stripe_user_subscriptions')
@@ -1025,18 +952,9 @@ export default function Settings() {
             if (unlinkedError) {
                 console.error('[Settings] Erreur lors de la récupération des slots non configurés:', unlinkedError);
             } else {
-                console.log(`[Settings] Slots non configurés trouvés: ${unlinkedSubs?.length || 0}`);
-                console.log(`[Settings] Détails des slots:`, {
-                    count: unlinkedSubs?.length || 0,
-                    slots: unlinkedSubs?.map(s => ({
-                        subscription_id: s.subscription_id,
-                        isSlot: s.subscription_id?.includes('_slot_'),
-                        created_at: s.created_at
-                    }))
-                });
+              
             }
             
-            console.log('[Settings] ===== FIN RÉCUPÉRATION SLOTS NON CONFIGURÉS =====');
             
       setUnlinkedSubscriptions(unlinkedSubs || []);
 

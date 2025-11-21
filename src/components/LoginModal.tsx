@@ -104,9 +104,18 @@ export function LoginModal({ isOpen, onClose, initialEmail, onSignupSuccess }: L
           setError(error.message);
           setLoading(false);
         } else {
+          // Forcer la déconnexion pour s'assurer qu'aucune session n'est créée
+          await supabase.auth.signOut();
+          
           // Afficher le message de confirmation d'email
           setSuccessMessage('Un email de confirmation a été envoyé. Vérifiez votre boîte mail et cliquez sur le lien pour activer votre compte.');
           setLoading(false);
+          // Basculer automatiquement en mode connexion après l'inscription
+          setTimeout(() => {
+            setIsLogin(true);
+            setSuccessMessage(null);
+            setPassword(''); // Réinitialiser le mot de passe
+          }, 2000);
         }
       }
     } catch (err) {

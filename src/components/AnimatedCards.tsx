@@ -34,7 +34,7 @@ export default function AnimatedCards() {
 
           {/* Enveloppe 3 orange avec coche */}
           <div className="relative z-10">
-            <div className="flex h-14 w-16 items-center justify-center rounded-lg bg-gradient-to-br from-orange-500 to-orange-600 shadow-lg">
+            <div className="flex h-14 w-16 items-center justify-center rounded-lg bg-gradient-to-br from-orange-400 to-orange-500 shadow-lg">
               <Mail className="h-7 w-7 text-white" strokeWidth={2} />
             </div>
             <div className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-green-500 shadow-md">
@@ -88,7 +88,7 @@ export default function AnimatedCards() {
             <div className="flex gap-3">
               {/* Enveloppe 1 */}
               <div className="relative z-10">
-                <div className="flex h-14 w-16 items-center justify-center rounded-lg bg-gradient-to-br from-orange-500 to-orange-600 shadow-lg">
+                <div className="flex h-14 w-16 items-center justify-center rounded-lg bg-gradient-to-br from-orange-400 to-orange-500 shadow-lg">
                   <Mail className="h-7 w-7 text-white" strokeWidth={2} />
                 </div>
                 <div className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-green-500 shadow-md">
@@ -98,7 +98,7 @@ export default function AnimatedCards() {
 
               {/* Enveloppe 2 */}
               <div className="relative z-10">
-                <div className="flex h-14 w-16 items-center justify-center rounded-lg bg-gradient-to-br from-orange-500 to-orange-600 shadow-lg">
+                <div className="flex h-14 w-16 items-center justify-center rounded-lg bg-gradient-to-br from-orange-400 to-orange-500 shadow-lg">
                   <Mail className="h-7 w-7 text-white" strokeWidth={2} />
                 </div>
                 <div className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-green-500 shadow-md">
@@ -108,21 +108,21 @@ export default function AnimatedCards() {
             </div>
 
             {/* Badges à droite */}
-            <div className="flex w-full flex-col gap-3.5 justify-end ml-[52px]">
+            <div className="ml-[52px] flex w-full flex-col justify-end gap-3.5">
               {/* Badge Traité */}
-              <div className="flex items-center gap-1.5 rounded-l-md bg-green-500 px-3 py-1.5 text-xs font-semibold whitespace-nowrap text-white shadow-md">
+              <div className="flex items-center gap-1.5 rounded-l-md bg-green-100 px-3 py-1.5 text-xs font-semibold whitespace-nowrap text-green-500 shadow-md">
                 <CheckCircle className="h-3.5 w-3.5" strokeWidth={2.5} />
                 <span>Traité</span>
               </div>
 
               {/* Badge Info */}
-              <div className="flex items-center gap-1.5 rounded-l-md bg-blue-500 px-3 py-1.5 text-xs font-semibold whitespace-nowrap text-white shadow-md">
+              <div className="flex items-center gap-1.5 rounded-l-md bg-blue-100 px-3 py-1.5 text-xs font-semibold whitespace-nowrap text-blue-500 shadow-md">
                 <Info className="h-3.5 w-3.5" strokeWidth={2.5} />
                 <span>Info</span>
               </div>
 
               {/* Badge Pub */}
-              <div className="flex items-center gap-1.5 rounded-l-md bg-red-500 px-3 py-1.5 text-xs font-semibold whitespace-nowrap text-white shadow-md">
+              <div className="flex items-center gap-1.5 rounded-l-md bg-red-100 px-3 py-1.5 text-xs font-semibold whitespace-nowrap text-red-500 shadow-md">
                 <X className="h-3.5 w-3.5" strokeWidth={2.5} />
                 <span>Pub</span>
               </div>

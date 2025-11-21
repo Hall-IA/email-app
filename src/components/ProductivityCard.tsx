@@ -87,6 +87,7 @@ export function ProductivityCard() {
       itemScope
       itemType="https://schema.org/CreativeWork"
       aria-label="Résumé des bénéfices de productivité avec HALL-IA"
+      id="avantages"
     >
       <h3
         className="font-thunder p-10 pb-20 text-center text-6xl! font-semibold text-white sm:text-3xl"
