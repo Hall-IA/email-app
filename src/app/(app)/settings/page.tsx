@@ -2153,7 +2153,7 @@ export default function Settings() {
                       </div>
                       <div>
                         <div className="flex items-center justify-between">
-                          <span className="mb-2 text-gray-500">Description de l'activité:</span>
+                          <span className="mb-2 text-gray-500">Description de l'activité  :</span>
                           <button
                             onClick={() => {
                               setEditTempValue(companyFormData.activity_description);
@@ -2341,7 +2341,7 @@ export default function Settings() {
                                   value={url}
                                   onChange={(e) => handleKnowledgeUrlChange(index, e.target.value)}
                                   className="flex-1 rounded-lg border border-gray-300 px-4 py-3 focus:border-transparent focus:ring-2 focus:ring-[#EF6855]"
-                                  placeholder="https://example.com/documentation"
+                                  placeholder="https://example.com"
                                 />
                                 {knowledgeUrls.length > 1 && (
                                   <button
@@ -3227,7 +3227,7 @@ export default function Settings() {
             <div className="space-y-4">
               <div>
                 <label className="mb-2 block text-sm font-semibold text-gray-700">
-                  Description de l'activité
+                  Description de l'activité 
                 </label>
                 <textarea
                   value={editTempValue}
@@ -3244,7 +3244,7 @@ export default function Settings() {
                 {modalError && <p className="mt-2 text-sm text-red-600">{modalError}</p>}
                 <p className="mt-2 text-xs text-gray-500">
                   Cette description sera utilisée par l'IA pour mieux comprendre votre contexte et
-                  classer vos e-mails.
+                  classer vos e-mails. Plus votre descriptif est détailé et précis, plus la performance de l'outil sera pertinante.
                 </p>
               </div>
 
