@@ -547,61 +547,64 @@ export default function Settings() {
     }
   }, [searchParams]);
 
-    const handleUpgradeReturn = async () => {
-        
-        // Forcer la synchronisation avec Stripe
-        try {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (session) {
-                const syncResponse = await fetch(
-                    `${process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, '')}/functions/v1/stripe-force-sync`,
-                    {
-                        method: 'POST',
-                        headers: {
-                            'Authorization': `Bearer ${session.access_token}`,
-                            'Content-Type': 'application/json',
-                        },
-                    }
-                );
-                
-                if (syncResponse.ok) {
-                  return;
-                } else {
-                    console.error('[Settings] Erreur stripe-force-sync:', await syncResponse.text());
+  const handleUpgradeReturn = async () => {
+    // Forcer la synchronisation avec Stripe
+    try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+            const syncResponse = await fetch(
+                `${process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, '')}/functions/v1/stripe-force-sync`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${session.access_token}`,
+                        'Content-Type': 'application/json',
+                    },
                 }
+            );
+            
+            if (syncResponse.ok) {
+                // Attendre un peu pour que le webhook Stripe traite tout
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                
+                // Recharger la page complètement
+                window.location.reload();
+                return;
+            } else {
+                console.error('[Settings] Erreur stripe-force-sync:', await syncResponse.text());
             }
-        } catch (error) {
-            console.error('[Settings] Erreur lors de la synchronisation:', error);
         }
-        
-        // Attendre un peu pour que le webhook Stripe ait le temps de créer les slots
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
-        // Rafraîchir les données immédiatement
-       await fetchPaidEmailSlots();
-        await checkSubscription();
+    } catch (error) {
+        console.error('[Settings] Erreur lors de la synchronisation:', error);
+    }
+    
+    // Fallback si la sync échoue : recharger quand même après polling
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    await fetchPaidEmailSlots();
+    await checkSubscription();
+    await loadAccounts();
+    
+    // Polling pendant 15 secondes
+    let pollCount = 0;
+    const maxPolls = 7;
+    
+    const pollInterval = setInterval(async () => {
+        pollCount++;
+        await fetchPaidEmailSlots();
         await loadAccounts();
         
-        // Polling pendant 15 secondes pour s'assurer que tous les slots sont créés
-        let pollCount = 0;
-        const maxPolls = 7; // 7 tentatives = 14 secondes
-        
-        const pollInterval = setInterval(async () => {
-            pollCount++;
-            await fetchPaidEmailSlots();
-            await loadAccounts();
-            
-            if (pollCount >= maxPolls) {
-                clearInterval(pollInterval);
-            }
-        }, 2000);
-        
-        // Nettoyer l'intervalle après 15 secondes au cas où
-        setTimeout(() => {
+        if (pollCount >= maxPolls) {
             clearInterval(pollInterval);
-        }, 15000);
-    };
-
+            // Recharger la page après le polling
+            window.location.reload();
+        }
+    }, 2000);
+    
+    // Cleanup après 15 secondes
+    setTimeout(() => {
+        clearInterval(pollInterval);
+    }, 15000);
+};
   const checkSubscription = async () => {
     if (!user) return;
 

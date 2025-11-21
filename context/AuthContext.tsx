@@ -33,6 +33,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
 
             if (session?.user) {
+                // Vérifier que l'email est confirmé
+                if (!session.user.email_confirmed_at) {
+                    console.error('Email not confirmed');
+                    await supabase.auth.signOut();
+                    setSession(null);
+                    setUser(null);
+                    localStorage.clear();
+                    sessionStorage.clear();
+                    setLoading(false);
+                    return;
+                }
+
                 try {
                     const { data: existingProfile, error: profileError } = await supabase
                         .from('profiles')
@@ -86,7 +98,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     return;
                 }
 
+                // Ne pas définir la session si l'email n'est pas confirmé (pour tous les événements)
+                if (session?.user && !session.user.email_confirmed_at) {
+                    console.error('Session has unconfirmed email, signing out');
+                    await supabase.auth.signOut();
+                    setSession(null);
+                    setUser(null);
+                    localStorage.clear();
+                    sessionStorage.clear();
+                    setLoading(false);
+                    return;
+                }
+
                 if (event === 'SIGNED_IN' && session?.user) {
+                    // Vérifier que l'email est confirmé (double vérification)
+                    if (!session.user.email_confirmed_at) {
+                        console.error('Email not confirmed');
+                        await supabase.auth.signOut();
+                        setSession(null);
+                        setUser(null);
+                        localStorage.clear();
+                        sessionStorage.clear();
+                        setLoading(false);
+                        return;
+                    }
+
                     try {
                         const { data: existingProfile } = await supabase
                             .from('profiles')
@@ -125,23 +161,54 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }, []);
 
     const signUp = async (email: string, password: string, fullName: string) => {
-        const { error } = await supabase.auth.signUp({
+        const emailRedirectTo = typeof window !== 'undefined' 
+            ? `${window.location.origin}/auth/callback` 
+            : undefined;
+            
+        const { data, error } = await supabase.auth.signUp({
             email,
             password,
             options: {
                 data: {
                     full_name: fullName,
                 },
+                ...(emailRedirectTo && { emailRedirectTo }),
             },
         });
+        
+        // Si l'inscription réussit mais que l'email n'est pas confirmé, déconnecter immédiatement
+        // et nettoyer le localStorage/sessionStorage
+        if (data?.user && !data.user.email_confirmed_at) {
+            await supabase.auth.signOut();
+            // Nettoyer aussi manuellement pour être sûr
+            if (typeof window !== 'undefined') {
+                localStorage.clear();
+                sessionStorage.clear();
+            }
+        }
+        
         return { error };
     };
 
     const signIn = async (email: string, password: string) => {
-        const { error } = await supabase.auth.signInWithPassword({
+        const { data, error } = await supabase.auth.signInWithPassword({
             email,
             password,
         });
+        
+        // Vérifier si l'email est confirmé
+        if (data?.user && !data.user.email_confirmed_at) {
+            // Déconnecter l'utilisateur car l'email n'est pas confirmé
+            await supabase.auth.signOut();
+            return { 
+                error: {
+                    message: 'Veuillez vérifier votre email et cliquer sur le lien de confirmation avant de vous connecter.',
+                    name: 'EmailNotConfirmed',
+                    status: 403
+                } as AuthError
+            };
+        }
+        
         return { error };
     };
 
