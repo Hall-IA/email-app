@@ -85,9 +85,7 @@ export default function Accueil() {
         <HowItWorkSection items={sampleVideoItems} brandColor="#F27732" />
       </section>
       <section>
-        <section id="avantages">
-          <ProductivitySection />
-        </section>
+        <ProductivitySection />
         <section id="prix">
           <AppPack />
         </section>

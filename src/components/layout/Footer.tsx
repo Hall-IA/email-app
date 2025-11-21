@@ -329,50 +329,26 @@ export default function Footer() {
               <ul className="space-y-2 font-light">
                 <li>
                   <Link
-                    href={'/#'}
+                    href={'/#etapes'}
                     className="rounded underline underline-offset-[6px] transition-colors hover:text-[#FF9A34] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FF9A34] focus-visible:ring-offset-2 active:text-[#FFBE7D]"
                   >
-                    Accueil
+                    Étapes
                   </Link>
                 </li>
                 <li>
                   <Link
-                    href={'/'}
+                    href={'/#avantages'}
                     className="rounded underline underline-offset-[6px] transition-colors hover:text-[#FF9A34] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FF9A34] focus-visible:ring-offset-2 active:text-[#FFBE7D]"
                   >
-                    À propos
+                    Avantages
                   </Link>
                 </li>
                 <li>
                   <Link
-                    href={'/#audit'}
+                    href={'/#prix'}
                     className="rounded underline underline-offset-[6px] transition-colors hover:text-[#FF9A34] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FF9A34] focus-visible:ring-offset-2 active:text-[#FFBE7D]"
                   >
-                    Audit
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href={'/#automatisations'}
-                    className="rounded underline underline-offset-[6px] transition-colors hover:text-[#FF9A34] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FF9A34] focus-visible:ring-offset-2 active:text-[#FFBE7D]"
-                  >
-                    Automatisations
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href={'/#agents'}
-                    className="rounded underline underline-offset-[6px] transition-colors hover:text-[#FF9A34] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FF9A34] focus-visible:ring-offset-2 active:text-[#FFBE7D]"
-                  >
-                    Agents
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href={'/#formations'}
-                    className="rounded underline underline-offset-[6px] transition-colors hover:text-[#FF9A34] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FF9A34] focus-visible:ring-offset-2 active:text-[#FFBE7D]"
-                  >
-                    Formations
+                    Prix
                   </Link>
                 </li>
               </ul>
@@ -384,7 +360,7 @@ export default function Footer() {
               <ul className="space-y-2 font-light">
                 <li>
                   <Link
-                    href={'/mentions-legales/politique-de-confidentialite'}
+                    href={'https://hallia.ai/mentions-legales/politique-de-confidentialite'}
                     className="rounded underline underline-offset-[6px] transition-colors hover:text-[#FF9A34] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FF9A34] focus-visible:ring-offset-2 active:text-[#FFBE7D]"
                   >
                     Politique de confidentialité
@@ -392,63 +368,43 @@ export default function Footer() {
                 </li>
                 <li>
                   <Link
-                    href={'/mentions-legales/politique-de-cookies'}
+                    href={'https://hallia.ai/mentions-legales/politique-de-cookies'}
                     className="rounded underline underline-offset-[6px] transition-colors hover:text-[#FF9A34] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FF9A34] focus-visible:ring-offset-2 active:text-[#FFBE7D]"
                   >
                     Politique de cookies
                   </Link>
                 </li>
-                {/* <li>
-                  <Link
-                    href={'/'}
-                    className="rounded underline underline-offset-[6px] transition-colors hover:text-[#FF9A34] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FF9A34] focus-visible:ring-offset-2 active:text-[#FFBE7D]"
-                  >
-                    Clause de non-responsabilité
-                  </Link>
-                </li>
                 <li>
                   <Link
-                    href={'/'}
-                    className="rounded underline underline-offset-[6px] transition-colors hover:text-[#FF9A34] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FF9A34] focus-visible:ring-offset-2 active:text-[#FFBE7D]"
-                  >
-                    Droits d'auteur
-                  </Link>
-                </li> */}
-                <li>
-                  <Link
-                    href={'/mentions-legales'}
+                    href={'https://hallia.ai/mentions-legales'}
                     className="rounded underline underline-offset-[6px] transition-colors hover:text-[#FF9A34] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FF9A34] focus-visible:ring-offset-2 active:text-[#FFBE7D]"
                   >
                     Mention légales
                   </Link>
-
                 </li>
                 <li>
                   <Link
-                    href={'/mentions-legales/conditions-utilisation'}
+                    href={'https://hallia.ai/mentions-legales/conditions-utilisation'}
                     className="rounded underline underline-offset-[6px] transition-colors hover:text-[#FF9A34] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FF9A34] focus-visible:ring-offset-2 active:text-[#FFBE7D]"
                   >
                     Conditions d'utilisation
                   </Link>
-
                 </li>
                 <li>
                   <Link
-                    href={'/mentions-legales/cgv'}
+                    href={'https://hallia.ai/mentions-legales/cgv'}
                     className="rounded underline underline-offset-[6px] transition-colors hover:text-[#FF9A34] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FF9A34] focus-visible:ring-offset-2 active:text-[#FFBE7D]"
                   >
                     Conditions générales de ventes
                   </Link>
-
                 </li>
                 <li>
                   <Link
-                    href={'/mentions-legales/charte-sous-traitance'}
+                    href={'https://hallia.ai/mentions-legales/charte-sous-traitance'}
                     className="rounded underline underline-offset-[6px] transition-colors hover:text-[#FF9A34] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FF9A34] focus-visible:ring-offset-2 active:text-[#FFBE7D]"
                   >
                     Charte de sous-traitance
                   </Link>
-
                 </li>
               </ul>
             </div>

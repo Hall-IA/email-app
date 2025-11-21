@@ -52,7 +52,7 @@ export default function Hero() {
             </p>
             <button
               onClick={() => setShowSubscriptionModal(true)}
-              className="mt-8 mb-16 flex items-center gap-2 text-gray-600 transition-colors hover:text-gray-800"
+              className="mt-8 mb-16 flex cursor-pointer items-center gap-2 text-gray-600 transition-colors hover:text-gray-800"
             >
               <span className="font-roboto text-sm">Aucun engagement – Abonnement mensuel</span>
               <HelpCircle className="h-4 w-5" />
@@ -195,7 +195,8 @@ export default function Hero() {
         <AnimatedCards />
       </section>
 
-      <MacbookScrollSection />
+      {/* Vidéo */}
+      {/* <MacbookScrollSection /> */}
 
       {/* Modal de connexion/inscription */}
       <LoginModal
