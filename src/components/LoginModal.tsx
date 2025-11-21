@@ -158,7 +158,7 @@ export function LoginModal({ isOpen, onClose, initialEmail, onSignupSuccess }: L
 
             <button
               onClick={onClose}
-              className="flex items-center justify-center rounded-full p-2 text-gray-500 hover:bg-white/50 hover:text-gray-700 transition-all hover:scale-110"
+              className="flex items-center justify-center rounded-full p-2 text-gray-500 hover:bg-white/50 hover:text-gray-700 transition-all hover:scale-110 cursor-pointer"
               aria-label="Fermer"
             >
               <X size={22} />
@@ -261,7 +261,7 @@ export function LoginModal({ isOpen, onClose, initialEmail, onSignupSuccess }: L
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full  rounded-full! bg-gradient-to-br from-[#F35F4F] to-[#FFAD5A] text-white py-2.5 mt-2 rounded-lg font-medium hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2"
+                className="w-full  rounded-full! bg-gradient-to-br from-[#F35F4F] to-[#FFAD5A] text-white py-2.5 mt-2 font-medium hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all flex items-center justify-center gap-2 cursor-pointer"
               >
                 {loading ? (
                   <>
@@ -283,7 +283,7 @@ export function LoginModal({ isOpen, onClose, initialEmail, onSignupSuccess }: L
                   setError(null);
                   setSuccessMessage(null);
                 }}
-                className="text-orange-600 hover:text-orange-700 hover:underline text-sm font-medium"
+                className="text-orange-600 hover:text-orange-700 hover:underline text-sm font-medium cursor-pointer"
                 disabled={loading}
               >
                 {isLogin ? "Pas encore de compte ? S'inscrire" : 'Déjà un compte ? Se connecter'}
