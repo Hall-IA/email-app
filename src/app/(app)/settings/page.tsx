@@ -13,6 +13,7 @@ import { AdditionalEmailModal } from '@/components/AdditionalEmailModal';
 import { CompanyInfoModal } from '@/components/CompanyInfoModal';
 import { HowItWorks } from '@/components/HowItWork';
 import Container from '@/components/Container';
+import AddEmailCount from '@/components/AddEmailCount';
 import { motion, AnimatePresence } from 'motion/react';
 import { useToast } from '@/components/Toast';
 import { syncKnowledgeBase, fileToBase64, isValidUrl, validatePdfFile } from '@/utils/knowledgeBaseService';
@@ -52,6 +53,7 @@ export default function Settings() {
     const [companyInfoStep, setCompanyInfoStep] = useState(1);
     const [accountMissingInfo, setAccountMissingInfo] = useState<string>('');
     const [hasCheckedCompanyInfo, setHasCheckedCompanyInfo] = useState(false);
+    const [showAddEmailCount, setShowAddEmailCount] = useState(false);
     const [showSuccessModal, setShowSuccessModal] = useState(false);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
     const [accountToDelete, setAccountToDelete] = useState<{ id: string; email: string; provider: string } | null>(null);
@@ -2482,6 +2484,27 @@ export default function Settings() {
                     onClose={() => {
                         setShowCompanyInfoModal(false);
                         setHasCheckedCompanyInfo(false);
+                    }}
+                    onShowAddEmailCount={() => {
+                        setShowAddEmailCount(true);
+                    }}
+                />
+            )}
+
+            {showAddEmailCount && (
+                <AddEmailCount
+                    onComplete={async () => {
+                        setShowAddEmailCount(false);
+                        setHasCheckedCompanyInfo(false);
+                        setNotificationMessage('Informations mises à jour avec succès');
+                        setShowNotification(true);
+                        setTimeout(() => setShowNotification(false), 3000);
+                        await loadCompanyData();
+                    }}
+                    onClose={async () => {
+                        setShowAddEmailCount(false);
+                        setHasCheckedCompanyInfo(false);
+                        await loadCompanyData();
                     }}
                 />
             )}

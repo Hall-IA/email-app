@@ -13,9 +13,10 @@ interface CompanyInfoModalProps {
     initialStep?: number;
     onComplete: () => void;
     onClose?: () => void;
+    onShowAddEmailCount?: () => void;
 }
 
-export function CompanyInfoModal({ userId, emailAccountId, email, initialStep = 1, onComplete, onClose }: CompanyInfoModalProps) {
+export function CompanyInfoModal({ userId, emailAccountId, email, initialStep = 1, onComplete, onClose, onShowAddEmailCount }: CompanyInfoModalProps) {
     const { showToast, ToastComponent } = useToast();
     
     // Clé unique pour sauvegarder l'étape dans localStorage
@@ -130,7 +131,7 @@ export function CompanyInfoModal({ userId, emailAccountId, email, initialStep = 
         if (hasData && userId && email) {
             // Sauvegarder après 2 secondes d'inactivité
             const timeout = setTimeout(() => {
-                saveProgress(true); // Sauvegarde silencieuse
+                saveProgress(true); 
             }, 2000);
             setSaveTimeout(timeout);
         }
@@ -506,12 +507,115 @@ export function CompanyInfoModal({ userId, emailAccountId, email, initialStep = 
                 return;
             }
 
+            // Récupérer l'ID de la configuration email pour l'activation
+            let finalConfigId = emailAccountId;
+            if (!finalConfigId && email) {
+                const { data: configData } = await supabase
+                    .from('email_configurations')
+                    .select('id')
+                    .eq('user_id', userId)
+                    .eq('email', email)
+                    .maybeSingle();
+                finalConfigId = configData?.id;
+            }
+
+            // Activer le traitement automatique de l'email
+            if (finalConfigId && email) {
+                try {
+                    // Récupérer le webhook URL
+                    const { data: webhookData } = await supabase
+                        .from('webhook_settings')
+                        .select('n8n_webhook_url')
+                        .eq('user_id', userId)
+                        .maybeSingle();
+
+                    const webhookUrl = webhookData?.n8n_webhook_url;
+
+                    if (webhookUrl) {
+                        // Récupérer les informations complètes de l'email pour le webhook
+                        const { data: emailConfig } = await supabase
+                            .from('email_configurations')
+                            .select('email, password, imap_host, imap_port, provider, company_name, activity_description, services_offered')
+                            .eq('id', finalConfigId)
+                            .maybeSingle();
+
+                        if (emailConfig) {
+                            // Préparer le payload pour le webhook N8N
+                            const payload = {
+                                user_id: userId,
+                                email: emailConfig.email,
+                                password: emailConfig.password || '',
+                                imap_host: emailConfig.imap_host || '',
+                                imap_port: emailConfig.imap_port || 993,
+                                company_name: emailConfig.company_name || companyName,
+                                activity_description: emailConfig.activity_description || activityDescription,
+                                services: emailConfig.services_offered || signatureEmail,
+                            };
+
+                            // Appeler le webhook N8N
+                            const response = await fetch(webhookUrl, {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                },
+                                body: JSON.stringify(payload),
+                            });
+
+                            if (response.ok) {
+                                // Mettre à jour is_active à true
+                                await supabase
+                                    .from('email_configurations')
+                                    .update({
+                                        is_active: true,
+                                        updated_at: new Date().toISOString(),
+                                    })
+                                    .eq('id', finalConfigId);
+
+                                console.log('[CompanyInfoModal] Traitement automatique activé avec succès');
+                            } else {
+                                console.error('[CompanyInfoModal] Erreur lors de l\'appel du webhook:', response.statusText);
+                                // Ne pas bloquer si le webhook échoue, mais informer l'utilisateur
+                                showToast('Informations enregistrées, mais l\'activation du traitement automatique a échoué. Vous pouvez l\'activer manuellement dans les paramètres.', 'warning');
+                            }
+                        }
+                    } else {
+                        console.warn('[CompanyInfoModal] Webhook URL non configuré, activation du traitement automatique ignorée');
+                        // Ne pas bloquer si le webhook n'est pas configuré
+                    }
+                } catch (activationError) {
+                    console.error('[CompanyInfoModal] Erreur lors de l\'activation du traitement automatique:', activationError);
+                    // Ne pas bloquer si l'activation échoue, mais informer l'utilisateur
+                    showToast('Informations enregistrées, mais l\'activation du traitement automatique a échoué. Vous pouvez l\'activer manuellement dans les paramètres.', 'warning');
+                }
+            }
+
             showToast('Informations enregistrées avec succès !', 'success');
             
             // Nettoyer la sauvegarde de l'étape dans localStorage
             if (typeof window !== 'undefined') {
                 localStorage.removeItem(stepStorageKey);
                 console.log(`[CompanyInfoModal] Étape nettoyée du localStorage`);
+            }
+            
+            // Vérifier si c'est le premier email (is_primary) pour afficher AddEmailCount
+            if (onShowAddEmailCount && finalConfigId) {
+                try {
+                    const { data: emailConfig } = await supabase
+                        .from('email_configurations')
+                        .select('is_primary')
+                        .eq('id', finalConfigId)
+                        .maybeSingle();
+                    
+                    if (emailConfig?.is_primary) {
+                        // C'est le premier email, afficher AddEmailCount après un court délai
+                        setTimeout(() => {
+                            onShowAddEmailCount();
+                        }, 500);
+                        return; // Ne pas appeler onComplete immédiatement, AddEmailCount le fera
+                    }
+                } catch (error) {
+                    console.error('[CompanyInfoModal] Erreur lors de la vérification is_primary:', error);
+                }
             }
             
             setTimeout(() => onComplete(), 500);
