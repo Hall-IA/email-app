@@ -112,9 +112,9 @@ export default function Hero() {
               <p className="text-center">
                 Basé sur <span className="font-semibold underline">456 avis</span>
               </p>
-              <div className="flex gap-1.5 items-center">
-                <Image src={'/assets/svg/Shape.svg'} width={30} height={30} alt='' />
-                <p className="font-bold text-xl">Trustpilot</p>
+              <div className="flex items-center gap-1.5">
+                <Image src={'/assets/svg/Shape.svg'} width={30} height={30} alt="" />
+                <p className="text-xl font-bold">Trustpilot</p>
               </div>
             </div>
           </div>
