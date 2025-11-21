@@ -28,7 +28,7 @@ import { HowItWorks } from '@/components/HowItWork';
 import Container from '@/components/Container';
 import AddEmailCount from '@/components/AddEmailCount';
 import { motion, AnimatePresence } from 'motion/react';
-import { useToast } from '@/components/Toast';
+// Removed useToast to prevent multiple toast displays
 import {
   syncKnowledgeBase,
   fileToBase64,
@@ -54,7 +54,7 @@ export default function Settings() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuth();
-  const { showToast, ToastComponent } = useToast();
+  // Removed showToast to prevent multiple toast displays
   const [accounts, setAccounts] = useState<EmailAccount[]>([]);
   const [documents, setDocuments] = useState<Document[]>([]);
   const [selectedAccount, setSelectedAccount] = useState<EmailAccount | null>(null);
@@ -140,6 +140,10 @@ export default function Settings() {
   const [knowledgeSaving, setKnowledgeSaving] = useState(false);
   const [isDraggingPdf, setIsDraggingPdf] = useState(false);
   const [isDraggingLogo, setIsDraggingLogo] = useState(false);
+  const [showDeleteUrlModal, setShowDeleteUrlModal] = useState(false);
+  const [urlToDeleteIndex, setUrlToDeleteIndex] = useState<number | null>(null);
+  const [showDeletePdfModal, setShowDeletePdfModal] = useState(false);
+  const [pdfToDeleteIndex, setPdfToDeleteIndex] = useState<number | null>(null);
 
   const connectGmail = async () => {
     try {
@@ -173,7 +177,7 @@ export default function Settings() {
         `width=${width},height=${height},left=${left},top=${top}`,
       );
     } catch (err) {
-      showToast('Erreur lors de la connexion Gmail', 'error');
+      console.error('Erreur lors de la connexion Gmail');
     }
   };
 
@@ -240,7 +244,7 @@ export default function Settings() {
 
   const handleImapSubmit = async () => {
     if (!imapFormData.email || !imapFormData.password || !imapFormData.imap_host) {
-      showToast('Veuillez remplir tous les champs obligatoires', 'warning');
+      // Validation error - field is required
       return;
     }
 
@@ -283,7 +287,7 @@ export default function Settings() {
       });
       await loadAccounts();
     } catch (err) {
-      showToast("Erreur lors de l'ajout du compte", 'error');
+      console.error("Erreur lors de l'ajout du compte");
     }
   };
 
@@ -863,7 +867,7 @@ export default function Settings() {
         data: { session },
       } = await supabase.auth.getSession();
       if (!session) {
-        showToast('Vous devez être connecté', 'error');
+        console.error('Vous devez être connecté');
         setIsCheckoutLoading(false);
         return;
       }
@@ -871,7 +875,7 @@ export default function Settings() {
       const basePlanPriceId = process.env.NEXT_PUBLIC_STRIPE_BASE_PLAN_PRICE_ID;
 
       if (!basePlanPriceId) {
-        showToast('Configuration Stripe manquante', 'error');
+        console.error('Configuration Stripe manquante');
         setIsCheckoutLoading(false);
         return;
       }
@@ -899,7 +903,7 @@ export default function Settings() {
       const data = await response.json();
 
       if (data.error) {
-        showToast(`Erreur: ${data.error}`, 'error');
+        console.error(`Erreur: ${data.error}`);
         setIsCheckoutLoading(false);
         return;
       }
@@ -909,7 +913,7 @@ export default function Settings() {
       }
     } catch (error) {
       console.error('Error creating checkout session:', error);
-      showToast('Erreur lors de la création de la session de paiement', 'error');
+      console.error('Erreur lors de la création de la session de paiement');
       setIsCheckoutLoading(false);
     }
   };
@@ -1190,10 +1194,54 @@ export default function Settings() {
           knowledge_base_urls: data.knowledge_base_urls || null,
           knowledge_base_pdfs: data.knowledge_base_pdfs || null,
         });
-        setKnowledgeUrls(['']);
+        
+        // Restaurer les URLs depuis localStorage si elles existent
+        if (typeof window !== 'undefined' && selectedAccount?.email) {
+          const storageKey = `knowledge_urls_draft_${selectedAccount.email}`;
+          const savedUrls = localStorage.getItem(storageKey);
+          if (savedUrls) {
+            try {
+              const parsedUrls = JSON.parse(savedUrls);
+              // Ne restaurer que si ce sont des URLs non sauvegardées (pas dans la base de données)
+              const existingUrls = data.knowledge_base_urls
+                ? Array.isArray(data.knowledge_base_urls)
+                  ? data.knowledge_base_urls
+                  : JSON.parse(data.knowledge_base_urls || '[]')
+                : [];
+              // Si on a des URLs sauvegardées qui ne sont pas dans la base, on les restaure
+              if (parsedUrls.length > 0 && parsedUrls.some((url: string) => url.trim() !== '')) {
+                setKnowledgeUrls(parsedUrls);
+              } else {
+                setKnowledgeUrls(['']);
+              }
+            } catch (e) {
+              setKnowledgeUrls(['']);
+            }
+          } else {
+            setKnowledgeUrls(['']);
+          }
+        } else {
+          setKnowledgeUrls(['']);
+        }
       } else {
         setCurrentConfig(null);
-        setKnowledgeUrls(['']);
+        // Restaurer depuis localStorage même si pas de config
+        if (typeof window !== 'undefined' && selectedAccount?.email) {
+          const storageKey = `knowledge_urls_draft_${selectedAccount.email}`;
+          const savedUrls = localStorage.getItem(storageKey);
+          if (savedUrls) {
+            try {
+              const parsedUrls = JSON.parse(savedUrls);
+              setKnowledgeUrls(parsedUrls.length > 0 ? parsedUrls : ['']);
+            } catch (e) {
+              setKnowledgeUrls(['']);
+            }
+          } else {
+            setKnowledgeUrls(['']);
+          }
+        } else {
+          setKnowledgeUrls(['']);
+        }
       }
     } catch (err) {
       console.error('Error in loadCurrentConfig:', err);
@@ -1206,25 +1254,42 @@ export default function Settings() {
     const newUrls = [...knowledgeUrls];
     newUrls[index] = value;
     setKnowledgeUrls(newUrls);
+    // Sauvegarder dans localStorage pour conserver les valeurs lors de la navigation
+    if (selectedAccount?.email && typeof window !== 'undefined') {
+      const storageKey = `knowledge_urls_draft_${selectedAccount.email}`;
+      localStorage.setItem(storageKey, JSON.stringify(newUrls));
+    }
   };
 
   const handleAddKnowledgeUrl = () => {
-    setKnowledgeUrls([...knowledgeUrls, '']);
+    const newUrls = [...knowledgeUrls, ''];
+    setKnowledgeUrls(newUrls);
+    // Sauvegarder dans localStorage
+    if (selectedAccount?.email && typeof window !== 'undefined') {
+      const storageKey = `knowledge_urls_draft_${selectedAccount.email}`;
+      localStorage.setItem(storageKey, JSON.stringify(newUrls));
+    }
   };
 
   const handleRemoveKnowledgeUrl = (index: number) => {
     if (knowledgeUrls.length > 1) {
-      setKnowledgeUrls(knowledgeUrls.filter((_, i) => i !== index));
+      const newUrls = knowledgeUrls.filter((_, i) => i !== index);
+      setKnowledgeUrls(newUrls);
+      // Sauvegarder dans localStorage
+      if (selectedAccount?.email && typeof window !== 'undefined') {
+        const storageKey = `knowledge_urls_draft_${selectedAccount.email}`;
+        localStorage.setItem(storageKey, JSON.stringify(newUrls));
+      }
     }
   };
 
-  const handleRemoveExistingUrl = async (index: number) => {
-    if (!currentConfig) return;
+  const handleRemoveExistingUrl = (index: number) => {
+    setUrlToDeleteIndex(index);
+    setShowDeleteUrlModal(true);
+  };
 
-    const confirmDelete = window.confirm(
-      'Êtes-vous sûr de vouloir supprimer cette URL de la base de connaissances ?',
-    );
-    if (!confirmDelete) return;
+  const confirmDeleteUrl = async () => {
+    if (!currentConfig || urlToDeleteIndex === null) return;
 
     try {
       const existingUrls = currentConfig.knowledge_base_urls
@@ -1233,7 +1298,7 @@ export default function Settings() {
           : JSON.parse(currentConfig.knowledge_base_urls || '[]')
         : [];
 
-      const updatedUrls = existingUrls.filter((_: any, i: number) => i !== index);
+      const updatedUrls = existingUrls.filter((_: any, i: number) => i !== urlToDeleteIndex);
 
       const { error } = await supabase
         .from('email_configurations')
@@ -1251,11 +1316,11 @@ export default function Settings() {
       });
 
       setKnowledgeUrls(updatedUrls.length > 0 ? updatedUrls : ['']);
-
-      showToast('URL supprimée avec succès', 'success');
     } catch (err) {
       console.error('Error removing URL:', err);
-      showToast("Erreur lors de la suppression de l'URL", 'error');
+    } finally {
+      setShowDeleteUrlModal(false);
+      setUrlToDeleteIndex(null);
     }
   };
 
@@ -1270,7 +1335,7 @@ export default function Settings() {
       const validation = validatePdfFile(file);
 
       if (!validation.valid) {
-        showToast(`${file.name}: ${validation.error || 'Fichier invalide'}`, 'error');
+        console.error(`${file.name}: ${validation.error || 'Fichier invalide'}`);
         continue;
       }
 
@@ -1308,17 +1373,17 @@ export default function Settings() {
       URL.revokeObjectURL(url);
     } catch (error) {
       console.error('Erreur lors du téléchargement du PDF:', error);
-      showToast('Erreur lors du téléchargement du PDF', 'error');
+      console.error('Erreur lors du téléchargement du PDF');
     }
   };
 
-  const handleRemoveExistingPdf = async (index: number) => {
-    if (!currentConfig) return;
+  const handleRemoveExistingPdf = (index: number) => {
+    setPdfToDeleteIndex(index);
+    setShowDeletePdfModal(true);
+  };
 
-    const confirmDelete = window.confirm(
-      'Êtes-vous sûr de vouloir supprimer ce PDF de la base de connaissances ?',
-    );
-    if (!confirmDelete) return;
+  const confirmDeletePdf = async () => {
+    if (!currentConfig || pdfToDeleteIndex === null) return;
 
     try {
       const existingPdfs = currentConfig.knowledge_base_pdfs
@@ -1327,7 +1392,7 @@ export default function Settings() {
           : JSON.parse(currentConfig.knowledge_base_pdfs || '[]')
         : [];
 
-      const updatedPdfs = existingPdfs.filter((_: any, i: number) => i !== index);
+      const updatedPdfs = existingPdfs.filter((_: any, i: number) => i !== pdfToDeleteIndex);
 
       const { error } = await supabase
         .from('email_configurations')
@@ -1343,11 +1408,11 @@ export default function Settings() {
         ...currentConfig,
         knowledge_base_pdfs: updatedPdfs,
       });
-
-      showToast('PDF supprimé avec succès', 'success');
     } catch (err) {
       console.error('Error removing PDF:', err);
-      showToast('Erreur lors de la suppression du PDF', 'error');
+    } finally {
+      setShowDeletePdfModal(false);
+      setPdfToDeleteIndex(null);
     }
   };
 
@@ -1382,13 +1447,13 @@ export default function Settings() {
       const file = files[i];
 
       if (file.type !== 'application/pdf') {
-        showToast(`${file.name}: Ce fichier n'est pas un PDF`, 'error');
+        console.error(`${file.name}: Ce fichier n'est pas un PDF`);
         continue;
       }
 
       const validation = validatePdfFile(file);
       if (!validation.valid) {
-        showToast(`${file.name}: ${validation.error || 'Fichier invalide'}`, 'error');
+        console.error(`${file.name}: ${validation.error || 'Fichier invalide'}`);
         continue;
       }
 
@@ -1423,13 +1488,13 @@ export default function Settings() {
       existingUrls.length === 0 &&
       existingPdfs.length === 0
     ) {
-      showToast('Veuillez fournir au moins une URL ou un fichier PDF', 'warning');
+      // Validation: at least one URL or PDF required
       return;
     }
 
     for (const url of newUrls) {
       if (!isValidUrl(url)) {
-        showToast(`URL invalide: ${url}`, 'error');
+        console.error(`URL invalide: ${url}`);
         return;
       }
     }
@@ -1490,22 +1555,26 @@ export default function Settings() {
           dbError.message?.includes('does not exist')
         ) {
           console.error('Knowledge base columns not found. Please run migration:', dbError);
-          showToast(
-            'Les colonnes de base de connaissances ne sont pas encore créées. Veuillez appliquer la migration.',
-            'error',
-          );
+          console.error('Les colonnes de base de connaissances ne sont pas encore créées. Veuillez appliquer la migration.');
         } else {
           throw dbError;
         }
         return;
       }
 
-      showToast('Base de connaissance enregistrée avec succès !', 'success');
+      // Base de connaissance enregistrée avec succès
+      
+      // Supprimer le brouillon du localStorage après sauvegarde réussie
+      if (selectedAccount?.email && typeof window !== 'undefined') {
+        const storageKey = `knowledge_urls_draft_${selectedAccount.email}`;
+        localStorage.removeItem(storageKey);
+      }
+      
       await loadCurrentConfig();
       setKnowledgePdfFiles([]);
     } catch (err) {
       console.error('Error saving knowledge base:', err);
-      showToast(err instanceof Error ? err.message : 'Une erreur est survenue', 'error');
+      console.error(err instanceof Error ? err.message : 'Une erreur est survenue');
     } finally {
       setKnowledgeSaving(false);
     }
@@ -1535,7 +1604,7 @@ export default function Settings() {
         data: { session },
       } = await supabase.auth.getSession();
       if (!session) {
-        showToast('Vous devez être connecté', 'error');
+        console.error('Vous devez être connecté');
         return;
       }
 
@@ -1556,7 +1625,7 @@ export default function Settings() {
       const data = await response.json();
 
       if (!response.ok || data.error) {
-        showToast(data.error || 'Erreur lors de la suppression du compte', 'error');
+        console.error(data.error || 'Erreur lors de la suppression du compte');
         return;
       }
 
@@ -1565,7 +1634,7 @@ export default function Settings() {
       loadAccounts();
       checkSubscription();
     } catch (error) {
-      showToast('Une erreur est survenue lors de la suppression', 'error');
+      console.error('Une erreur est survenue lors de la suppression');
     }
   };
 
@@ -1589,7 +1658,7 @@ export default function Settings() {
         data: { session },
       } = await supabase.auth.getSession();
       if (!session) {
-        showToast('Vous devez être connecté', 'error');
+        console.error('Vous devez être connecté');
         return;
       }
 
@@ -1610,10 +1679,10 @@ export default function Settings() {
         await supabase.auth.signOut();
         router.push('/');
       } else {
-        showToast('Erreur lors de la suppression du compte: ' + data.error, 'error');
+        console.error('Erreur lors de la suppression du compte: ' + data.error);
       }
     } catch (error) {
-      showToast('Une erreur est survenue lors de la suppression du compte', 'error');
+      console.error('Une erreur est survenue lors de la suppression du compte');
     } finally {
       setIsDeletingUser(false);
     }
@@ -1621,7 +1690,6 @@ export default function Settings() {
 
   return (
     <section className="mx-auto max-w-7xl">
-      <ToastComponent />
 
       <Container>
         <HowItWorks />
@@ -2110,7 +2178,7 @@ export default function Settings() {
                   >
                     {/* Fond blanc avec bouton pour les slots non configurés */}
                     {selectedSlot && !selectedAccount && (
-                      <div className="absolute inset-0 z-20 flex items-center justify-center rounded-br-xl bg-white">
+                      <div className="absolute inset-0 z-20 flex items-center justify-center bg-white shadow-r-md">
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -2126,7 +2194,7 @@ export default function Settings() {
                               setShowAddAccountModal(true);
                             }
                           }}
-                          className="rounded-lg bg-gradient-to-br from-[#F35F4F] to-[#FFAD5A] px-8 py-4 font-semibold text-white shadow-lg transition-all hover:shadow-xl"
+                          className="rounded-lg bg-gradient-to-br from-[#F35F4F] to-[#FFAD5A] px-8 py-4 font-semibold text-white shadow-lg transition-all hover:shadow-xl cursor-pointer"
                         >
                           Configurer l'email
                         </button>
@@ -2224,25 +2292,8 @@ export default function Settings() {
                   >
                     {/* Fond blanc avec bouton pour les slots non configurés */}
                     {selectedSlot && !selectedAccount && (
-                      <div className="absolute inset-0 z-20 flex items-center justify-center bg-white">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            const slotSub = unlinkedSubscriptions[selectedSlot.index];
-                            if (slotSub?.subscription_id) {
-                              setSelectedSlotForConfig({
-                                index: selectedSlot.index,
-                                subscription_id: slotSub.subscription_id,
-                              });
-                              setShowSlotConfigModal(true);
-                            } else {
-                              setShowAddAccountModal(true);
-                            }
-                          }}
-                          className="rounded-lg bg-gradient-to-br from-[#F35F4F] to-[#FFAD5A] px-8 py-4 font-semibold text-white shadow-lg transition-all hover:shadow-xl"
-                        >
-                          Configurer l'email
-                        </button>
+                      <div className="absolute inset-0 z-20 flex items-center b-none shadow-none justify-center bg-white">
+                        
                       </div>
                     )}
                     <div className="mb-6">
@@ -2515,6 +2566,13 @@ export default function Settings() {
 
                         {/* Save Button */}
                         <div className="pt-4">
+                          {knowledgeSaving && (
+                            <div className="mb-4 bg-orange-50 border border-orange-200 rounded-lg p-3 text-orange-700">
+                              <p className="text-sm font-medium text-center">
+                                Merci de ne pas recharger la fenêtre. Nous prenons votre base de connaissances en compte.
+                              </p>
+                            </div>
+                          )}
                           <button
                             onClick={handleSaveKnowledge}
                             disabled={knowledgeSaving}
@@ -3182,7 +3240,7 @@ export default function Settings() {
                       setShowNotification(true);
                       setTimeout(() => setShowNotification(false), 3000);
                     } catch (err) {
-                      showToast('Erreur lors de la mise à jour', 'error');
+                      console.error('Erreur lors de la mise à jour');
                     }
                   }}
                   className="flex-1 rounded-lg px-6 py-3 font-semibold text-white transition-all hover:opacity-90"
@@ -3239,8 +3297,8 @@ export default function Settings() {
                     modalError ? 'border-red-500' : 'border-gray-200 focus:border-orange-500'
                   }`}
                   rows={6}
-                  placeholder="Exemple : Nous sommes une agence de marketing digital spécialisée dans la création de contenu et la gestion des réseaux sociaux pour les PME. Nous aidons nos clients à développer leur présence en ligne et à atteindre leurs objectifs commerciaux."
-                />
+                  placeholder="Ex: Hall-IA développe des solutions intelligentes, dont HallMail, un outil qui organise automatiquement vos emails en catégories comme PUB, INFO ou TRAITÉ."
+                  />
                 {modalError && <p className="mt-2 text-sm text-red-600">{modalError}</p>}
                 <p className="mt-2 text-xs text-gray-500">
                   Cette description sera utilisée par l'IA pour mieux comprendre votre contexte et
@@ -3292,7 +3350,7 @@ export default function Settings() {
                       setShowNotification(true);
                       setTimeout(() => setShowNotification(false), 3000);
                     } catch (err) {
-                      showToast('Erreur lors de la mise à jour', 'error');
+                      console.error('Erreur lors de la mise à jour');
                     }
                   }}
                   className="flex-1 rounded-lg px-6 py-3 font-semibold text-white transition-all hover:opacity-90"
@@ -3362,7 +3420,7 @@ export default function Settings() {
                     const file = e.dataTransfer.files?.[0];
                     if (file && file.type.startsWith('image/')) {
                       if (file.size > 2 * 1024 * 1024) {
-                        showToast("L'image ne doit pas dépasser 2MB", 'error');
+                        console.error("L'image ne doit pas dépasser 2MB");
                         return;
                       }
 
@@ -3373,7 +3431,7 @@ export default function Settings() {
                       };
                       reader.readAsDataURL(file);
                     } else {
-                      showToast('Veuillez déposer une image valide', 'error');
+                      console.error('Veuillez déposer une image valide');
                     }
                   }}
                 >
@@ -3384,7 +3442,7 @@ export default function Settings() {
                       const file = e.target.files?.[0];
                       if (file) {
                         if (file.size > 2 * 1024 * 1024) {
-                          showToast("L'image ne doit pas dépasser 2MB", 'error');
+                          console.error("L'image ne doit pas dépasser 2MB");
                           return;
                         }
 
@@ -3476,7 +3534,7 @@ export default function Settings() {
                       setShowNotification(true);
                       setTimeout(() => setShowNotification(false), 3000);
                     } catch (err) {
-                      showToast('Erreur lors de la mise à jour', 'error');
+                      console.error('Erreur lors de la mise à jour');
                     }
                   }}
                   className="flex-1 rounded-lg px-6 py-3 font-semibold text-white transition-all hover:opacity-90"
@@ -3580,7 +3638,7 @@ export default function Settings() {
                       setShowNotification(true);
                       setTimeout(() => setShowNotification(false), 3000);
                     } catch (err) {
-                      showToast('Erreur lors de la mise à jour', 'error');
+                      console.error('Erreur lors de la mise à jour');
                     }
                   }}
                   className="flex-1 rounded-lg px-6 py-3 font-semibold text-white transition-all hover:opacity-90"
@@ -3625,6 +3683,32 @@ export default function Settings() {
         onConfirm={handleDeleteDocument}
         title="Supprimer le document"
         message="Êtes-vous sûr de vouloir supprimer définitivement ce document ? Cette action est irréversible."
+        confirmText="Supprimer"
+        cancelText="Annuler"
+      />
+
+      <ConfirmationModal
+        isOpen={showDeleteUrlModal}
+        onClose={() => {
+          setShowDeleteUrlModal(false);
+          setUrlToDeleteIndex(null);
+        }}
+        onConfirm={confirmDeleteUrl}
+        title="Supprimer l'URL"
+        message="Êtes-vous sûr de vouloir supprimer cette URL de la base de connaissances ?"
+        confirmText="Supprimer"
+        cancelText="Annuler"
+      />
+
+      <ConfirmationModal
+        isOpen={showDeletePdfModal}
+        onClose={() => {
+          setShowDeletePdfModal(false);
+          setPdfToDeleteIndex(null);
+        }}
+        onConfirm={confirmDeletePdf}
+        title="Supprimer le PDF"
+        message="Êtes-vous sûr de vouloir supprimer ce PDF de la base de connaissances ?"
         confirmText="Supprimer"
         cancelText="Annuler"
       />

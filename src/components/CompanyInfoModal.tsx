@@ -782,7 +782,7 @@ export function CompanyInfoModal({ userId, emailAccountId, email, initialStep = 
                                             }}
                                             className="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all resize-none font-inter text-sm"
                                             rows={4}
-                                            placeholder="Décrivez l'activité de votre entreprise..."
+                                            placeholder="Ex: Hall-IA développe des solutions intelligentes, dont HallMail, un outil qui organise automatiquement vos emails en catégories comme PUB, INFO ou TRAITÉ."
                                             required
                                             minLength={1}
                                             autoFocus
