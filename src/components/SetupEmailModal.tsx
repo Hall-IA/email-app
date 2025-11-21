@@ -102,7 +102,8 @@ export function SetupEmailModal({ userId, onComplete }: SetupEmailModalProps) {
                     window.removeEventListener('message', messageHandler);
                     
                     localStorage.removeItem('selected_plan');
-                    localStorage.removeItem('business_pass_email_counter');
+                    // Ne pas supprimer business_pass_email_counter ici car AddEmailCount en a besoin
+                    // Il sera supprimé après le paiement dans AddEmailCount
                     showToast('Compte Gmail connecté avec succès !', 'success');
                     
                     // Attendre un peu pour que la base de données soit mise à jour
@@ -140,7 +141,8 @@ export function SetupEmailModal({ userId, onComplete }: SetupEmailModalProps) {
     
                     if (data) {
                         localStorage.removeItem('selected_plan');
-                        localStorage.removeItem('business_pass_email_counter');
+                        // Ne pas supprimer business_pass_email_counter ici car AddEmailCount en a besoin
+                        // Il sera supprimé après le paiement dans AddEmailCount
                         showToast('Compte Gmail connecté avec succès !', 'success');
                         onComplete();
                     } else {
@@ -247,7 +249,8 @@ export function SetupEmailModal({ userId, onComplete }: SetupEmailModalProps) {
             if (error) throw error;
 
             localStorage.removeItem('selected_plan');
-            localStorage.removeItem('business_pass_email_counter');
+            // Ne pas supprimer business_pass_email_counter ici car AddEmailCount en a besoin
+            // Il sera supprimé après le paiement dans AddEmailCount
             
             showToast('Email configuré avec succès !', 'success');
             

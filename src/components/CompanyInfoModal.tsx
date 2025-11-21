@@ -100,7 +100,6 @@ export function CompanyInfoModal({ userId, emailAccountId, email, initialStep = 
             }
 
             if (!silent) {
-                console.log('[CompanyInfoModal] Progression sauvegardée automatiquement');
             }
         } catch (error) {
             console.error('[CompanyInfoModal] Erreur lors de la sauvegarde automatique:', error);
@@ -111,7 +110,6 @@ export function CompanyInfoModal({ userId, emailAccountId, email, initialStep = 
     useEffect(() => {
         if (typeof window !== 'undefined' && currentStep >= 1 && currentStep <= 5) {
             localStorage.setItem(stepStorageKey, currentStep.toString());
-            console.log(`[CompanyInfoModal] Étape sauvegardée: ${currentStep}`);
         }
     }, [currentStep, stepStorageKey]);
 
@@ -194,7 +192,6 @@ export function CompanyInfoModal({ userId, emailAccountId, email, initialStep = 
                         const step = parseInt(savedStep, 10);
                         if (step >= 1 && step <= 5) {
                             setCurrentStep(step);
-                            console.log(`[CompanyInfoModal] Étape restaurée depuis localStorage: ${step}`);
                         }
                     } else {
                         // Déterminer l'étape en fonction des données remplies
@@ -208,7 +205,6 @@ export function CompanyInfoModal({ userId, emailAccountId, email, initialStep = 
                         if (determinedStep > 1) {
                             setCurrentStep(determinedStep);
                             localStorage.setItem(stepStorageKey, determinedStep.toString());
-                            console.log(`[CompanyInfoModal] Étape déterminée selon les données: ${determinedStep}`);
                         }
                     }
                 }
@@ -419,7 +415,7 @@ export function CompanyInfoModal({ userId, emailAccountId, email, initialStep = 
                 activity_description: activityDescription,
                 services_offered: signatureEmail, // Signature d'email
                 signature_image_base64: formData.signature_image_base64 || null,
-                is_active: true, // Activer le flux automatique de l'email
+                is_classement: true, // Activer le flux automatique de l'email
                 updated_at: new Date().toISOString(),
             };
 
@@ -575,7 +571,6 @@ export function CompanyInfoModal({ userId, emailAccountId, email, initialStep = 
                                     });
 
                                     if (response.ok) {
-                                        console.log('[CompanyInfoModal] Webhook N8N appelé avec succès - Flux automatique activé');
                                     } else {
                                         console.warn('[CompanyInfoModal] Erreur lors de l\'appel du webhook (non bloquant):', response.statusText);
                                     }
@@ -585,7 +580,6 @@ export function CompanyInfoModal({ userId, emailAccountId, email, initialStep = 
                                 console.warn('[CompanyInfoModal] Erreur lors de l\'appel du webhook (non bloquant):', webhookError);
                             }
                         } else {
-                            console.log('[CompanyInfoModal] Webhook URL non configuré, is_active activé mais webhook non appelé');
                         }
                     }
                 } catch (error) {
@@ -593,14 +587,12 @@ export function CompanyInfoModal({ userId, emailAccountId, email, initialStep = 
                 }
             }
 
-            console.log('[CompanyInfoModal] Flux automatique activé (is_active = true)');
 
             showToast('Informations enregistrées avec succès !', 'success');
             
             // Nettoyer la sauvegarde de l'étape dans localStorage
             if (typeof window !== 'undefined') {
                 localStorage.removeItem(stepStorageKey);
-                console.log(`[CompanyInfoModal] Étape nettoyée du localStorage`);
             }
             
             // Vérifier si c'est le premier email (is_primary) pour afficher AddEmailCount
@@ -782,7 +774,7 @@ export function CompanyInfoModal({ userId, emailAccountId, email, initialStep = 
                                             }}
                                             className="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all resize-none font-inter text-sm"
                                             rows={4}
-                                            placeholder="Décrivez l'activité de votre entreprise..."
+                                            placeholder="Ex: Hall-IA développe des solutions intelligentes, dont HallMail, un outil qui organise automatiquement vos emails en catégories comme PUB, INFO ou TRAITÉ."
                                             required
                                             minLength={1}
                                             autoFocus
