@@ -195,6 +195,8 @@ export function CompanyInfoModal({ userId, emailAccountId, email, initialStep = 
                         // Garder les valeurs actuelles (vides) pour signature_image_base64 et knowledge_base_urls
                         signature_image_base64: currentEmailData?.signature_image_base64 || '',
                         knowledge_base_urls: currentEmailData?.knowledge_base_urls || null,
+                        knowledge_base_pdfs: currentEmailData?.knowledge_base_pdfs || null,
+                        is_primary: currentEmailData?.is_primary || false,
                     };
                 }
             }
