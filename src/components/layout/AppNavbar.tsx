@@ -1,6 +1,6 @@
 'use client';
 
-import { LogOut, Home, Settings, User } from 'lucide-react';
+import { LogOut, Home, Settings, User, Headphones } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '../../../context/AuthContext';
@@ -103,6 +103,22 @@ export default function AppNavbar() {
                   <User size={20} />
                 </span>
                 Compte
+              </Link>
+            </li>
+            <li>
+              <Link
+                href={'/support'}
+                className={cn(
+                  linkBaseClasses,
+                  pathname?.startsWith('/support')
+                    ? 'border-blue-600 text-blue-600'
+                    : 'border-transparent',
+                )}
+              >
+                <span>
+                  <Headphones size={20} />
+                </span>
+                Support
               </Link>
             </li>
           </ul>
