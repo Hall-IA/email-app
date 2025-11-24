@@ -2092,7 +2092,7 @@ export default function Settings() {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -20 }}
                     transition={{ duration: 0.3, delay: 0.1 }}
-                    className="font-inter relative rounded-br-xl border-r border-b border-gray-200 bg-white p-6 shadow-sm"
+                    className="font-inter relative border-r border-b border-gray-200 bg-white p-6 shadow-sm"
                   >
                     {/* Fond blanc avec bouton pour les slots non configurés */}
                     {selectedSlot && !selectedAccount && (
@@ -2206,7 +2206,7 @@ export default function Settings() {
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -20 }}
                     transition={{ duration: 0.3, delay: 0.2 }}
-                    className="font-inter relative border-r border-b border-gray-200 bg-white p-6 shadow-sm"
+                    className="font-inter relative border-r border-b border-gray-200 bg-white p-6 shadow-sm rounded-br-xl"
                   >
                     {/* Fond blanc avec bouton pour les slots non configurés */}
                     {selectedSlot && !selectedAccount && (
