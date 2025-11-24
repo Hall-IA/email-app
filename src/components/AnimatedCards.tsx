@@ -1,6 +1,7 @@
 'use client';
 
 import { Mail, Check, CheckCircle, Info, X, Brain, Pencil } from 'lucide-react';
+import { motion } from 'motion/react';
 
 export default function AnimatedCards() {
   return (
@@ -14,33 +15,125 @@ export default function AnimatedCards() {
         />
 
         {/* Enveloppes en haut */}
-        <div className="absolute top-15 right-0 left-0 flex items-center justify-center gap-3 px-6">
+        <div className="absolute top-22 right-0 left-0 flex items-center justify-center gap-3 px-6">
           {/* Barre de progression */}
           <div className="absolute top-1/2 right-0 left-0 h-0.5 -translate-y-1/2 bg-white/30" />
 
-          {/* Enveloppe 1 */}
-          <div className="relative z-10">
-            <div className="flex h-14 w-16 items-center justify-center rounded-lg bg-white shadow-lg">
-              <Mail className="h-7 w-7 text-gray-400" strokeWidth={2} />
-            </div>
-          </div>
-
-          {/* Enveloppe 2 */}
-          <div className="relative z-10">
-            <div className="flex h-14 w-16 items-center justify-center rounded-lg bg-white shadow-lg">
-              <Mail className="h-7 w-7 text-gray-400" strokeWidth={2} />
-            </div>
-          </div>
-
-          {/* Enveloppe 3 orange avec coche */}
-          <div className="relative z-10">
-            <div className="flex h-14 w-16 items-center justify-center rounded-lg bg-gradient-to-br from-orange-400 to-orange-500 shadow-lg">
-              <Mail className="h-7 w-7 text-white" strokeWidth={2} />
-            </div>
-            <div className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-green-500 shadow-md">
+          {/* Enveloppe 1 - Position centrale (en scan) puis sort */}
+          <motion.div
+            className="absolute z-10"
+            initial={{ x: 0 }}
+            animate={{
+              x: [0, 0, 0, 0, 76, 200],
+            }}
+            transition={{
+              duration: 6,
+              times: [0, 0.2, 0.5, 0.6, 0.75, 0.95],
+              repeat: Infinity,
+              ease: 'easeInOut',
+            }}
+          >
+            <motion.div
+              className="relative flex h-14 w-16 items-center justify-center rounded-lg shadow-lg overflow-hidden"
+              animate={{
+                background: [
+                  'rgb(255, 255, 255)',
+                  'rgb(255, 255, 255)',
+                  'rgb(255, 255, 255)',
+                  'linear-gradient(to bottom right, rgb(251, 146, 60), rgb(249, 115, 22))',
+                  'linear-gradient(to bottom right, rgb(251, 146, 60), rgb(249, 115, 22))',
+                  'linear-gradient(to bottom right, rgb(251, 146, 60), rgb(249, 115, 22))',
+                ],
+              }}
+              transition={{
+                duration: 6,
+                times: [0, 0.2, 0.5, 0.6, 0.75, 0.95],
+                repeat: Infinity,
+              }}
+            >
+              {/* Barre horizontale de scan qui descend */}
+              <motion.div
+                className="absolute left-0 right-0 h-2 z-20"
+                style={{
+                  background: 'linear-gradient(to bottom, transparent, rgba(59, 130, 246, 0.8), rgba(59, 130, 246, 1), rgba(59, 130, 246, 0.8), transparent)',
+                  boxShadow: '0 0 20px 4px rgba(59, 130, 246, 0.8)',
+                  filter: 'blur(0.5px)',
+                }}
+                animate={{
+                  top: ['-10%', '-10%', '110%', '110%', '110%', '110%'],
+                  opacity: [0, 1, 1, 0, 0, 0],
+                }}
+                transition={{
+                  duration: 6,
+                  times: [0, 0.25, 0.5, 0.55, 0.75, 0.95],
+                  repeat: Infinity,
+                  ease: 'linear',
+                }}
+              />
+              <motion.div
+                animate={{
+                  color: ['#9CA3AF', '#9CA3AF', '#9CA3AF', '#FFFFFF', '#FFFFFF', '#FFFFFF'],
+                }}
+                transition={{
+                  duration: 6,
+                  times: [0, 0.2, 0.5, 0.6, 0.75, 0.95],
+                  repeat: Infinity,
+                }}
+              >
+                <Mail className="relative z-10 h-7 w-7" strokeWidth={2} />
+              </motion.div>
+            </motion.div>
+            <motion.div
+              className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-green-500 shadow-md"
+              animate={{ scale: [0, 0, 0, 1, 1, 1] }}
+              transition={{
+                duration: 6,
+                times: [0, 0.2, 0.55, 0.6, 0.75, 0.95],
+                repeat: Infinity,
+                ease: 'backOut',
+              }}
+            >
               <Check className="h-2 w-2 text-white" strokeWidth={4} />
+            </motion.div>
+          </motion.div>
+
+          {/* Enveloppe 2 - Attend derrière puis avance vers le centre */}
+          <motion.div
+            className="absolute z-10"
+            initial={{ x: -76 }}
+            animate={{
+              x: [-76, -76, -76, -76, 0, 0],
+            }}
+            transition={{
+              duration: 6,
+              times: [0, 0.2, 0.5, 0.6, 0.75, 0.95],
+              repeat: Infinity,
+              ease: 'easeInOut',
+            }}
+          >
+            <div className="flex h-14 w-16 items-center justify-center rounded-lg bg-white shadow-lg">
+              <Mail className="h-7 w-7 text-gray-400" strokeWidth={2} />
             </div>
-          </div>
+          </motion.div>
+
+          {/* Enveloppe 3 - Attend encore plus loin puis avance */}
+          <motion.div
+            className="absolute z-10"
+            initial={{ x: -152 }}
+            animate={{
+              x: [-152, -152, -152, -152, -76, -76],
+            }}
+            transition={{
+              duration: 6,
+              times: [0, 0.2, 0.5, 0.6, 0.75, 0.95],
+              repeat: Infinity,
+              ease: 'easeInOut',
+            }}
+          >
+            <div className="flex h-14 w-16 items-center justify-center rounded-lg bg-white shadow-lg">
+              <Mail className="h-7 w-7 text-gray-400" strokeWidth={2} />
+            </div>
+          </motion.div>
         </div>
 
         <div className="absolute inset-0 flex items-end">
