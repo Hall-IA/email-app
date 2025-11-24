@@ -459,7 +459,7 @@ export default function DashboardLayout({
     return (
         <div className="min-h-screen bg-gray-100">
             <AppNavbar />
-            <main className="container mx-auto px-4 py-8">
+            <main className="px-4 py-8">
                 {children}
             </main>
 
