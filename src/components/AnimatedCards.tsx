@@ -22,12 +22,13 @@ export default function AnimatedCards() {
           {/* Enveloppe 1 - Position centrale (en scan) puis sort */}
           <motion.div
             className="absolute z-10"
-            initial={{ x: 0 }}
+            initial={{ x: 0, opacity: 1 }}
             animate={{
               x: [0, 0, 0, 0, 76, 200],
+              opacity: [1, 1, 1, 1, 1, 1],
             }}
             transition={{
-              duration: 6,
+              duration: 4,
               times: [0, 0.2, 0.5, 0.6, 0.75, 0.95],
               repeat: Infinity,
               ease: 'easeInOut',
@@ -46,7 +47,7 @@ export default function AnimatedCards() {
                 ],
               }}
               transition={{
-                duration: 6,
+                duration: 4,
                 times: [0, 0.2, 0.5, 0.6, 0.75, 0.95],
                 repeat: Infinity,
               }}
@@ -55,8 +56,8 @@ export default function AnimatedCards() {
               <motion.div
                 className="absolute left-0 right-0 h-2 z-20"
                 style={{
-                  background: 'linear-gradient(to bottom, transparent, rgba(59, 130, 246, 0.8), rgba(59, 130, 246, 1), rgba(59, 130, 246, 0.8), transparent)',
-                  boxShadow: '0 0 20px 4px rgba(59, 130, 246, 0.8)',
+                  background: 'linear-gradient(to bottom, transparent, rgba(251,146,60,0.8), rgba(249,115,22,1), rgba(251,146,60,0.8), transparent)',
+                  boxShadow: '0 0 20px 4px rgba(249,115,22,0.8)',
                   filter: 'blur(0.5px)',
                 }}
                 animate={{
@@ -64,7 +65,7 @@ export default function AnimatedCards() {
                   opacity: [0, 1, 1, 0, 0, 0],
                 }}
                 transition={{
-                  duration: 6,
+                  duration: 4,
                   times: [0, 0.25, 0.5, 0.55, 0.75, 0.95],
                   repeat: Infinity,
                   ease: 'linear',
@@ -75,7 +76,7 @@ export default function AnimatedCards() {
                   color: ['#9CA3AF', '#9CA3AF', '#9CA3AF', '#FFFFFF', '#FFFFFF', '#FFFFFF'],
                 }}
                 transition={{
-                  duration: 6,
+                  duration: 4,
                   times: [0, 0.2, 0.5, 0.6, 0.75, 0.95],
                   repeat: Infinity,
                 }}
@@ -87,7 +88,7 @@ export default function AnimatedCards() {
               className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-green-500 shadow-md"
               animate={{ scale: [0, 0, 0, 1, 1, 1] }}
               transition={{
-                duration: 6,
+                duration: 4,
                 times: [0, 0.2, 0.55, 0.6, 0.75, 0.95],
                 repeat: Infinity,
                 ease: 'backOut',
@@ -105,7 +106,7 @@ export default function AnimatedCards() {
               x: [-76, -76, -76, -76, 0, 0],
             }}
             transition={{
-              duration: 6,
+              duration: 4,
               times: [0, 0.2, 0.5, 0.6, 0.75, 0.95],
               repeat: Infinity,
               ease: 'easeInOut',
@@ -124,7 +125,7 @@ export default function AnimatedCards() {
               x: [-152, -152, -152, -152, -76, -76],
             }}
             transition={{
-              duration: 6,
+              duration: 4,
               times: [0, 0.2, 0.5, 0.6, 0.75, 0.95],
               repeat: Infinity,
               ease: 'easeInOut',
