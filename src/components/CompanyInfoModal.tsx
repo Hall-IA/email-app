@@ -156,31 +156,62 @@ export function CompanyInfoModal({ userId, emailAccountId, email, initialStep = 
         if (!userId || !email) return;
 
         try {
-            const { data, error } = await supabase
+            // Charger les données de l'email actuel
+            const { data: currentEmailData, error: currentError } = await supabase
                 .from('email_configurations')
-                .select('company_name, activity_description, services_offered, signature_image_base64, knowledge_base_urls, knowledge_base_pdfs')
+                .select('company_name, activity_description, services_offered, signature_image_base64, knowledge_base_urls, knowledge_base_pdfs, is_primary')
                 .eq('user_id', userId)
                 .eq('email', email)
                 .maybeSingle();
 
-            if (error) {
-                console.error('Error loading company data:', error);
+            if (currentError) {
+                console.error('Error loading company data:', currentError);
                 return;
             }
 
-            if (data) {
+            // Déterminer si l'email actuel est l'email principal
+            const isPrimary = currentEmailData?.is_primary === true;
+
+            // Si l'email actuel est vide et n'est pas l'email principal, charger les données de l'email principal
+            // UNIQUEMENT pour les champs obligatoires (company_name, activity_description, services_offered)
+            let dataToUse = currentEmailData;
+            if (!isPrimary && (!currentEmailData?.company_name?.trim() && !currentEmailData?.activity_description?.trim() && !currentEmailData?.services_offered?.trim())) {
+                // Charger uniquement les champs obligatoires de l'email principal
+                const { data: primaryEmailData, error: primaryError } = await supabase
+                    .from('email_configurations')
+                    .select('company_name, activity_description, services_offered')
+                    .eq('user_id', userId)
+                    .eq('is_primary', true)
+                    .maybeSingle();
+
+                if (!primaryError && primaryEmailData) {
+                    // Utiliser UNIQUEMENT les champs obligatoires de l'email principal pour pré-remplir
+                    // Ne pas toucher à signature_image_base64 ni knowledge_base_urls
+                    dataToUse = {
+                        ...currentEmailData,
+                        company_name: primaryEmailData.company_name || '',
+                        activity_description: primaryEmailData.activity_description || '',
+                        services_offered: primaryEmailData.services_offered || '',
+                        // Garder les valeurs actuelles (vides) pour signature_image_base64 et knowledge_base_urls
+                        signature_image_base64: currentEmailData?.signature_image_base64 || '',
+                        knowledge_base_urls: currentEmailData?.knowledge_base_urls || null,
+                    };
+                }
+            }
+
+            if (dataToUse) {
                 setFormData({
-                    company_name: data.company_name || '',
-                    activity_description: data.activity_description || '',
-                    services_offered: data.services_offered || '', // Signature d'email
-                    signature_image_base64: data.signature_image_base64 || '',
+                    company_name: dataToUse.company_name || '',
+                    activity_description: dataToUse.activity_description || '',
+                    services_offered: dataToUse.services_offered || '', // Signature d'email
+                    signature_image_base64: dataToUse.signature_image_base64 || '',
                 });
                 
                 // Charger les URLs de la base de connaissances
-                if (data.knowledge_base_urls) {
-                    const urls = Array.isArray(data.knowledge_base_urls) 
-                        ? data.knowledge_base_urls 
-                        : JSON.parse(data.knowledge_base_urls || '[]');
+                if (dataToUse.knowledge_base_urls) {
+                    const urls = Array.isArray(dataToUse.knowledge_base_urls) 
+                        ? dataToUse.knowledge_base_urls 
+                        : JSON.parse(dataToUse.knowledge_base_urls || '[]');
                     setKnowledgeUrls(urls.length > 0 ? urls : ['']);
                 }
                 
@@ -196,11 +227,11 @@ export function CompanyInfoModal({ userId, emailAccountId, email, initialStep = 
                     } else {
                         // Déterminer l'étape en fonction des données remplies
                         let determinedStep = 1;
-                        if (data.company_name) determinedStep = 2;
-                        if (data.activity_description) determinedStep = 3;
-                        if (data.services_offered) determinedStep = 4;
-                        if (data.signature_image_base64) determinedStep = 5;
-                        if (data.knowledge_base_urls || data.knowledge_base_pdfs) determinedStep = 5;
+                        if (dataToUse.company_name) determinedStep = 2;
+                        if (dataToUse.activity_description) determinedStep = 3;
+                        if (dataToUse.services_offered) determinedStep = 4;
+                        if (dataToUse.signature_image_base64) determinedStep = 5;
+                        if (dataToUse.knowledge_base_urls) determinedStep = 5;
                         
                         if (determinedStep > 1) {
                             setCurrentStep(determinedStep);

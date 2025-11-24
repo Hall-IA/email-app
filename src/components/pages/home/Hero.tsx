@@ -37,7 +37,7 @@ export default function Hero() {
         <div className="space-y-12">
           <div className="font-roboto flex items-center gap-2 font-medium">
             <Image src={'assets/svg/hallia-orange-logo.svg'} height={48} width={48} alt="" />
-            <p>HALL MAIL</p>
+            <p className='text-3xl font-thunder font-bold -mb-3'>HALL MAIL</p>
           </div>
           <div className="font-thunder space-y-6 text-7xl font-semibold">
             <div className="space-y-2">
