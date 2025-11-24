@@ -28,7 +28,7 @@ import { HowItWorks } from '@/components/HowItWork';
 import Container from '@/components/Container';
 import AddEmailCount from '@/components/AddEmailCount';
 import { motion, AnimatePresence } from 'motion/react';
-import { useToast } from '@/components/Toast';
+// Removed useToast to prevent multiple toast displays
 import {
   syncKnowledgeBase,
   fileToBase64,
@@ -54,7 +54,7 @@ export default function Settings() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuth();
-  const { showToast, ToastComponent } = useToast();
+  // Removed showToast to prevent multiple toast displays
   const [accounts, setAccounts] = useState<EmailAccount[]>([]);
   const [documents, setDocuments] = useState<Document[]>([]);
   const [selectedAccount, setSelectedAccount] = useState<EmailAccount | null>(null);
@@ -140,6 +140,10 @@ export default function Settings() {
   const [knowledgeSaving, setKnowledgeSaving] = useState(false);
   const [isDraggingPdf, setIsDraggingPdf] = useState(false);
   const [isDraggingLogo, setIsDraggingLogo] = useState(false);
+  const [showDeleteUrlModal, setShowDeleteUrlModal] = useState(false);
+  const [urlToDeleteIndex, setUrlToDeleteIndex] = useState<number | null>(null);
+  const [showDeletePdfModal, setShowDeletePdfModal] = useState(false);
+  const [pdfToDeleteIndex, setPdfToDeleteIndex] = useState<number | null>(null);
 
   const connectGmail = async () => {
     try {
@@ -173,7 +177,7 @@ export default function Settings() {
         `width=${width},height=${height},left=${left},top=${top}`,
       );
     } catch (err) {
-      showToast('Erreur lors de la connexion Gmail', 'error');
+      console.error('Erreur lors de la connexion Gmail');
     }
   };
 
@@ -240,7 +244,7 @@ export default function Settings() {
 
   const handleImapSubmit = async () => {
     if (!imapFormData.email || !imapFormData.password || !imapFormData.imap_host) {
-      showToast('Veuillez remplir tous les champs obligatoires', 'warning');
+      // Validation error - field is required
       return;
     }
 
@@ -283,7 +287,7 @@ export default function Settings() {
       });
       await loadAccounts();
     } catch (err) {
-      showToast("Erreur lors de l'ajout du compte", 'error');
+      console.error("Erreur lors de l'ajout du compte");
     }
   };
 
@@ -502,47 +506,7 @@ export default function Settings() {
                 signature_image_base64: '',
             });
             setAutoSort(false);
-            // Ne pas charger les données du compte principal
-            /* const loadPrimaryForSlot = async () => {
-                if (!user) return;
-                const primaryAccount = accounts.find(acc => acc.is_active !== false && acc.cancel_at_period_end !== true) || accounts[0];
-                if (primaryAccount) {
-                    // Charger les données du compte principal
-                    const { data: config } = await supabase
-                        .from('email_configurations')
-                        .select('company_name, activity_description, services_offered, is_classement, signature_image_base64')
-                        .eq('user_id', user.id)
-                        .eq('email', primaryAccount.email)
-                        .maybeSingle();
-
-                    if (config) {
-                        setCompanyFormData({
-                            company_name: config.company_name || '',
-                            activity_description: config.activity_description || '',
-                            services_proposed: '',
-                            services_offered: config.services_offered || '',
-                            signature_image_base64: config.signature_image_base64 || '',
-                        });
-                    }
-
-                    // Charger la config pour la base de connaissances
-                    const { data: knowledgeConfig } = await supabase
-                        .from('email_configurations')
-                        .select('id, email, knowledge_base_urls, knowledge_base_pdfs')
-                        .eq('user_id', user.id)
-                        .eq('email', primaryAccount.email)
-                        .maybeSingle();
-
-                    if (knowledgeConfig) {
-                        setCurrentConfig({
-                            id: knowledgeConfig.id,
-                            email: knowledgeConfig.email,
-                            knowledge_base_urls: knowledgeConfig.knowledge_base_urls,
-                            knowledge_base_pdfs: knowledgeConfig.knowledge_base_pdfs,
-                        });
-                    }
-                }
-            }; */
+          
       // Ne plus charger les données du compte principal pour les slots non configurés
       // Réinitialiser aussi la config de la base de connaissances
       setCurrentConfig(null);
@@ -579,73 +543,68 @@ export default function Settings() {
     if (upgraded === 'success' || payment === 'success') {
             // Nettoyer l'URL
       router.replace('/settings');
-            console.log('[Settings] Retour du paiement détecté, synchronisation en cours...');
       handleUpgradeReturn();
     }
   }, [searchParams]);
 
-    const handleUpgradeReturn = async () => {
-        console.log('[Settings] handleUpgradeReturn - Début de la synchronisation');
-        
-        // Forcer la synchronisation avec Stripe
-        try {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (session) {
-                console.log('[Settings] Appel de stripe-force-sync...');
-                const syncResponse = await fetch(
-                    `${process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, '')}/functions/v1/stripe-force-sync`,
-                    {
-                        method: 'POST',
-                        headers: {
-                            'Authorization': `Bearer ${session.access_token}`,
-                            'Content-Type': 'application/json',
-                        },
-                    }
-                );
-                
-                if (syncResponse.ok) {
-                    console.log('[Settings] stripe-force-sync réussi');
-                } else {
-                    console.error('[Settings] Erreur stripe-force-sync:', await syncResponse.text());
+  const handleUpgradeReturn = async () => {
+    // Forcer la synchronisation avec Stripe
+    try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+            const syncResponse = await fetch(
+                `${process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, '')}/functions/v1/stripe-force-sync`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${session.access_token}`,
+                        'Content-Type': 'application/json',
+                    },
                 }
+            );
+            
+            if (syncResponse.ok) {
+                // Attendre un peu pour que le webhook Stripe traite tout
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                
+                // Recharger la page complètement
+                window.location.reload();
+                return;
+            } else {
+                console.error('[Settings] Erreur stripe-force-sync:', await syncResponse.text());
             }
-        } catch (error) {
-            console.error('[Settings] Erreur lors de la synchronisation:', error);
         }
-        
-        // Attendre un peu pour que le webhook Stripe ait le temps de créer les slots
-        console.log('[Settings] Attente de 2 secondes pour que le webhook crée les slots...');
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
-        // Rafraîchir les données immédiatement
-        console.log('[Settings] Rechargement des données...');
+    } catch (error) {
+        console.error('[Settings] Erreur lors de la synchronisation:', error);
+    }
+    
+    // Fallback si la sync échoue : recharger quand même après polling
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    await fetchPaidEmailSlots();
+    await checkSubscription();
+    await loadAccounts();
+    
+    // Polling pendant 15 secondes
+    let pollCount = 0;
+    const maxPolls = 7;
+    
+    const pollInterval = setInterval(async () => {
+        pollCount++;
         await fetchPaidEmailSlots();
-        await checkSubscription();
         await loadAccounts();
         
-        // Polling pendant 15 secondes pour s'assurer que tous les slots sont créés
-        let pollCount = 0;
-        const maxPolls = 7; // 7 tentatives = 14 secondes
-        
-        const pollInterval = setInterval(async () => {
-            pollCount++;
-            console.log(`[Settings] Polling ${pollCount}/${maxPolls} - Rechargement des slots...`);
-            await fetchPaidEmailSlots();
-            await loadAccounts();
-            
-            if (pollCount >= maxPolls) {
-                clearInterval(pollInterval);
-                console.log('[Settings] Polling terminé');
-            }
-        }, 2000);
-        
-        // Nettoyer l'intervalle après 15 secondes au cas où
-        setTimeout(() => {
+        if (pollCount >= maxPolls) {
             clearInterval(pollInterval);
-            console.log('[Settings] Polling arrêté (timeout)');
-        }, 15000);
-    };
-
+            // Recharger la page après le polling
+            window.location.reload();
+        }
+    }, 2000);
+    
+    // Cleanup après 15 secondes
+    setTimeout(() => {
+        clearInterval(pollInterval);
+    }, 15000);
+};
   const checkSubscription = async () => {
     if (!user) return;
 
@@ -719,7 +678,7 @@ export default function Settings() {
     if (!user) return;
 
     try {
-            console.log('[Settings] ===== DÉBUT CALCUL EMAILS PAYÉS =====');
+        
       // Compter DIRECTEMENT depuis stripe_user_subscriptions (pas stripe_subscriptions)
       const { data: allSubs, error: subsError } = await supabase
         .from('stripe_user_subscriptions')
@@ -728,15 +687,8 @@ export default function Settings() {
         .in('status', ['active', 'trialing'])
         .is('deleted_at', null);
 
-            console.log('[Settings] Toutes les subscriptions récupérées:', {
-                total: allSubs?.length || 0,
-                subscriptions: allSubs?.map(s => ({
-                    subscription_id: s.subscription_id,
-                    type: s.subscription_type,
-                    status: s.status,
-                    isSlot: s.subscription_id?.includes('_slot_')
-                }))
-            });
+           
+        
       if (subsError) {
         // Si la table n'existe pas ou si les colonnes sont manquantes
         if (
@@ -745,7 +697,6 @@ export default function Settings() {
           subsError.message?.includes('does not exist') ||
           subsError.message?.includes('column')
         ) {
-          console.warn('[Settings] stripe_user_subscriptions table or columns not found:', subsError);
           setTotalPaidSlots(0);
           return;
         }
@@ -755,14 +706,12 @@ export default function Settings() {
       }
 
       if (!allSubs || allSubs.length === 0) {
-                console.log('[Settings] Aucune subscription trouvée');
         setTotalPaidSlots(0);
         return;
       }
 
             // Utiliser EXACTEMENT la même méthode que Subscription.tsx
             const premierCount = allSubs.filter(s => s.subscription_type === 'premier').length;
-            console.log('[Settings] Nombre de subscriptions premier:', premierCount);
             
             // Récupérer la quantité réelle depuis Stripe pour chaque subscription additionnelle
             const { data: { session } } = await supabase.auth.getSession();
@@ -772,13 +721,7 @@ export default function Settings() {
                 // Récupérer les quantités réelles depuis Stripe (comme dans Subscription.tsx)
             const additionalSubs = allSubs.filter(s => s.subscription_type === 'additional_account');
             
-                console.log('[Settings] Subscriptions additionnelles trouvées:', {
-                    count: additionalSubs.length,
-                    subscriptions: additionalSubs.map(s => ({
-                        subscription_id: s.subscription_id,
-                        isSlot: s.subscription_id?.includes('_slot_')
-                    }))
-                });
+            
             
             for (const sub of additionalSubs) {
                 try {
@@ -799,12 +742,9 @@ export default function Settings() {
           if (response.ok) {
             const data = await response.json();
             const quantity = data.quantity || 1; // Par défaut 1 si pas de quantité
-                            console.log(`[Settings] Quantité pour ${sub.subscription_id}:`, quantity);
+                           
             totalAdditionalQuantity += quantity;
           } else {
-                console.warn(
-              `[Settings] Erreur pour ${sub.subscription_id}, fallback à 1`,
-            );
             totalAdditionalQuantity += 1; // Fallback : 1 par défaut
           }
         } catch (error) {
@@ -816,24 +756,16 @@ export default function Settings() {
         }
                 }
                 
-                console.log('[Settings] Total quantité additionnelle:', totalAdditionalQuantity);
             } else {
                 // Fallback si pas de session : compter les lignes (ancienne méthode)
                 const additionalCount = allSubs.filter(s => s.subscription_type === 'additional_account').length;
-                console.log('[Settings] Pas de session, fallback - comptage des lignes:', additionalCount);
                 totalAdditionalQuantity = additionalCount;
       }
 
       const total = premierCount > 0 ? 1 + totalAdditionalQuantity : 0;
-            console.log('[Settings] Résultat final:', {
-                premierCount,
-                totalAdditionalQuantity,
-                totalPaidSlots: total,
-                accountsLength: accounts.length,
-                unlinkedSubscriptionsCount: unlinkedSubscriptions.length
-            });
+          
             
-            console.log('[Settings] ===== FIN CALCUL EMAILS PAYÉS =====');
+           
 
       setTotalPaidSlots(total);
     } catch (error) {
@@ -863,7 +795,7 @@ export default function Settings() {
         data: { session },
       } = await supabase.auth.getSession();
       if (!session) {
-        showToast('Vous devez être connecté', 'error');
+        console.error('Vous devez être connecté');
         setIsCheckoutLoading(false);
         return;
       }
@@ -871,7 +803,7 @@ export default function Settings() {
       const basePlanPriceId = process.env.NEXT_PUBLIC_STRIPE_BASE_PLAN_PRICE_ID;
 
       if (!basePlanPriceId) {
-        showToast('Configuration Stripe manquante', 'error');
+        console.error('Configuration Stripe manquante');
         setIsCheckoutLoading(false);
         return;
       }
@@ -899,7 +831,7 @@ export default function Settings() {
       const data = await response.json();
 
       if (data.error) {
-        showToast(`Erreur: ${data.error}`, 'error');
+        console.error(`Erreur: ${data.error}`);
         setIsCheckoutLoading(false);
         return;
       }
@@ -909,7 +841,7 @@ export default function Settings() {
       }
     } catch (error) {
       console.error('Error creating checkout session:', error);
-      showToast('Erreur lors de la création de la session de paiement', 'error');
+      console.error('Erreur lors de la création de la session de paiement');
       setIsCheckoutLoading(false);
     }
   };
@@ -1006,7 +938,6 @@ export default function Settings() {
       setAccounts(sortedAccounts);
 
       // Récupérer les subscriptions non liées (slots non configurés)
-            console.log('[Settings] ===== DÉBUT RÉCUPÉRATION SLOTS NON CONFIGURÉS =====');
             
       const { data: unlinkedSubs, error: unlinkedError } = await supabase
         .from('stripe_user_subscriptions')
@@ -1021,18 +952,9 @@ export default function Settings() {
             if (unlinkedError) {
                 console.error('[Settings] Erreur lors de la récupération des slots non configurés:', unlinkedError);
             } else {
-                console.log(`[Settings] Slots non configurés trouvés: ${unlinkedSubs?.length || 0}`);
-                console.log(`[Settings] Détails des slots:`, {
-                    count: unlinkedSubs?.length || 0,
-                    slots: unlinkedSubs?.map(s => ({
-                        subscription_id: s.subscription_id,
-                        isSlot: s.subscription_id?.includes('_slot_'),
-                        created_at: s.created_at
-                    }))
-                });
+              
             }
             
-            console.log('[Settings] ===== FIN RÉCUPÉRATION SLOTS NON CONFIGURÉS =====');
             
       setUnlinkedSubscriptions(unlinkedSubs || []);
 
@@ -1190,10 +1112,54 @@ export default function Settings() {
           knowledge_base_urls: data.knowledge_base_urls || null,
           knowledge_base_pdfs: data.knowledge_base_pdfs || null,
         });
-        setKnowledgeUrls(['']);
+        
+        // Restaurer les URLs depuis localStorage si elles existent
+        if (typeof window !== 'undefined' && selectedAccount?.email) {
+          const storageKey = `knowledge_urls_draft_${selectedAccount.email}`;
+          const savedUrls = localStorage.getItem(storageKey);
+          if (savedUrls) {
+            try {
+              const parsedUrls = JSON.parse(savedUrls);
+              // Ne restaurer que si ce sont des URLs non sauvegardées (pas dans la base de données)
+              const existingUrls = data.knowledge_base_urls
+                ? Array.isArray(data.knowledge_base_urls)
+                  ? data.knowledge_base_urls
+                  : JSON.parse(data.knowledge_base_urls || '[]')
+                : [];
+              // Si on a des URLs sauvegardées qui ne sont pas dans la base, on les restaure
+              if (parsedUrls.length > 0 && parsedUrls.some((url: string) => url.trim() !== '')) {
+                setKnowledgeUrls(parsedUrls);
+              } else {
+                setKnowledgeUrls(['']);
+              }
+            } catch (e) {
+              setKnowledgeUrls(['']);
+            }
+          } else {
+            setKnowledgeUrls(['']);
+          }
+        } else {
+          setKnowledgeUrls(['']);
+        }
       } else {
         setCurrentConfig(null);
-        setKnowledgeUrls(['']);
+        // Restaurer depuis localStorage même si pas de config
+        if (typeof window !== 'undefined' && selectedAccount?.email) {
+          const storageKey = `knowledge_urls_draft_${selectedAccount.email}`;
+          const savedUrls = localStorage.getItem(storageKey);
+          if (savedUrls) {
+            try {
+              const parsedUrls = JSON.parse(savedUrls);
+              setKnowledgeUrls(parsedUrls.length > 0 ? parsedUrls : ['']);
+            } catch (e) {
+              setKnowledgeUrls(['']);
+            }
+          } else {
+            setKnowledgeUrls(['']);
+          }
+        } else {
+          setKnowledgeUrls(['']);
+        }
       }
     } catch (err) {
       console.error('Error in loadCurrentConfig:', err);
@@ -1206,25 +1172,42 @@ export default function Settings() {
     const newUrls = [...knowledgeUrls];
     newUrls[index] = value;
     setKnowledgeUrls(newUrls);
+    // Sauvegarder dans localStorage pour conserver les valeurs lors de la navigation
+    if (selectedAccount?.email && typeof window !== 'undefined') {
+      const storageKey = `knowledge_urls_draft_${selectedAccount.email}`;
+      localStorage.setItem(storageKey, JSON.stringify(newUrls));
+    }
   };
 
   const handleAddKnowledgeUrl = () => {
-    setKnowledgeUrls([...knowledgeUrls, '']);
+    const newUrls = [...knowledgeUrls, ''];
+    setKnowledgeUrls(newUrls);
+    // Sauvegarder dans localStorage
+    if (selectedAccount?.email && typeof window !== 'undefined') {
+      const storageKey = `knowledge_urls_draft_${selectedAccount.email}`;
+      localStorage.setItem(storageKey, JSON.stringify(newUrls));
+    }
   };
 
   const handleRemoveKnowledgeUrl = (index: number) => {
     if (knowledgeUrls.length > 1) {
-      setKnowledgeUrls(knowledgeUrls.filter((_, i) => i !== index));
+      const newUrls = knowledgeUrls.filter((_, i) => i !== index);
+      setKnowledgeUrls(newUrls);
+      // Sauvegarder dans localStorage
+      if (selectedAccount?.email && typeof window !== 'undefined') {
+        const storageKey = `knowledge_urls_draft_${selectedAccount.email}`;
+        localStorage.setItem(storageKey, JSON.stringify(newUrls));
+      }
     }
   };
 
-  const handleRemoveExistingUrl = async (index: number) => {
-    if (!currentConfig) return;
+  const handleRemoveExistingUrl = (index: number) => {
+    setUrlToDeleteIndex(index);
+    setShowDeleteUrlModal(true);
+  };
 
-    const confirmDelete = window.confirm(
-      'Êtes-vous sûr de vouloir supprimer cette URL de la base de connaissances ?',
-    );
-    if (!confirmDelete) return;
+  const confirmDeleteUrl = async () => {
+    if (!currentConfig || urlToDeleteIndex === null) return;
 
     try {
       const existingUrls = currentConfig.knowledge_base_urls
@@ -1233,7 +1216,7 @@ export default function Settings() {
           : JSON.parse(currentConfig.knowledge_base_urls || '[]')
         : [];
 
-      const updatedUrls = existingUrls.filter((_: any, i: number) => i !== index);
+      const updatedUrls = existingUrls.filter((_: any, i: number) => i !== urlToDeleteIndex);
 
       const { error } = await supabase
         .from('email_configurations')
@@ -1251,11 +1234,11 @@ export default function Settings() {
       });
 
       setKnowledgeUrls(updatedUrls.length > 0 ? updatedUrls : ['']);
-
-      showToast('URL supprimée avec succès', 'success');
     } catch (err) {
       console.error('Error removing URL:', err);
-      showToast("Erreur lors de la suppression de l'URL", 'error');
+    } finally {
+      setShowDeleteUrlModal(false);
+      setUrlToDeleteIndex(null);
     }
   };
 
@@ -1270,7 +1253,7 @@ export default function Settings() {
       const validation = validatePdfFile(file);
 
       if (!validation.valid) {
-        showToast(`${file.name}: ${validation.error || 'Fichier invalide'}`, 'error');
+        console.error(`${file.name}: ${validation.error || 'Fichier invalide'}`);
         continue;
       }
 
@@ -1308,17 +1291,17 @@ export default function Settings() {
       URL.revokeObjectURL(url);
     } catch (error) {
       console.error('Erreur lors du téléchargement du PDF:', error);
-      showToast('Erreur lors du téléchargement du PDF', 'error');
+      console.error('Erreur lors du téléchargement du PDF');
     }
   };
 
-  const handleRemoveExistingPdf = async (index: number) => {
-    if (!currentConfig) return;
+  const handleRemoveExistingPdf = (index: number) => {
+    setPdfToDeleteIndex(index);
+    setShowDeletePdfModal(true);
+  };
 
-    const confirmDelete = window.confirm(
-      'Êtes-vous sûr de vouloir supprimer ce PDF de la base de connaissances ?',
-    );
-    if (!confirmDelete) return;
+  const confirmDeletePdf = async () => {
+    if (!currentConfig || pdfToDeleteIndex === null) return;
 
     try {
       const existingPdfs = currentConfig.knowledge_base_pdfs
@@ -1327,7 +1310,7 @@ export default function Settings() {
           : JSON.parse(currentConfig.knowledge_base_pdfs || '[]')
         : [];
 
-      const updatedPdfs = existingPdfs.filter((_: any, i: number) => i !== index);
+      const updatedPdfs = existingPdfs.filter((_: any, i: number) => i !== pdfToDeleteIndex);
 
       const { error } = await supabase
         .from('email_configurations')
@@ -1343,11 +1326,11 @@ export default function Settings() {
         ...currentConfig,
         knowledge_base_pdfs: updatedPdfs,
       });
-
-      showToast('PDF supprimé avec succès', 'success');
     } catch (err) {
       console.error('Error removing PDF:', err);
-      showToast('Erreur lors de la suppression du PDF', 'error');
+    } finally {
+      setShowDeletePdfModal(false);
+      setPdfToDeleteIndex(null);
     }
   };
 
@@ -1382,13 +1365,13 @@ export default function Settings() {
       const file = files[i];
 
       if (file.type !== 'application/pdf') {
-        showToast(`${file.name}: Ce fichier n'est pas un PDF`, 'error');
+        console.error(`${file.name}: Ce fichier n'est pas un PDF`);
         continue;
       }
 
       const validation = validatePdfFile(file);
       if (!validation.valid) {
-        showToast(`${file.name}: ${validation.error || 'Fichier invalide'}`, 'error');
+        console.error(`${file.name}: ${validation.error || 'Fichier invalide'}`);
         continue;
       }
 
@@ -1423,13 +1406,13 @@ export default function Settings() {
       existingUrls.length === 0 &&
       existingPdfs.length === 0
     ) {
-      showToast('Veuillez fournir au moins une URL ou un fichier PDF', 'warning');
+      // Validation: at least one URL or PDF required
       return;
     }
 
     for (const url of newUrls) {
       if (!isValidUrl(url)) {
-        showToast(`URL invalide: ${url}`, 'error');
+        console.error(`URL invalide: ${url}`);
         return;
       }
     }
@@ -1490,22 +1473,26 @@ export default function Settings() {
           dbError.message?.includes('does not exist')
         ) {
           console.error('Knowledge base columns not found. Please run migration:', dbError);
-          showToast(
-            'Les colonnes de base de connaissances ne sont pas encore créées. Veuillez appliquer la migration.',
-            'error',
-          );
+          console.error('Les colonnes de base de connaissances ne sont pas encore créées. Veuillez appliquer la migration.');
         } else {
           throw dbError;
         }
         return;
       }
 
-      showToast('Base de connaissance enregistrée avec succès !', 'success');
+      // Base de connaissance enregistrée avec succès
+      
+      // Supprimer le brouillon du localStorage après sauvegarde réussie
+      if (selectedAccount?.email && typeof window !== 'undefined') {
+        const storageKey = `knowledge_urls_draft_${selectedAccount.email}`;
+        localStorage.removeItem(storageKey);
+      }
+      
       await loadCurrentConfig();
       setKnowledgePdfFiles([]);
     } catch (err) {
       console.error('Error saving knowledge base:', err);
-      showToast(err instanceof Error ? err.message : 'Une erreur est survenue', 'error');
+      console.error(err instanceof Error ? err.message : 'Une erreur est survenue');
     } finally {
       setKnowledgeSaving(false);
     }
@@ -1535,7 +1522,7 @@ export default function Settings() {
         data: { session },
       } = await supabase.auth.getSession();
       if (!session) {
-        showToast('Vous devez être connecté', 'error');
+        console.error('Vous devez être connecté');
         return;
       }
 
@@ -1556,7 +1543,7 @@ export default function Settings() {
       const data = await response.json();
 
       if (!response.ok || data.error) {
-        showToast(data.error || 'Erreur lors de la suppression du compte', 'error');
+        console.error(data.error || 'Erreur lors de la suppression du compte');
         return;
       }
 
@@ -1565,7 +1552,7 @@ export default function Settings() {
       loadAccounts();
       checkSubscription();
     } catch (error) {
-      showToast('Une erreur est survenue lors de la suppression', 'error');
+      console.error('Une erreur est survenue lors de la suppression');
     }
   };
 
@@ -1589,7 +1576,7 @@ export default function Settings() {
         data: { session },
       } = await supabase.auth.getSession();
       if (!session) {
-        showToast('Vous devez être connecté', 'error');
+        console.error('Vous devez être connecté');
         return;
       }
 
@@ -1610,10 +1597,10 @@ export default function Settings() {
         await supabase.auth.signOut();
         router.push('/');
       } else {
-        showToast('Erreur lors de la suppression du compte: ' + data.error, 'error');
+        console.error('Erreur lors de la suppression du compte: ' + data.error);
       }
     } catch (error) {
-      showToast('Une erreur est survenue lors de la suppression du compte', 'error');
+      console.error('Une erreur est survenue lors de la suppression du compte');
     } finally {
       setIsDeletingUser(false);
     }
@@ -1621,7 +1608,6 @@ export default function Settings() {
 
   return (
     <section className="mx-auto max-w-7xl">
-      <ToastComponent />
 
       <Container>
         <HowItWorks />
@@ -2110,7 +2096,7 @@ export default function Settings() {
                   >
                     {/* Fond blanc avec bouton pour les slots non configurés */}
                     {selectedSlot && !selectedAccount && (
-                      <div className="absolute inset-0 z-20 flex items-center justify-center rounded-br-xl bg-white">
+                      <div className="absolute inset-0 z-20 flex items-center justify-center bg-white shadow-r-md">
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -2126,7 +2112,7 @@ export default function Settings() {
                               setShowAddAccountModal(true);
                             }
                           }}
-                          className="rounded-lg bg-gradient-to-br from-[#F35F4F] to-[#FFAD5A] px-8 py-4 font-semibold text-white shadow-lg transition-all hover:shadow-xl"
+                          className="rounded-lg bg-gradient-to-br from-[#F35F4F] to-[#FFAD5A] px-8 py-4 font-semibold text-white shadow-lg transition-all hover:shadow-xl cursor-pointer"
                         >
                           Configurer l'email
                         </button>
@@ -2153,7 +2139,7 @@ export default function Settings() {
                       </div>
                       <div>
                         <div className="flex items-center justify-between">
-                          <span className="mb-2 text-gray-500">Description de l'activité:</span>
+                          <span className="mb-2 text-gray-500">Description de l'activité  :</span>
                           <button
                             onClick={() => {
                               setEditTempValue(companyFormData.activity_description);
@@ -2224,25 +2210,8 @@ export default function Settings() {
                   >
                     {/* Fond blanc avec bouton pour les slots non configurés */}
                     {selectedSlot && !selectedAccount && (
-                      <div className="absolute inset-0 z-20 flex items-center justify-center bg-white">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            const slotSub = unlinkedSubscriptions[selectedSlot.index];
-                            if (slotSub?.subscription_id) {
-                              setSelectedSlotForConfig({
-                                index: selectedSlot.index,
-                                subscription_id: slotSub.subscription_id,
-                              });
-                              setShowSlotConfigModal(true);
-                            } else {
-                              setShowAddAccountModal(true);
-                            }
-                          }}
-                          className="rounded-lg bg-gradient-to-br from-[#F35F4F] to-[#FFAD5A] px-8 py-4 font-semibold text-white shadow-lg transition-all hover:shadow-xl"
-                        >
-                          Configurer l'email
-                        </button>
+                      <div className="absolute inset-0 z-20 flex items-center b-none shadow-none justify-center bg-white">
+                        
                       </div>
                     )}
                     <div className="mb-6">
@@ -2341,7 +2310,7 @@ export default function Settings() {
                                   value={url}
                                   onChange={(e) => handleKnowledgeUrlChange(index, e.target.value)}
                                   className="flex-1 rounded-lg border border-gray-300 px-4 py-3 focus:border-transparent focus:ring-2 focus:ring-[#EF6855]"
-                                  placeholder="https://example.com/documentation"
+                                  placeholder="https://example.com"
                                 />
                                 {knowledgeUrls.length > 1 && (
                                   <button
@@ -2515,6 +2484,13 @@ export default function Settings() {
 
                         {/* Save Button */}
                         <div className="pt-4">
+                          {knowledgeSaving && (
+                            <div className="mb-4 bg-orange-50 border border-orange-200 rounded-lg p-3 text-orange-700">
+                              <p className="text-sm font-medium text-center">
+                                Merci de ne pas recharger la fenêtre. Nous prenons votre base de connaissances en compte.
+                              </p>
+                            </div>
+                          )}
                           <button
                             onClick={handleSaveKnowledge}
                             disabled={knowledgeSaving}
@@ -3182,7 +3158,7 @@ export default function Settings() {
                       setShowNotification(true);
                       setTimeout(() => setShowNotification(false), 3000);
                     } catch (err) {
-                      showToast('Erreur lors de la mise à jour', 'error');
+                      console.error('Erreur lors de la mise à jour');
                     }
                   }}
                   className="flex-1 rounded-lg px-6 py-3 font-semibold text-white transition-all hover:opacity-90"
@@ -3227,7 +3203,7 @@ export default function Settings() {
             <div className="space-y-4">
               <div>
                 <label className="mb-2 block text-sm font-semibold text-gray-700">
-                  Description de l'activité
+                  Description de l'activité 
                 </label>
                 <textarea
                   value={editTempValue}
@@ -3239,12 +3215,12 @@ export default function Settings() {
                     modalError ? 'border-red-500' : 'border-gray-200 focus:border-orange-500'
                   }`}
                   rows={6}
-                  placeholder="Exemple : Nous sommes une agence de marketing digital spécialisée dans la création de contenu et la gestion des réseaux sociaux pour les PME. Nous aidons nos clients à développer leur présence en ligne et à atteindre leurs objectifs commerciaux."
-                />
+                  placeholder="Ex: Hall-IA développe des solutions intelligentes, dont HallMail, un outil qui organise automatiquement vos emails en catégories comme PUB, INFO ou TRAITÉ."
+                  />
                 {modalError && <p className="mt-2 text-sm text-red-600">{modalError}</p>}
                 <p className="mt-2 text-xs text-gray-500">
                   Cette description sera utilisée par l'IA pour mieux comprendre votre contexte et
-                  classer vos e-mails.
+                  classer vos e-mails. Plus votre descriptif est détailé et précis, plus la performance de l'outil sera pertinante.
                 </p>
               </div>
 
@@ -3292,7 +3268,7 @@ export default function Settings() {
                       setShowNotification(true);
                       setTimeout(() => setShowNotification(false), 3000);
                     } catch (err) {
-                      showToast('Erreur lors de la mise à jour', 'error');
+                      console.error('Erreur lors de la mise à jour');
                     }
                   }}
                   className="flex-1 rounded-lg px-6 py-3 font-semibold text-white transition-all hover:opacity-90"
@@ -3362,7 +3338,7 @@ export default function Settings() {
                     const file = e.dataTransfer.files?.[0];
                     if (file && file.type.startsWith('image/')) {
                       if (file.size > 2 * 1024 * 1024) {
-                        showToast("L'image ne doit pas dépasser 2MB", 'error');
+                        console.error("L'image ne doit pas dépasser 2MB");
                         return;
                       }
 
@@ -3373,7 +3349,7 @@ export default function Settings() {
                       };
                       reader.readAsDataURL(file);
                     } else {
-                      showToast('Veuillez déposer une image valide', 'error');
+                      console.error('Veuillez déposer une image valide');
                     }
                   }}
                 >
@@ -3384,7 +3360,7 @@ export default function Settings() {
                       const file = e.target.files?.[0];
                       if (file) {
                         if (file.size > 2 * 1024 * 1024) {
-                          showToast("L'image ne doit pas dépasser 2MB", 'error');
+                          console.error("L'image ne doit pas dépasser 2MB");
                           return;
                         }
 
@@ -3476,7 +3452,7 @@ export default function Settings() {
                       setShowNotification(true);
                       setTimeout(() => setShowNotification(false), 3000);
                     } catch (err) {
-                      showToast('Erreur lors de la mise à jour', 'error');
+                      console.error('Erreur lors de la mise à jour');
                     }
                   }}
                   className="flex-1 rounded-lg px-6 py-3 font-semibold text-white transition-all hover:opacity-90"
@@ -3580,7 +3556,7 @@ export default function Settings() {
                       setShowNotification(true);
                       setTimeout(() => setShowNotification(false), 3000);
                     } catch (err) {
-                      showToast('Erreur lors de la mise à jour', 'error');
+                      console.error('Erreur lors de la mise à jour');
                     }
                   }}
                   className="flex-1 rounded-lg px-6 py-3 font-semibold text-white transition-all hover:opacity-90"
@@ -3625,6 +3601,32 @@ export default function Settings() {
         onConfirm={handleDeleteDocument}
         title="Supprimer le document"
         message="Êtes-vous sûr de vouloir supprimer définitivement ce document ? Cette action est irréversible."
+        confirmText="Supprimer"
+        cancelText="Annuler"
+      />
+
+      <ConfirmationModal
+        isOpen={showDeleteUrlModal}
+        onClose={() => {
+          setShowDeleteUrlModal(false);
+          setUrlToDeleteIndex(null);
+        }}
+        onConfirm={confirmDeleteUrl}
+        title="Supprimer l'URL"
+        message="Êtes-vous sûr de vouloir supprimer cette URL de la base de connaissances ?"
+        confirmText="Supprimer"
+        cancelText="Annuler"
+      />
+
+      <ConfirmationModal
+        isOpen={showDeletePdfModal}
+        onClose={() => {
+          setShowDeletePdfModal(false);
+          setPdfToDeleteIndex(null);
+        }}
+        onConfirm={confirmDeletePdf}
+        title="Supprimer le PDF"
+        message="Êtes-vous sûr de vouloir supprimer ce PDF de la base de connaissances ?"
         confirmText="Supprimer"
         cancelText="Annuler"
       />

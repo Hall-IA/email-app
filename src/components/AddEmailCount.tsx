@@ -15,9 +15,20 @@ export default function AddEmailCount({ onComplete, onClose }: AddEmailCountProp
     const { user } = useAuth();
     const { showToast, ToastComponent } = useToast();
     const [loading, setLoading] = useState(false);
-    const [additionalEmails, setAdditionalEmails] = useState(1);
+    const [additionalEmails, setAdditionalEmails] = useState(0);
     const [additionalPrice, setAdditionalPrice] = useState(39);
     const [isVisible, setIsVisible] = useState(true);
+
+    // Charger la valeur depuis localStorage au montage
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const saved = localStorage.getItem('business_pass_email_counter');
+            if (saved) {
+                const count = parseInt(saved, 10) || 0;
+                setAdditionalEmails(count);
+            }
+        }
+    }, []);
 
     // Récupérer les prix depuis Stripe
     useEffect(() => {
@@ -50,20 +61,19 @@ export default function AddEmailCount({ onComplete, onClose }: AddEmailCountProp
         fetchStripePrices();
     }, []);
 
-    // On commence toujours à 0 (affichage 1 compte additionnel minimum)
-    // Pas de chargement depuis localStorage car on est dans le mode "additionnel uniquement"
-
     // Calculer le total (comme CheckoutAdditionalModal : (additionalEmails + 1) * additionalPrice)
     const calculateTotal = () => {
-        return (additionalEmails + 1) * additionalPrice;
+        return (additionalEmails) * additionalPrice;
     };
 
     // Incrémenter les emails
     const incrementEmails = () => {
         const newValue = additionalEmails + 1;
         setAdditionalEmails(newValue);
-        // Ne pas sauvegarder dans localStorage car on est dans le mode "additionnel uniquement"
-        // Le localStorage est utilisé pour le premier checkout, pas pour les additions
+        // Sauvegarder dans localStorage
+        if (typeof window !== 'undefined') {
+            localStorage.setItem('business_pass_email_counter', newValue.toString());
+        }
     };
 
     // Décrémenter les emails
@@ -71,7 +81,10 @@ export default function AddEmailCount({ onComplete, onClose }: AddEmailCountProp
         if (additionalEmails > 0) {
             const newValue = additionalEmails - 1;
             setAdditionalEmails(newValue);
-            // Ne pas sauvegarder dans localStorage car on est dans le mode "additionnel uniquement"
+            // Sauvegarder dans localStorage
+            if (typeof window !== 'undefined') {
+                localStorage.setItem('business_pass_email_counter', newValue.toString());
+            }
         }
     };
 
@@ -106,7 +119,7 @@ export default function AddEmailCount({ onComplete, onClose }: AddEmailCountProp
                         'Apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
                     },
                     body: JSON.stringify({
-                        additional_accounts: additionalEmails + 1,
+                        additional_accounts: additionalEmails,
                         success_url: `${window.location.origin}/settings?upgraded=success`,
                         cancel_url: `${window.location.origin}/settings?upgraded=cancelled`,
                     }),
@@ -121,6 +134,10 @@ export default function AddEmailCount({ onComplete, onClose }: AddEmailCountProp
             }
 
             if (data.url) {
+                // Supprimer business_pass_email_counter du localStorage après le paiement
+                if (typeof window !== 'undefined') {
+                    localStorage.removeItem('business_pass_email_counter');
+                }
                 // Fermer les modals avant de rediriger
                 setIsVisible(false);
                 if (onComplete) {
@@ -199,10 +216,10 @@ export default function AddEmailCount({ onComplete, onClose }: AddEmailCountProp
 
                                     <div className="flex flex-col items-center flex-1">
                                         <span className="text-2xl font-bold text-gray-900">
-                                            {additionalEmails + 1}
+                                            {additionalEmails}
                                         </span>
                                         <span className="text-xs text-gray-600 font-inter">
-                                            {additionalEmails + 1} compte{(additionalEmails + 1) > 1 ? 's' : ''} additionnel{(additionalEmails + 1) > 1 ? 's' : ''} seront ajoutés
+                                            {additionalEmails} compte{(additionalEmails) > 1 ? 's' : ''} additionnel{(additionalEmails) > 1 ? 's' : ''} seront ajoutés
                                         </span>
                                     </div>
 
