@@ -891,26 +891,6 @@ export default function UserSettingsPage() {
                     <div className="space-y-4">
                       <div>
                         <label className="mb-2 block text-sm font-medium text-gray-700">
-                          Adresse email
-                        </label>
-                        <input
-                          type="email"
-                          value={editFormData.contact_email}
-                          onChange={(e) =>
-                            setEditFormData({ ...editFormData, contact_email: e.target.value })
-                          }
-                          className={`w-full border px-4 py-2 ${validationErrors.contact_email ? 'border-red-500' : 'border-gray-300'} rounded-lg focus:border-transparent focus:ring-2 focus:ring-blue-500`}
-                          placeholder="contact@entreprise.fr"
-                        />
-                        {validationErrors.contact_email && (
-                          <p className="mt-1 text-sm text-red-500">
-                            {validationErrors.contact_email}
-                          </p>
-                        )}
-                      </div>
-
-                      <div>
-                        <label className="mb-2 block text-sm font-medium text-gray-700">
                           Adresse email supplémentaire pour la réception des factures
                         </label>
                         <input
