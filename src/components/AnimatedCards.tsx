@@ -1,7 +1,8 @@
 'use client';
 
-import { Mail, Check, CheckCircle, Info, X, Brain, Pencil } from 'lucide-react';
+import { Mail, Check, CheckCircle, Info, X, Brain, Pencil, RefreshCw } from 'lucide-react';
 import { motion } from 'motion/react';
+import Image from 'next/image';
 
 export default function AnimatedCards() {
   return (
@@ -15,7 +16,7 @@ export default function AnimatedCards() {
         />
 
         {/* Enveloppes en haut */}
-        <div className="absolute top-22 right-0 left-0 flex items-center justify-center gap-3 px-6">
+        <div className="absolute top-21 right-0 left-0 flex items-center justify-center gap-3 px-6">
           {/* Barre de progression */}
           <div className="absolute top-1/2 right-0 left-0 h-0.5 -translate-y-1/2 bg-white/30" />
 
@@ -176,7 +177,7 @@ export default function AnimatedCards() {
         />
 
         {/* Enveloppes avec catégories */}
-        <div className="absolute top-8 right-0 left-0 ps-4">
+        <div className="absolute top-7 right-0 left-0 ps-4">
           <div className="absolute top-14 right-40 left-0 h-0.5 -translate-y-1/2 bg-white/30" />
           <div className="relative flex items-center justify-between">
             {/* Groupe d'enveloppes à gauche */}
@@ -299,25 +300,67 @@ export default function AnimatedCards() {
           className="h-full w-full object-contain"
         />
 
-        {/* Carte IA avec cerveau et logo */}
-        <div className="absolute top-8 left-1/2 flex -translate-x-1/2 items-center justify-center px-4">
-          <div className="flex items-center gap-4 rounded-2xl border-2 border-white/40 bg-white/15 px-10 py-5 shadow-xl backdrop-blur-sm">
-            {/* Icône Cerveau */}
-            <div className="flex h-16 w-16 items-center justify-center rounded-xl bg-white shadow-lg">
-              <Brain className="h-9 w-9 text-orange-500" strokeWidth={2} />
+        {/* Enveloppes avec catégories */}
+        <div className="absolute top-7 right-0 left-0">
+          <div className="relative flex items-center justify-between">
+            {/* Badges à droite */}
+            <div className="flex w-1/6 flex-col gap-3.5">
+              {/* Badge Traité */}
+              <div className="flex items-center gap-1.5 bg-green-100 px-3 py-1.5 text-xs font-semibold whitespace-nowrap text-green-500 shadow-md">
+                <CheckCircle className="h-3.5 w-3.5 opacity-0" strokeWidth={2.5} />
+                <span className="opacity-0">Traité</span>
+              </div>
+
+              {/* Badge Info */}
+              <div className="flex items-center gap-1.5 bg-blue-100 px-3 py-1.5 text-xs font-semibold whitespace-nowrap text-blue-500 shadow-md">
+                <Info className="h-3.5 w-3.5 opacity-0" strokeWidth={2.5} />
+                <span className="opacity-0">Info</span>
+              </div>
+
+              {/* Badge Pub */}
+              <div className="flex items-center gap-1.5 bg-red-100 px-3 py-1.5 text-xs font-semibold whitespace-nowrap text-red-500 shadow-md">
+                <X className="h-3.5 w-3.5 opacity-0" strokeWidth={2.5} />
+                <span className="opacity-0">Pub</span>
+              </div>
             </div>
 
-            {/* Séparateur */}
-            <div className="h-14 w-px bg-white/50" />
+            {/* Grande carte IA */}
+            <div
+              className="absolute left-1/2 flex h-[120px] w-[80%] -translate-x-1/2 items-center justify-center overflow-hidden rounded-sm border shadow-xl"
+              style={{
+                background: `conic-gradient(
+                  from 195.77deg at 84.44% -1.66%,
+                  #FE9736 0deg,
+                  #F4664C 76.15deg,
+                  #F97E41 197.31deg,
+                  #E3AB8D 245.77deg,
+                  #FE9736 360deg
+                )`,
+              }}
+            >
+              <div className="relative flex h-full items-center justify-center">
+                <RefreshCw
+                  className="text-silverchalice-50 absolute top-1/2 left-1/2 min-h-full w-auto -translate-x-1/2 -translate-y-1/2 scale-[1.3] animate-[spin_2.5s_linear_infinite] opacity-20"
+                  strokeWidth={3}
+                  style={{ zIndex: 1 }}
+                />
+                <div className="relative z-10 flex items-center gap-1 rounded-lg border-2 border-white/40 bg-white/10 p-3 shadow-xl backdrop-blur-sm">
+                  <Brain className="h-7 w-7 text-white" strokeWidth={2} />
+                  {/* Logo IA stylisé */}
+                  <Image
+                    src={'/assets/svg/hallia.svg'}
+                    height={32}
+                    width={32}
+                    alt=""
+                    className="shrink-0"
+                  />
+                </div>
+              </div>
+            </div>
 
-            {/* Logo IA stylisé */}
-            <div className="flex items-center text-white">
-              <span
-                className="text-4xl font-black tracking-wide"
-                style={{ fontFamily: 'monospace' }}
-              >
-                IA
-              </span>
+            {/* Badge brouillon */}
+            <div className="flex items-center gap-1.5 bg-gray-900 px-3 py-1.5 text-xs font-semibold whitespace-nowrap shadow-md">
+              <Pencil className="h-6 w-6 opacity-0" strokeWidth={2.5} />
             </div>
           </div>
         </div>
@@ -360,15 +403,11 @@ export default function AnimatedCards() {
         />
 
         {/* Champ Brouillons et Crayon */}
-        <div className="absolute top-15 left-1/2 flex -translate-x-1/2 items-center gap-3">
-          {/* Champ Brouillons */}
-          <div className="rounded-lg bg-white px-8 py-3 shadow-lg">
-            <span className="text-lg font-semibold text-gray-800">Brouillons</span>
-          </div>
-
+        <div className="absolute top-16 left-0 flex items-center gap-3">
           {/* Icône Crayon dans un carré noir */}
-          <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-gray-900 shadow-lg">
-            <Pencil className="h-7 w-7 text-white" strokeWidth={2} />
+          <div className="flex items-center gap-2 rounded-r-md bg-gray-900 px-3 py-2 whitespace-nowrap text-white shadow-lg">
+            <Pencil className="h-6 w-6" strokeWidth={2} />
+            <span className="text-sm font-semibold">Brouillons</span>
           </div>
         </div>
 
