@@ -956,7 +956,7 @@ export default function Dashboard() {
                 <img
                   src="/assets/icon/icon-check.png"
                   alt="check"
-                  className="rounded-2xl rounded-md bg-green-200/50 p-2"
+                  className="rounded-2xl bg-green-200/50 p-2"
                 />
               </div>
               {loading ? (
@@ -985,7 +985,7 @@ export default function Dashboard() {
                 <img
                   src="/assets/icon/icon-close.png"
                   alt="close"
-                  className="rounded-2xl rounded-md bg-red-200/50 p-2"
+                  className="rounded-2xl bg-red-200/50 p-2"
                 />
               </div>
               {loading ? (
@@ -1016,7 +1016,7 @@ export default function Dashboard() {
                 <img
                   src="/assets/icon/icon-info.png"
                   alt="info"
-                  className="rounded-2xl rounded-md bg-blue-200/50 p-2"
+                  className="rounded-2xl bg-blue-200/50 p-2"
                 />
               </div>
               {loading ? (
