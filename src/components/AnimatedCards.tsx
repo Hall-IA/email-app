@@ -35,7 +35,7 @@ export default function AnimatedCards() {
             }}
           >
             <motion.div
-              className="relative flex h-14 w-16 items-center justify-center rounded-lg shadow-lg overflow-hidden"
+              className="relative flex h-14 w-16 items-center justify-center overflow-hidden rounded-lg shadow-lg"
               animate={{
                 background: [
                   'rgb(255, 255, 255)',
@@ -54,9 +54,10 @@ export default function AnimatedCards() {
             >
               {/* Barre horizontale de scan qui descend */}
               <motion.div
-                className="absolute left-0 right-0 h-2 z-20"
+                className="absolute right-0 left-0 z-20 h-2"
                 style={{
-                  background: 'linear-gradient(to bottom, transparent, rgba(251,146,60,0.8), rgba(249,115,22,1), rgba(251,146,60,0.8), transparent)',
+                  background:
+                    'linear-gradient(to bottom, transparent, rgba(251,146,60,0.8), rgba(249,115,22,1), rgba(251,146,60,0.8), transparent)',
                   boxShadow: '0 0 20px 4px rgba(249,115,22,0.8)',
                   filter: 'blur(0.5px)',
                 }}
