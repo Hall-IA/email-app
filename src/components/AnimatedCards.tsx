@@ -402,12 +402,109 @@ export default function AnimatedCards() {
           className="h-full w-full object-contain"
         />
 
-        {/* Champ Brouillons et Crayon */}
+        {/* Crayon */}
         <div className="absolute top-16 left-0 flex items-center gap-3">
           {/* Icône Crayon dans un carré noir */}
           <div className="flex items-center gap-2 rounded-r-md bg-gray-900 px-3 py-2 whitespace-nowrap text-white shadow-lg">
-            <Pencil className="h-6 w-6" strokeWidth={2} />
-            <span className="text-sm font-semibold">Brouillons</span>
+            <Pencil className="h-[22px] w-[23px]" strokeWidth={2} />
+            {/* <span className="text-sm font-semibold">Brouillons</span> */}
+          </div>
+        </div>
+
+        {/* Champ Brouillons - Enveloppe avec feuille */}
+        <div className="absolute right-2 bottom-24 flex w-[80%] flex-col items-center overflow-hidden">
+          {/* Feuille qui sort de l'enveloppe */}
+          <motion.div
+            className="relative z-0 mb-[-12px] flex w-[90%] flex-col gap-2 rounded-t-sm bg-white p-4"
+            animate={{
+              y: [80, 0, 0, 0, 80],
+            }}
+            transition={{
+              duration: 5,
+              times: [0, 0.2, 0.5, 0.7, 0.9],
+              repeat: Infinity,
+              ease: 'easeInOut',
+            }}
+          >
+            {/* Titre "Bonjour" */}
+            <motion.div
+              className="text-xs font-medium text-gray-700"
+              animate={{
+                opacity: [0, 0, 1, 1, 1, 1],
+              }}
+              transition={{
+                duration: 5,
+                times: [0, 0.25, 0.35, 0.5, 0.7, 0.9],
+                repeat: Infinity,
+              }}
+            >
+              Bonjour,
+            </motion.div>
+
+            {/* Ligne 1 */}
+            <motion.div
+              className="h-2 w-16 rounded bg-gray-300"
+              animate={{
+                opacity: [0, 0, 0, 1, 1, 1, 1],
+                scaleX: [0, 0, 0, 1, 1, 1, 0],
+              }}
+              transition={{
+                duration: 5,
+                times: [0, 0.25, 0.35, 0.4, 0.5, 0.7, 0.9],
+                repeat: Infinity,
+              }}
+              style={{ transformOrigin: 'left' }}
+            />
+
+            {/* Ligne 2 */}
+            <motion.div
+              className="h-2 w-full rounded bg-gray-200"
+              animate={{
+                opacity: [0, 0, 0, 0, 1, 1, 1, 1],
+                scaleX: [0, 0, 0, 0, 1, 1, 1, 0],
+              }}
+              transition={{
+                duration: 5,
+                times: [0, 0.25, 0.35, 0.4, 0.45, 0.5, 0.7, 0.9],
+                repeat: Infinity,
+              }}
+              style={{ transformOrigin: 'left' }}
+            />
+
+            {/* Ligne 3 */}
+            <motion.div
+              className="h-2 w-11/12 rounded bg-gray-200"
+              animate={{
+                opacity: [0, 0, 0, 0, 0, 1, 1, 1, 1],
+                scaleX: [0, 0, 0, 0, 0, 1, 1, 1, 0],
+              }}
+              transition={{
+                duration: 5,
+                times: [0, 0.25, 0.35, 0.4, 0.45, 0.5, 0.55, 0.7, 0.9],
+                repeat: Infinity,
+              }}
+              style={{ transformOrigin: 'left' }}
+            />
+
+            {/* Ligne 4 */}
+            <motion.div
+              className="h-2 w-full rounded bg-gray-200"
+              animate={{
+                opacity: [0, 0, 0, 0, 0, 0, 1, 1, 1, 1],
+                scaleX: [0, 0, 0, 0, 0, 0, 1, 1, 1, 0],
+              }}
+              transition={{
+                duration: 5,
+                times: [0, 0.25, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.7, 0.9],
+                repeat: Infinity,
+              }}
+              style={{ transformOrigin: 'left' }}
+            />
+          </motion.div>
+
+          {/* Enveloppe (représente Brouillons) */}
+          <div className="relative z-20 flex w-full items-center justify-center overflow-hidden rounded-b-md drop-shadow-lg bg-silverchalice-50 py-1">
+            <span className="relative z-10 text-sm font-azeret">Brouillons</span>
           </div>
         </div>
 
