@@ -46,10 +46,13 @@ export function CompanyInfoModal({ userId, emailAccountId, email, initialStep = 
     });
     const [knowledgeUrls, setKnowledgeUrls] = useState<string[]>(['']);
     const [knowledgePdfFiles, setKnowledgePdfFiles] = useState<File[]>([]);
+    const [existingPdfs, setExistingPdfs] = useState<Array<{ name: string; base64: string }>>([]);
     const [isDraggingPdf, setIsDraggingPdf] = useState(false);
     const [isDraggingLogo, setIsDraggingLogo] = useState(false);
     const [validationError, setValidationError] = useState<{ step: number; message: string } | null>(null);
     const [saveTimeout, setSaveTimeout] = useState<NodeJS.Timeout | null>(null);
+    const [isInitialLoad, setIsInitialLoad] = useState(true); // Flag pour désactiver l'auto-save pendant le chargement initial
+    const [isAnalyzingKnowledge, setIsAnalyzingKnowledge] = useState(false); // Flag pour indiquer l'analyse de la base de connaissance
 
     const totalSteps = 5;
 
@@ -115,6 +118,9 @@ export function CompanyInfoModal({ userId, emailAccountId, email, initialStep = 
 
     // Sauvegarder automatiquement les données avec debounce quand les champs changent
     useEffect(() => {
+        // Ne pas sauvegarder automatiquement pendant le chargement initial
+        if (isInitialLoad) return;
+
         // Annuler la sauvegarde précédente si elle existe
         if (saveTimeout) {
             clearTimeout(saveTimeout);
@@ -139,7 +145,7 @@ export function CompanyInfoModal({ userId, emailAccountId, email, initialStep = 
                 clearTimeout(saveTimeout);
             }
         };
-    }, [formData.company_name, formData.activity_description, formData.services_offered, formData.signature_image_base64, userId, email, saveProgress]);
+    }, [formData.company_name, formData.activity_description, formData.services_offered, formData.signature_image_base64, userId, email, saveProgress, isInitialLoad]);
 
     useEffect(() => {
         loadCompanyData();
@@ -172,78 +178,98 @@ export function CompanyInfoModal({ userId, emailAccountId, email, initialStep = 
             // Déterminer si l'email actuel est l'email principal
             const isPrimary = currentEmailData?.is_primary === true;
 
-            // Si l'email actuel est vide et n'est pas l'email principal, charger les données de l'email principal
-            // UNIQUEMENT pour les champs obligatoires (company_name, activity_description, services_offered)
-            let dataToUse = currentEmailData;
+            // Données à afficher dans le formulaire (peuvent être différentes des données en BDD)
+            let displayData = {
+                company_name: currentEmailData?.company_name || '',
+                activity_description: currentEmailData?.activity_description || '',
+                services_offered: currentEmailData?.services_offered || '',
+                signature_image_base64: currentEmailData?.signature_image_base64 || '',
+                knowledge_base_urls: currentEmailData?.knowledge_base_urls || null,
+                knowledge_base_pdfs: currentEmailData?.knowledge_base_pdfs || null,
+            };
+
+            // Si l'email actuel est vide et n'est pas l'email principal, 
+            // charger les données de l'email principal UNIQUEMENT pour pré-remplir les champs (pas pour sauvegarder)
             if (!isPrimary && (!currentEmailData?.company_name?.trim() && !currentEmailData?.activity_description?.trim() && !currentEmailData?.services_offered?.trim())) {
-                // Charger uniquement les champs obligatoires de l'email principal
+                // Charger les données de l'email principal (y compris logo, URLs et base de connaissance)
                 const { data: primaryEmailData, error: primaryError } = await supabase
                     .from('email_configurations')
-                    .select('company_name, activity_description, services_offered')
+                    .select('company_name, activity_description, services_offered, signature_image_base64, knowledge_base_urls, knowledge_base_pdfs')
                     .eq('user_id', userId)
                     .eq('is_primary', true)
                     .maybeSingle();
 
                 if (!primaryError && primaryEmailData) {
-                    // Utiliser UNIQUEMENT les champs obligatoires de l'email principal pour pré-remplir
-                    // Ne pas toucher à signature_image_base64 ni knowledge_base_urls
-                    dataToUse = {
-                        ...currentEmailData,
+                    // Utiliser les données de l'email principal pour AFFICHAGE uniquement
+                    // Ces données ne seront sauvegardées que quand l'utilisateur clique sur "Terminer"
+                    displayData = {
                         company_name: primaryEmailData.company_name || '',
                         activity_description: primaryEmailData.activity_description || '',
                         services_offered: primaryEmailData.services_offered || '',
-                        // Garder les valeurs actuelles (vides) pour signature_image_base64 et knowledge_base_urls
-                        signature_image_base64: currentEmailData?.signature_image_base64 || '',
-                        knowledge_base_urls: currentEmailData?.knowledge_base_urls || null,
-                        knowledge_base_pdfs: currentEmailData?.knowledge_base_pdfs || null,
-                        is_primary: currentEmailData?.is_primary || false,
+                        signature_image_base64: primaryEmailData.signature_image_base64 || '',
+                        knowledge_base_urls: primaryEmailData.knowledge_base_urls || null,
+                        knowledge_base_pdfs: primaryEmailData.knowledge_base_pdfs || null,
                     };
                 }
             }
 
-            if (dataToUse) {
-                setFormData({
-                    company_name: dataToUse.company_name || '',
-                    activity_description: dataToUse.activity_description || '',
-                    services_offered: dataToUse.services_offered || '', // Signature d'email
-                    signature_image_base64: dataToUse.signature_image_base64 || '',
-                });
+            // Afficher les données dans le formulaire
+            setFormData({
+                company_name: displayData.company_name,
+                activity_description: displayData.activity_description,
+                services_offered: displayData.services_offered,
+                signature_image_base64: displayData.signature_image_base64,
+            });
+            
+            // Charger les URLs de la base de connaissances
+            if (displayData.knowledge_base_urls) {
+                const urls = Array.isArray(displayData.knowledge_base_urls) 
+                    ? displayData.knowledge_base_urls 
+                    : JSON.parse(displayData.knowledge_base_urls || '[]');
+                setKnowledgeUrls(urls.length > 0 ? urls : ['']);
+            }
+            
+            // Charger les PDFs existants de la base de connaissances
+            if (displayData.knowledge_base_pdfs) {
+                const pdfs = Array.isArray(displayData.knowledge_base_pdfs)
+                    ? displayData.knowledge_base_pdfs
+                    : JSON.parse(displayData.knowledge_base_pdfs || '[]');
+                setExistingPdfs(pdfs);
+            }
                 
-                // Charger les URLs de la base de connaissances
-                if (dataToUse.knowledge_base_urls) {
-                    const urls = Array.isArray(dataToUse.knowledge_base_urls) 
-                        ? dataToUse.knowledge_base_urls 
-                        : JSON.parse(dataToUse.knowledge_base_urls || '[]');
-                    setKnowledgeUrls(urls.length > 0 ? urls : ['']);
-                }
-                
-                // Restaurer l'étape sauvegardée après avoir chargé les données
-                // Si aucune étape n'est sauvegardée, déterminer l'étape en fonction des données remplies
-                if (typeof window !== 'undefined') {
-                    const savedStep = localStorage.getItem(stepStorageKey);
-                    if (savedStep) {
-                        const step = parseInt(savedStep, 10);
-                        if (step >= 1 && step <= 5) {
-                            setCurrentStep(step);
-                        }
-                    } else {
-                        // Déterminer l'étape en fonction des données remplies
-                        let determinedStep = 1;
-                        if (dataToUse.company_name) determinedStep = 2;
-                        if (dataToUse.activity_description) determinedStep = 3;
-                        if (dataToUse.services_offered) determinedStep = 4;
-                        if (dataToUse.signature_image_base64) determinedStep = 5;
-                        if (dataToUse.knowledge_base_urls) determinedStep = 5;
-                        
-                        if (determinedStep > 1) {
-                            setCurrentStep(determinedStep);
-                            localStorage.setItem(stepStorageKey, determinedStep.toString());
-                        }
+            // Restaurer l'étape sauvegardée après avoir chargé les données
+            // Si aucune étape n'est sauvegardée, déterminer l'étape en fonction des données remplies
+            if (typeof window !== 'undefined') {
+                const savedStep = localStorage.getItem(stepStorageKey);
+                if (savedStep) {
+                    const step = parseInt(savedStep, 10);
+                    if (step >= 1 && step <= 5) {
+                        setCurrentStep(step);
+                    }
+                } else {
+                    // Déterminer l'étape en fonction des données RÉELLES de l'email actuel (pas les données affichées)
+                    let determinedStep = 1;
+                    if (currentEmailData?.company_name) determinedStep = 2;
+                    if (currentEmailData?.activity_description) determinedStep = 3;
+                    if (currentEmailData?.services_offered) determinedStep = 4;
+                    if (currentEmailData?.signature_image_base64) determinedStep = 5;
+                    if (currentEmailData?.knowledge_base_urls) determinedStep = 5;
+                    
+                    if (determinedStep > 1) {
+                        setCurrentStep(determinedStep);
+                        localStorage.setItem(stepStorageKey, determinedStep.toString());
                     }
                 }
             }
+
+            // Activer l'auto-save maintenant que le chargement initial est terminé
+            // Utiliser un petit délai pour éviter que le changement de formData déclenche immédiatement l'auto-save
+            setTimeout(() => {
+                setIsInitialLoad(false);
+            }, 500);
         } catch (error) {
             console.error('Error:', error);
+            setIsInitialLoad(false); // S'assurer que l'auto-save est activé même en cas d'erreur
         }
     };
 
@@ -415,6 +441,10 @@ export function CompanyInfoModal({ userId, emailAccountId, email, initialStep = 
         setKnowledgePdfFiles(knowledgePdfFiles.filter((_, i) => i !== index));
     };
 
+    const handleRemoveExistingPdf = (index: number) => {
+        setExistingPdfs(existingPdfs.filter((_, i) => i !== index));
+    };
+
     const handleSubmit = async () => {
         // Vérifier les champs obligatoires - empêcher les valeurs vides
         const companyName = formData.company_name?.trim() || '';
@@ -452,10 +482,15 @@ export function CompanyInfoModal({ userId, emailAccountId, email, initialStep = 
                 updated_at: new Date().toISOString(),
             };
 
-            // Gérer la base de connaissances si des URLs ou PDFs sont fournis
+            // Gérer la base de connaissances si des URLs ou PDFs sont fournis (existants ou nouveaux)
             const newUrls = knowledgeUrls.filter(url => url.trim() !== '');
-            if (newUrls.length > 0 || knowledgePdfFiles.length > 0) {
+            const hasKnowledgeBase = newUrls.length > 0 || knowledgePdfFiles.length > 0 || existingPdfs.length > 0;
+            
+            if (hasKnowledgeBase) {
                 try {
+                    // Activer l'indicateur d'analyse de la base de connaissance
+                    setIsAnalyzingKnowledge(true);
+                    
                     // Convertir les PDFs en base64
                     const pdfPromises = knowledgePdfFiles.map(file => fileToBase64(file));
                     const pdfBase64Array = await Promise.all(pdfPromises);
@@ -464,23 +499,7 @@ export function CompanyInfoModal({ userId, emailAccountId, email, initialStep = 
                         base64: base64
                     }));
 
-                    // Récupérer les PDFs existants
-                    let existingPdfs: any[] = [];
-                    if (emailAccountId || email) {
-                        const { data: existingData } = await supabase
-                            .from('email_configurations')
-                            .select('knowledge_base_pdfs')
-                            .eq(emailAccountId ? 'id' : 'user_id', emailAccountId || userId)
-                            .eq(email ? 'email' : 'id', email || emailAccountId || '')
-                            .maybeSingle();
-                        
-                        if (existingData?.knowledge_base_pdfs) {
-                            existingPdfs = Array.isArray(existingData.knowledge_base_pdfs)
-                                ? existingData.knowledge_base_pdfs
-                                : JSON.parse(existingData.knowledge_base_pdfs || '[]');
-                        }
-                    }
-
+                    // Utiliser les PDFs existants depuis le state
                     const allPdfs = [...existingPdfs, ...pdfsData];
                     const allUrls = newUrls;
 
@@ -512,6 +531,8 @@ export function CompanyInfoModal({ userId, emailAccountId, email, initialStep = 
                 } catch (kbError) {
                     console.error('Error syncing knowledge base:', kbError);
                     // Ne pas bloquer la sauvegarde si la base de connaissances échoue
+                } finally {
+                    setIsAnalyzingKnowledge(false);
                 }
             }
 
@@ -796,6 +817,9 @@ export function CompanyInfoModal({ userId, emailAccountId, email, initialStep = 
                                         <label className="block text-sm font-semibold text-gray-900 mb-2 font-inter">
                                             Description de l'activité <span className="text-red-500">*</span>
                                         </label>
+                                        <p className="text-xs text-gray-600 mb-3 font-inter leading-relaxed">
+                                            Cette description sera utilisée par l'IA pour mieux comprendre votre contexte et classer vos e-mails. Plus votre descriptif est détaillé et précis, plus la performance de l'outil sera pertinente.
+                                        </p>
                                         <textarea
                                             value={formData.activity_description}
                                             onChange={(e) => {
@@ -982,9 +1006,29 @@ export function CompanyInfoModal({ userId, emailAccountId, email, initialStep = 
                                                 </div>
                                             </div>
 
+                                            {/* Liste des PDFs existants */}
+                                            {existingPdfs.length > 0 && (
+                                                <div className="space-y-2 mt-3">
+                                                    <p className="text-xs text-gray-600 font-inter mb-2">PDFs existants :</p>
+                                                    {existingPdfs.map((pdf, index) => (
+                                                        <div key={`existing-${index}`} className="flex items-center justify-between p-2 bg-green-50 border border-green-200 rounded-lg">
+                                                            <span className="text-xs text-green-700 font-inter truncate flex-1">{pdf.name}</span>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleRemoveExistingPdf(index)}
+                                                                className="text-xs text-red-600 hover:text-red-700 font-inter ml-2"
+                                                            >
+                                                                Supprimer
+                                                            </button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+
                                             {/* Liste des PDFs ajoutés */}
                                             {knowledgePdfFiles.length > 0 && (
                                                 <div className="space-y-2 mt-3">
+                                                    <p className="text-xs text-gray-600 font-inter mb-2">Nouveaux PDFs à ajouter :</p>
                                                     {knowledgePdfFiles.map((file, index) => (
                                                         <div key={index} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
                                                             <span className="text-xs text-gray-700 font-inter truncate flex-1">{file.name}</span>
@@ -1008,6 +1052,15 @@ export function CompanyInfoModal({ userId, emailAccountId, email, initialStep = 
 
                     {/* Footer avec boutons */}
                     <div className="px-6 pb-5 pt-4 border-t border-gray-100 bg-white">
+                        {/* Message d'avertissement lors de l'analyse de la base de connaissance */}
+                        {isAnalyzingKnowledge && (
+                            <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-start gap-2">
+                                <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin flex-shrink-0 mt-0.5" />
+                                <p className="text-sm text-blue-800 font-inter font-medium">
+                                    Merci de ne pas recharger la fenêtre, nous analysons votre base de connaissance.
+                                </p>
+                            </div>
+                        )}
                         <div className="flex items-center justify-between gap-3">
                             {currentStep > 1 && (
                                 <button
@@ -1041,7 +1094,7 @@ export function CompanyInfoModal({ userId, emailAccountId, email, initialStep = 
                                     {loading ? (
                                         <>
                                             <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                            Enregistrement...
+                                            {isAnalyzingKnowledge ? 'Analyse en cours...' : 'Enregistrement...'}
                                         </>
                                     ) : (
                                         <>

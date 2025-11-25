@@ -37,83 +37,115 @@ serve(async (req) => {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Support Veille IA</title>
+  <title>Support Hall Mail</title>
   <!--[if mso]>
   <style type="text/css">
-    body, table, td {font-family: Arial, sans-serif !important;}
+    body, table, td {font-family: 'Roboto', Arial, sans-serif !important;}
   </style>
   <![endif]-->
 </head>
-<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f9fafb;">
-  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f9fafb;">
+<body style="margin: 0; padding: 0; font-family: 'Roboto', Arial, sans-serif; background-color: #f3f4f6;">
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f3f4f6;">
     <tr>
-      <td align="center" style="padding: 20px 0;">
-        <table width="600" cellpadding="0" cellspacing="0" border="0" style="max-width: 600px; background-color: #ffffff;">
-          <!-- Header -->
+      <td align="center" style="padding: 40px 20px;">
+        <table width="600" cellpadding="0" cellspacing="0" border="0" style="max-width: 600px; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); overflow: hidden;">
+          
+          <!-- Header avec gradient -->
           <tr>
-            <td style="background-color: #F97316; padding: 40px 20px; text-align: center;">
-              <h1 style="color: #ffffff; margin: 0; font-size: 28px; font-weight: bold; font-family: Arial, sans-serif;">Veille IA</h1>
-              <p style="color: #ffffff; margin: 10px 0 0 0; font-size: 16px; font-family: Arial, sans-serif;">Support Client</p>
+            <td style="background: linear-gradient(135deg, #F97316 0%, #DC2626 100%); padding: 50px 30px; text-align: center;">
+              <h1 style="color: #ffffff; margin: 0 0 10px 0; font-size: 32px; font-weight: 700; font-family: 'Roboto', Arial, sans-serif; letter-spacing: -0.5px;">Hall Mail</h1>
+              <p style="color: rgba(255, 255, 255, 0.95); margin: 0; font-size: 15px; font-family: 'Roboto', Arial, sans-serif; font-weight: 300;">
+                Support Client
+              </p>
+            </td>
+          </tr>
+
+          <!-- Badge confirmation -->
+          <tr>
+            <td style="padding: 40px 30px 20px 30px; text-align: center;">
+              <div style="display: inline-block; background-color: #D1FAE5; border: 2px solid #10B981; padding: 16px 24px; border-radius: 8px;">
+                <p style="color: #065F46; margin: 0; font-size: 18px; font-family: 'Roboto', Arial, sans-serif; font-weight: 600;">
+                  ✓ Demande reçue avec succès
+                </p>
+              </div>
             </td>
           </tr>
 
           <!-- Content -->
           <tr>
-            <td style="padding: 40px 30px;">
-              <h2 style="color: #1f2937; font-size: 24px; margin: 0 0 20px 0; font-family: Arial, sans-serif;">Votre demande a été reçue ✓</h2>
-
-              <p style="color: #4b5563; font-size: 16px; line-height: 1.6; margin: 0 0 20px 0; font-family: Arial, sans-serif;">
+            <td style="padding: 20px 40px;">
+              <p style="color: #4B5563; font-size: 16px; line-height: 1.7; margin: 0 0 20px 0; font-family: 'Roboto', Arial, sans-serif;">
                 ${greeting}
               </p>
 
-              <p style="color: #4b5563; font-size: 16px; line-height: 1.6; margin: 0 0 20px 0; font-family: Arial, sans-serif;">
-                Nous avons bien reçu votre message de support et notre équipe l'examine actuellement. Nous vous répondrons dans les plus brefs délais, généralement sous <strong>24 heures</strong>.
+              <p style="color: #4B5563; font-size: 16px; line-height: 1.7; margin: 0 0 24px 0; font-family: 'Roboto', Arial, sans-serif;">
+                Nous avons bien reçu votre message de support et notre équipe l'examine actuellement. Nous vous répondrons dans les plus brefs délais, généralement sous <strong style="color: #F97316;">24 heures</strong>.
               </p>
 
               ${ticketId ? `
-              <table width="100%" cellpadding="15" cellspacing="0" border="0" style="background-color: #fef3c7; border-left: 4px solid #f59e0b; margin: 20px 0;">
+              <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin: 24px 0;">
                 <tr>
-                  <td>
-                    <p style="margin: 0; color: #92400e; font-size: 14px; font-family: Arial, sans-serif;">
-                      <strong>Référence de votre ticket :</strong><br>
-                      <span style="font-size: 18px; font-weight: bold;">#${ticketId}</span>
+                  <td style="background-color: #FEF3C7; border-left: 4px solid #F59E0B; border-radius: 8px; padding: 20px;">
+                    <p style="margin: 0 0 8px 0; color: #92400E; font-size: 13px; font-family: 'Roboto', Arial, sans-serif; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">
+                      Référence de votre ticket
+                    </p>
+                    <p style="margin: 0; color: #92400E; font-size: 24px; font-weight: 700; font-family: 'Roboto', Arial, sans-serif; letter-spacing: 1px;">
+                      #${ticketId}
                     </p>
                   </td>
                 </tr>
               </table>
               ` : ''}
 
-              <table width="100%" cellpadding="20" cellspacing="0" border="0" style="background-color: #f3f4f6; margin: 30px 0;">
+              <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 8px; margin: 30px 0;">
                 <tr>
-                  <td>
-                    <h3 style="color: #1f2937; font-size: 18px; margin: 0 0 15px 0; font-family: Arial, sans-serif;">En attendant notre réponse :</h3>
-                    <ul style="color: #4b5563; font-size: 14px; line-height: 1.8; margin: 0; padding-left: 20px; font-family: Arial, sans-serif;">
-                      <li>Vérifiez que vous avez bien reçu cet email de confirmation</li>
-                      <li>Consultez notre <a href="#" style="color: #F97316; text-decoration: none;">documentation</a> pour des solutions rapides</li>
-                      <li>Gardez votre référence de ticket pour tout suivi</li>
-                    </ul>
+                  <td style="padding: 24px;">
+                    <h3 style="color: #111827; font-size: 17px; margin: 0 0 16px 0; font-family: 'Roboto', Arial, sans-serif; font-weight: 600;">En attendant notre réponse</h3>
+                    <table style="width: 100%; border-collapse: collapse;">
+                      <tr>
+                        <td style="padding: 8px 0; color: #4B5563; font-size: 14px; line-height: 1.6; font-family: 'Roboto', Arial, sans-serif;">
+                          <span style="display: inline-block; width: 24px; height: 24px; background-color: #F97316; color: white; text-align: center; border-radius: 50%; font-weight: 600; line-height: 24px; font-size: 12px; margin-right: 8px;">1</span>
+                          Vérifiez que vous avez bien reçu cet email de confirmation
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 8px 0; color: #4B5563; font-size: 14px; line-height: 1.6; font-family: 'Roboto', Arial, sans-serif;">
+                          <span style="display: inline-block; width: 24px; height: 24px; background-color: #F97316; color: white; text-align: center; border-radius: 50%; font-weight: 600; line-height: 24px; font-size: 12px; margin-right: 8px;">2</span>
+                          Gardez votre référence de ticket pour tout suivi
+                        </td>
+                      </tr>
+                      <tr>
+                        <td style="padding: 8px 0; color: #4B5563; font-size: 14px; line-height: 1.6; font-family: 'Roboto', Arial, sans-serif;">
+                          <span style="display: inline-block; width: 24px; height: 24px; background-color: #F97316; color: white; text-align: center; border-radius: 50%; font-weight: 600; line-height: 24px; font-size: 12px; margin-right: 8px;">3</span>
+                          Notre équipe reviendra vers vous très rapidement
+                        </td>
+                      </tr>
+                    </table>
                   </td>
                 </tr>
               </table>
 
-              <p style="color: #4b5563; font-size: 16px; line-height: 1.6; margin: 30px 0 0 0; font-family: Arial, sans-serif;">
-                Merci de votre confiance,<br>
-                <strong style="color: #F97316;">L'équipe Veille IA</strong>
-              </p>
+              <div style="margin-top: 40px; padding-top: 24px; border-top: 1px solid #E5E7EB;">
+                <p style="color: #6B7280; font-size: 15px; line-height: 1.6; margin: 0; font-family: 'Roboto', Arial, sans-serif;">
+                  Merci de votre confiance,<br>
+                  <strong style="background: linear-gradient(135deg, #F97316 0%, #DC2626 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; font-size: 16px;">L'équipe Hall Mail</strong>
+                </p>
+              </div>
             </td>
           </tr>
 
           <!-- Footer -->
           <tr>
-            <td style="background-color: #f9fafb; padding: 30px; text-align: center; border-top: 1px solid #e5e7eb;">
-              <p style="color: #6b7280; font-size: 14px; margin: 0 0 10px 0; font-family: Arial, sans-serif;">
+            <td style="background-color: #F9FAFB; padding: 30px; text-align: center; border-top: 1px solid #E5E7EB;">
+              <p style="color: #9CA3AF; font-size: 13px; margin: 0 0 12px 0; font-family: 'Roboto', Arial, sans-serif;">
                 Cet email a été envoyé automatiquement, merci de ne pas y répondre.
               </p>
-              <p style="color: #6b7280; font-size: 14px; margin: 0; font-family: Arial, sans-serif;">
-                Pour toute question, contactez-nous à <a href="mailto:${SUPPORT_EMAIL}" style="color: #F97316; text-decoration: none;">${SUPPORT_EMAIL}</a>
+              <p style="color: #6B7280; font-size: 13px; margin: 0 0 16px 0; font-family: 'Roboto', Arial, sans-serif;">
+                Pour toute question, contactez-nous à<br>
+                <a href="mailto:${SUPPORT_EMAIL}" style="color: #F97316; text-decoration: none; font-weight: 600;">${SUPPORT_EMAIL}</a>
               </p>
-              <p style="color: #9ca3af; font-size: 12px; margin: 20px 0 0 0; font-family: Arial, sans-serif;">
-                © ${new Date().getFullYear()} Veille IA - Tous droits réservés
+              <p style="color: #9CA3AF; font-size: 12px; margin: 0; font-family: 'Roboto', Arial, sans-serif;">
+                © ${new Date().getFullYear()} Hall Mail - Tous droits réservés
               </p>
             </td>
           </tr>
@@ -126,25 +158,43 @@ serve(async (req) => {
     `;
 
     const textBody = `
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+         HALL MAIL - SUPPORT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✓ DEMANDE REÇUE AVEC SUCCÈS
+
 ${greeting}
 
-Nous avons bien reçu votre message de support et notre équipe l'examine actuellement. Nous vous répondrons dans les plus brefs délais, généralement sous 24 heures.
+Nous avons bien reçu votre message de support et notre équipe l'examine actuellement. 
+Nous vous répondrons dans les plus brefs délais, généralement sous 24 heures.
 
-${ticketId ? `Référence de votre ticket : #${ticketId}` : ''}
+${ticketId ? `
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-En attendant notre réponse :
-- Vérifiez que vous avez bien reçu cet email de confirmation
-- Consultez notre documentation pour des solutions rapides
-- Gardez votre référence de ticket pour tout suivi
+📋 RÉFÉRENCE DE VOTRE TICKET
+#${ticketId}
+` : ''}
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+EN ATTENDANT NOTRE RÉPONSE :
+
+1. Vérifiez que vous avez bien reçu cet email de confirmation
+2. Gardez votre référence de ticket pour tout suivi
+3. Notre équipe reviendra vers vous très rapidement
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Merci de votre confiance,
-L'équipe Veille IA
+L'équipe Hall Mail
 
----
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 Cet email a été envoyé automatiquement, merci de ne pas y répondre.
 Pour toute question, contactez-nous à ${SUPPORT_EMAIL}
 
-© ${new Date().getFullYear()} Veille IA - Tous droits réservés
+© ${new Date().getFullYear()} Hall Mail - Tous droits réservés
     `.trim();
 
     // Envoyer l'email via Resend
@@ -172,7 +222,7 @@ Pour toute question, contactez-nous à ${SUPPORT_EMAIL}
         'Authorization': `Bearer ${RESEND_API_KEY}`
       },
       body: JSON.stringify({
-        from: 'Veille IA <support@help.hallia.ai>',
+        from: 'Hall Mail <support@help.hallia.ai>',
         to: [
           to
         ],

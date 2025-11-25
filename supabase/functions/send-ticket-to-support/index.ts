@@ -107,153 +107,132 @@ serve(async (req) => {
   <title>Nouveau ticket de support</title>
   <!--[if mso]>
   <style type="text/css">
-    body, table, td {font-family: Arial, sans-serif !important;}
+    body, table, td {font-family: 'Roboto', Arial, sans-serif !important;}
   </style>
   <![endif]-->
 </head>
-<body style="margin: 0; padding: 0; font-family: Arial, sans-serif; background-color: #f9fafb;">
-  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f9fafb;">
+<body style="margin: 0; padding: 0; font-family: 'Roboto', Arial, sans-serif; background-color: #f3f4f6;">
+  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #f3f4f6;">
     <tr>
-      <td align="center" style="padding: 20px 0;">
-        <table width="700" cellpadding="0" cellspacing="0" border="0" style="max-width: 700px; background-color: #ffffff;">
-          <!-- Header -->
+      <td align="center" style="padding: 40px 20px;">
+        <table width="700" cellpadding="0" cellspacing="0" border="0" style="max-width: 700px; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1); overflow: hidden;">
+          
+          <!-- Header avec gradient -->
           <tr>
-            <td style="background-color: #F97316; padding: 30px 20px; text-align: center;">
-              <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: bold; font-family: Arial, sans-serif;">🎫 Nouveau Ticket de Support</h1>
-              <p style="color: #ffffff; margin: 10px 0 0 0; font-size: 14px; font-family: Arial, sans-serif;">
-                ${ticketId ? `Ticket #${ticketId}` : 'Support Veille IA'}
+            <td style="background: linear-gradient(135deg, #F97316 0%, #DC2626 100%); padding: 50px 30px; text-align: center;">
+              <h1 style="color: #ffffff; margin: 0 0 10px 0; font-size: 32px; font-weight: 700; font-family: 'Roboto', Arial, sans-serif; letter-spacing: -0.5px;">Hall Mail</h1>
+              <p style="color: rgba(255, 255, 255, 0.95); margin: 0; font-size: 15px; font-family: 'Roboto', Arial, sans-serif; font-weight: 300;">
+                Système de Support
               </p>
+              ${ticketId ? `
+              <div style="margin-top: 20px; display: inline-block; background-color: rgba(255, 255, 255, 0.2); padding: 8px 20px; border-radius: 20px;">
+                <p style="color: #ffffff; margin: 0; font-size: 13px; font-family: 'Roboto', Arial, sans-serif;">Ticket #${ticketId}</p>
+              </div>
+              ` : ''}
             </td>
           </tr>
 
-          <!-- Ticket Info -->
+          <!-- Badge nouveau ticket -->
           <tr>
-            <td style="padding: 30px;">
-              <table width="100%" cellpadding="20" cellspacing="0" border="0" style="background-color: #fef3c7; border-left: 4px solid #f59e0b; margin-bottom: 20px;">
+            <td style="padding: 30px 30px 0 30px;">
+              <div style="display: inline-block; background-color: #FEF3C7; border-left: 4px solid #F59E0B; padding: 12px 20px; border-radius: 6px; margin-bottom: 20px;">
+                <p style="color: #92400E; margin: 0; font-size: 14px; font-family: 'Roboto', Arial, sans-serif; font-weight: 600;">
+                  🎫 Nouveau Ticket de Support
+                </p>
+              </div>
+            </td>
+          </tr>
+
+          <!-- Informations client -->
+          <tr>
+            <td style="padding: 0 30px 20px 30px;">
+              <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color: #F9FAFB; border-radius: 8px; border: 1px solid #E5E7EB;">
                 <tr>
-                  <td>
-                    <h2 style="color: #92400e; margin: 0 0 15px 0; font-size: 18px; font-family: Arial, sans-serif;">Informations du client</h2>
+                  <td style="padding: 25px;">
+                    <h2 style="color: #111827; margin: 0 0 20px 0; font-size: 18px; font-family: 'Roboto', Arial, sans-serif; font-weight: 600;">Informations du client</h2>
                     <table style="width: 100%; border-collapse: collapse;">
                       <tr>
-                        <td style="padding: 8px 0; color: #78716c; font-size: 14px; width: 120px; font-family: Arial, sans-serif;"><strong>Nom :</strong></td>
-                        <td style="padding: 8px 0; color: #1f2937; font-size: 14px; font-family: Arial, sans-serif;">${name}</td>
+                        <td style="padding: 10px 0; color: #6B7280; font-size: 14px; width: 140px; font-family: 'Roboto', Arial, sans-serif;">Nom</td>
+                        <td style="padding: 10px 0; color: #111827; font-size: 14px; font-family: 'Roboto', Arial, sans-serif; font-weight: 500;">${name}</td>
                       </tr>
-                      <tr>
-                        <td style="padding: 8px 0; color: #78716c; font-size: 14px; font-family: Arial, sans-serif;"><strong>Email :</strong></td>
-                        <td style="padding: 8px 0; color: #1f2937; font-size: 14px; font-family: Arial, sans-serif;">
-                          <a href="mailto:${email}" style="color: #F97316; text-decoration: none;">${email}</a>
+                      <tr style="border-top: 1px solid #E5E7EB;">
+                        <td style="padding: 10px 0; color: #6B7280; font-size: 14px; font-family: 'Roboto', Arial, sans-serif;">Email</td>
+                        <td style="padding: 10px 0;">
+                          <a href="mailto:${email}" style="color: #F97316; text-decoration: none; font-size: 14px; font-family: 'Roboto', Arial, sans-serif; font-weight: 500;">${email}</a>
                         </td>
                       </tr>
-                      <tr>
-                        <td style="padding: 8px 0; color: #78716c; font-size: 14px; font-family: Arial, sans-serif;"><strong>Catégorie :</strong></td>
-                        <td style="padding: 8px 0;">
-                          <span style="background-color: #f97316; color: white; padding: 4px 12px; font-size: 12px; font-weight: bold; font-family: Arial, sans-serif;">
+                      <tr style="border-top: 1px solid #E5E7EB;">
+                        <td style="padding: 10px 0; color: #6B7280; font-size: 14px; font-family: 'Roboto', Arial, sans-serif;">Catégorie</td>
+                        <td style="padding: 10px 0;">
+                          <span style="display: inline-block; background: linear-gradient(135deg, #F97316 0%, #DC2626 100%); color: white; padding: 6px 14px; font-size: 12px; font-weight: 600; font-family: 'Roboto', Arial, sans-serif; border-radius: 6px;">
                             ${categoryLabel}
                           </span>
                         </td>
                       </tr>
-                      ${ticketId ? `
-                      <tr>
-                        <td style="padding: 8px 0; color: #78716c; font-size: 14px; font-family: Arial, sans-serif;"><strong>Ticket ID :</strong></td>
-                        <td style="padding: 8px 0; color: #1f2937; font-size: 14px; font-family: monospace;">#${ticketId}</td>
-                      </tr>
-                      ` : ''}
                     </table>
                   </td>
                 </tr>
               </table>
+            </td>
+          </tr>
 
-              <!-- Sujet -->
-              <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 20px;">
-                <tr>
-                  <td style="border-bottom: 2px solid #f97316; padding-bottom: 5px;">
-                    <h3 style="color: #1f2937; font-size: 16px; margin: 0; font-family: Arial, sans-serif;">
-                      📌 Sujet
-                    </h3>
-                  </td>
-                </tr>
-                <tr>
-                  <td style="padding-top: 10px;">
-                    <p style="color: #374151; font-size: 15px; margin: 0; font-weight: 600; font-family: Arial, sans-serif;">
-                      ${subject}
-                    </p>
-                  </td>
-                </tr>
-              </table>
+          <!-- Sujet -->
+          <tr>
+            <td style="padding: 0 30px 20px 30px;">
+              <h3 style="color: #111827; font-size: 16px; margin: 0 0 12px 0; font-family: 'Roboto', Arial, sans-serif; font-weight: 600;">Sujet</h3>
+              <div style="background-color: #FFFFFF; border: 2px solid #E5E7EB; border-radius: 8px; padding: 16px;">
+                <p style="color: #374151; font-size: 15px; margin: 0; font-weight: 500; font-family: 'Roboto', Arial, sans-serif; line-height: 1.6;">
+                  ${subject}
+                </p>
+              </div>
+            </td>
+          </tr>
 
-              <!-- Message -->
-              <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 20px;">
-                <tr>
-                  <td style="border-bottom: 2px solid #f97316; padding-bottom: 5px;">
-                    <h3 style="color: #1f2937; font-size: 16px; margin: 0; font-family: Arial, sans-serif;">
-                      💬 Message
-                    </h3>
-                  </td>
-                </tr>
-                <tr>
-                  <td style="padding-top: 10px;">
-                    <table width="100%" cellpadding="20" cellspacing="0" border="0" style="background-color: #f9fafb; border: 1px solid #e5e7eb;">
-                      <tr>
-                        <td>
-                          <p style="color: #374151; font-size: 14px; line-height: 1.8; margin: 0; white-space: pre-wrap; font-family: Arial, sans-serif;">${message}</p>
-                        </td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
-              </table>
+          <!-- Message -->
+          <tr>
+            <td style="padding: 0 30px 20px 30px;">
+              <h3 style="color: #111827; font-size: 16px; margin: 0 0 12px 0; font-family: 'Roboto', Arial, sans-serif; font-weight: 600;">Message</h3>
+              <div style="background-color: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 8px; padding: 20px;">
+                <p style="color: #374151; font-size: 14px; line-height: 1.8; margin: 0; white-space: pre-wrap; font-family: 'Roboto', Arial, sans-serif;">${message}</p>
+              </div>
+            </td>
+          </tr>
 
-              ${screenshots && screenshots.length > 0 ? `
-              <!-- Captures d'écran -->
-              <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom: 20px;">
-                <tr>
-                  <td style="border-bottom: 2px solid #f97316; padding-bottom: 5px;">
-                    <h3 style="color: #1f2937; font-size: 16px; margin: 0; font-family: Arial, sans-serif;">
-                      📸 Captures d'écran (${screenshots.length})
-                    </h3>
-                  </td>
-                </tr>
-                <tr>
-                  <td style="padding-top: 10px;">
-                    <table width="100%" cellpadding="15" cellspacing="0" border="0" style="background-color: #eff6ff; border: 1px solid #dbeafe;">
-                      <tr>
-                        <td>
-                          ${screenshots.map((url: string, index: number) => `
-                            <p style="margin: 0 0 10px 0;">
-                              <a href="${url}" target="_blank" style="color: #2563eb; text-decoration: none; font-size: 14px; font-family: Arial, sans-serif;">
-                                <span style="background-color: #2563eb; color: white; padding: 4px 8px; font-size: 12px; font-weight: bold;">
-                                  ${index + 1}
-                                </span>
-                                Capture ${index + 1} - Voir l'image
-                              </a>
-                            </p>
-                          `).join('')}
-                        </td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
-              </table>
-              ` : ''}
-
-              <!-- Action button -->
-              <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top: 30px; padding-top: 30px; border-top: 1px solid #e5e7eb;">
-                <tr>
-                  <td align="center">
-                    <a href="mailto:${email}?subject=Re: ${encodeURIComponent(subject)}"
-                       style="display: inline-block; background-color: #F97316; color: white; padding: 14px 30px; text-decoration: none; font-weight: bold; font-size: 14px; font-family: Arial, sans-serif;">
-                      ↩️ Répondre au client
+          ${screenshots && screenshots.length > 0 ? `
+          <!-- Captures d'écran -->
+          <tr>
+            <td style="padding: 0 30px 20px 30px;">
+              <h3 style="color: #111827; font-size: 16px; margin: 0 0 12px 0; font-family: 'Roboto', Arial, sans-serif; font-weight: 600;">Captures d'écran (${screenshots.length})</h3>
+              <div style="background-color: #EFF6FF; border: 1px solid #DBEAFE; border-radius: 8px; padding: 20px;">
+                ${screenshots.map((url: string, index: number) => `
+                  <div style="margin-bottom: ${index < screenshots.length - 1 ? '12px' : '0'};">
+                    <a href="${url}" target="_blank" style="color: #2563EB; text-decoration: none; font-size: 14px; font-family: 'Roboto', Arial, sans-serif; font-weight: 500; display: inline-flex; align-items: center;">
+                      <span style="background-color: #2563EB; color: white; padding: 6px 12px; font-size: 12px; font-weight: 600; border-radius: 6px; margin-right: 10px;">
+                        ${index + 1}
+                      </span>
+                      Voir la capture ${index + 1}
                     </a>
-                  </td>
-                </tr>
-              </table>
+                  </div>
+                `).join('')}
+              </div>
+            </td>
+          </tr>
+          ` : ''}
+
+          <!-- Bouton d'action -->
+          <tr>
+            <td style="padding: 30px; text-align: center; border-top: 1px solid #E5E7EB;">
+              <a href="mailto:${email}?subject=Re: ${encodeURIComponent(subject)}"
+                 style="display: inline-block; background: linear-gradient(135deg, #F97316 0%, #DC2626 100%); color: white; padding: 16px 40px; text-decoration: none; font-weight: 600; font-size: 15px; font-family: 'Roboto', Arial, sans-serif; border-radius: 8px; box-shadow: 0 4px 6px rgba(249, 115, 22, 0.3);">
+                Répondre au client
+              </a>
             </td>
           </tr>
 
           <!-- Footer -->
           <tr>
-            <td style="background-color: #f9fafb; padding: 20px; text-align: center; border-top: 1px solid #e5e7eb;">
-              <p style="color: #6b7280; font-size: 12px; margin: 0; font-family: Arial, sans-serif;">
+            <td style="background-color: #F9FAFB; padding: 30px; text-align: center; border-top: 1px solid #E5E7EB;">
+              <p style="color: #6B7280; font-size: 13px; margin: 0 0 8px 0; font-family: 'Roboto', Arial, sans-serif;">
                 Ticket reçu le ${new Date().toLocaleDateString('fr-FR', {
       day: 'numeric',
       month: 'long',
@@ -262,8 +241,8 @@ serve(async (req) => {
       minute: '2-digit'
     })}
               </p>
-              <p style="color: #9ca3af; font-size: 11px; margin: 10px 0 0 0; font-family: Arial, sans-serif;">
-                © ${new Date().getFullYear()} Veille IA - Système de support
+              <p style="color: #9CA3AF; font-size: 12px; margin: 0; font-family: 'Roboto', Arial, sans-serif;">
+                © ${new Date().getFullYear()} Hall Mail - Tous droits réservés
               </p>
             </td>
           </tr>
@@ -276,18 +255,20 @@ serve(async (req) => {
     `;
 
     const textBody = `
-🎫 NOUVEAU TICKET DE SUPPORT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+         HALL MAIL - SUPPORT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
+🎫 NOUVEAU TICKET DE SUPPORT
 ${ticketId ? `Ticket #${ticketId}` : ''}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 👤 INFORMATIONS CLIENT
 
-Nom : ${name}
-Email : ${email}
-Catégorie : ${categoryLabel}
-${ticketId ? `Ticket ID : #${ticketId}` : ''}
+Nom          : ${name}
+Email        : ${email}
+Catégorie    : ${categoryLabel}
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -311,12 +292,13 @@ ${screenshots.map((url: string, index: number) => `${index + 1}. ${url}`).join('
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ` : ''}
 
-Pour répondre au client : ${email}
+↩️  Pour répondre au client : ${email}
 
----
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 Ticket reçu le ${new Date().toLocaleString('fr-FR')}
-© ${new Date().getFullYear()} Veille IA
+
+© ${new Date().getFullYear()} Hall Mail - Tous droits réservés
     `.trim();
 
     console.log('📧 Envoi via Resend au support:', SUPPORT_EMAIL);
@@ -329,7 +311,7 @@ Ticket reçu le ${new Date().toLocaleString('fr-FR')}
         'Authorization': `Bearer ${RESEND_API_KEY}`
       },
       body: JSON.stringify({
-        from: 'Veille IA <support@help.hallia.ai>',
+        from: 'Hall Mail <support@help.hallia.ai>',
         to: [
           SUPPORT_EMAIL
         ],
