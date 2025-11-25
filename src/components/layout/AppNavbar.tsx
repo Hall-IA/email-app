@@ -14,11 +14,8 @@ export default function AppNavbar() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
-  const linkBaseClasses = 'flex items-center gap-1.5 pb-4 border-b transition-colors';
-
-  const toggleOpen = () => {
-    setOpen(!open);
-  };
+  const linkBaseClasses = 'flex items-center gap-1.5 transition-colors px-4 py-2.5 font-medium';
+  const linkSelectedClasses = 'text-blue-500 bg-background rounded-t-lg';
 
   const handleSignOut = () => {
     signOut();
@@ -26,13 +23,13 @@ export default function AppNavbar() {
   };
 
   return (
-    <header className="border-b border-[#E5E7EB] bg-white px-4 pt-6">
+    <header className="bg-white px-4 pt-6">
       <nav className="mx-auto flex max-w-7xl flex-col gap-5 text-nowrap">
         {/* Partie fixe : Logo et titre */}
         <div className="flex items-center justify-between">
           <span className="flex items-center gap-2">
             <Image src={'/logo/logo-navbar.png'} alt="Logo" width={35} height={35} />
-            <h1 className="font-thunder text-3xl font-semibold text-black -mb-2">HALL MAIL</h1>
+            <h1 className="font-thunder -mb-2 text-3xl font-semibold text-black">HALL MAIL</h1>
           </span>
           {/* Email et bouton déconnexion */}
           {user && (
@@ -56,15 +53,13 @@ export default function AppNavbar() {
 
         {/* Partie scrollable : Navigation */}
         <div className="overflow-x-auto overflow-y-hidden [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          <ul className="flex min-w-max gap-6 font-medium">
+          <ul className="flex min-w-max items-center font-medium">
             <li className="flex-shrink-0">
               <Link
                 href={'/dashboard'}
                 className={cn(
                   linkBaseClasses,
-                  pathname?.startsWith('/dashboard')
-                    ? 'border-blue-600 text-blue-600'
-                    : 'border-transparent',
+                  pathname?.startsWith('/dashboard') && linkSelectedClasses,
                 )}
               >
                 <span>
@@ -78,9 +73,7 @@ export default function AppNavbar() {
                 href={'/settings'}
                 className={cn(
                   linkBaseClasses,
-                  pathname?.startsWith('/settings')
-                    ? 'border-blue-600 text-blue-600'
-                    : 'border-transparent',
+                  pathname?.startsWith('/settings') && linkSelectedClasses,
                 )}
               >
                 <span>
@@ -95,7 +88,7 @@ export default function AppNavbar() {
                 className={cn(
                   linkBaseClasses,
                   pathname?.startsWith('/user-settings')
-                    ? 'border-blue-600 text-blue-600'
+                    ? linkSelectedClasses
                     : 'border-transparent',
                 )}
               >
@@ -110,9 +103,7 @@ export default function AppNavbar() {
                 href={'/support'}
                 className={cn(
                   linkBaseClasses,
-                  pathname?.startsWith('/support')
-                    ? 'border-blue-600 text-blue-600'
-                    : 'border-transparent',
+                  pathname?.startsWith('/support') && linkSelectedClasses,
                 )}
               >
                 <span>

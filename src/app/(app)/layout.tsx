@@ -457,11 +457,11 @@ export default function DashboardLayout({
     }
 
     return (
-        <div className="min-h-screen bg-gray-100">
+        <main className="min-h-screen">
             <AppNavbar />
-            <main className="px-4 py-8">
+            <section className="px-4 py-8">
                 {children}
-            </main>
+            </section>
 
             {/* Modals obligatoires */}
             {showOnboarding && user && (
@@ -505,6 +505,6 @@ export default function DashboardLayout({
                     }}
                 />
             )}
-        </div>
+        </main>
     );
 }
