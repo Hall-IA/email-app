@@ -8,7 +8,7 @@ export default function AnimatedCards() {
   return (
     <section className="flex flex-row flex-wrap justify-center gap-4">
       {/* Élément 1 */}
-      <div className="relative w-full overflow-hidden sm:w-[280px] md:w-[290px]">
+      <div className="relative overflow-hidden w-[290px]">
         <img
           src="/assets/img/animated-card-bg.png"
           alt="Card background"
@@ -169,7 +169,7 @@ export default function AnimatedCards() {
       </div>
 
       {/* Élément 2 */}
-      <div className="relative w-full overflow-hidden sm:w-[280px] md:w-[290px]">
+      <div className="relative overflow-hidden w-[290px]">
         <img
           src="/assets/img/animated-card-bg.png"
           alt="Card background"
@@ -293,7 +293,7 @@ export default function AnimatedCards() {
       </div>
 
       {/* Élément 3 */}
-      <div className="relative w-full overflow-hidden sm:w-[280px] md:w-[290px]">
+      <div className="relative overflow-hidden w-[290px]">
         <img
           src="/assets/img/animated-card-bg.png"
           alt="Card background"
@@ -395,7 +395,7 @@ export default function AnimatedCards() {
       </div>
 
       {/* Élément 4 */}
-      <div className="relative w-full overflow-hidden sm:w-[280px] md:w-[290px]">
+      <div className="relative overflow-hidden w-[290px]">
         <img
           src="/assets/img/animated-card-bg.png"
           alt="Card background"
@@ -415,7 +415,7 @@ export default function AnimatedCards() {
         <div className="absolute right-2 bottom-24 flex w-[80%] flex-col items-center overflow-hidden">
           {/* Feuille qui sort de l'enveloppe */}
           <motion.div
-            className="relative z-0 mb-[-12px] flex w-[90%] flex-col gap-2 rounded-t-sm bg-white p-4"
+            className="relative z-0 mb-[-16px] flex w-[90%] flex-col gap-2 rounded-t-sm bg-white p-4"
             animate={{
               y: [80, 0, 0, 0, 80],
             }}
@@ -434,7 +434,7 @@ export default function AnimatedCards() {
               }}
               transition={{
                 duration: 5,
-                times: [0, 0.25, 0.35, 0.5, 0.7, 0.9],
+                times: [0, 0.25, 0.3, 0.5, 0.7, 0.9],
                 repeat: Infinity,
               }}
             >
@@ -443,14 +443,14 @@ export default function AnimatedCards() {
 
             {/* Ligne 1 */}
             <motion.div
-              className="h-2 w-16 rounded bg-gray-300"
+              className="h-2 w-16 rounded bg-gray-200"
               animate={{
-                opacity: [0, 0, 0, 1, 1, 1, 1],
-                scaleX: [0, 0, 0, 1, 1, 1, 0],
+                opacity: [0, 0, 0, 1, 0.4, 1, 0.4, 1, 1],
+                scaleX: [0, 0, 0, 1, 1, 1, 1, 1, 0],
               }}
               transition={{
                 duration: 5,
-                times: [0, 0.25, 0.35, 0.4, 0.5, 0.7, 0.9],
+                times: [0, 0.25, 0.3, 0.35, 0.4, 0.45, 0.5, 0.7, 0.9],
                 repeat: Infinity,
               }}
               style={{ transformOrigin: 'left' }}
@@ -460,12 +460,12 @@ export default function AnimatedCards() {
             <motion.div
               className="h-2 w-full rounded bg-gray-200"
               animate={{
-                opacity: [0, 0, 0, 0, 1, 1, 1, 1],
-                scaleX: [0, 0, 0, 0, 1, 1, 1, 0],
+                opacity: [0, 0, 0, 0, 1, 0.4, 1, 0.4, 1, 1],
+                scaleX: [0, 0, 0, 0, 1, 1, 1, 1, 1, 0],
               }}
               transition={{
                 duration: 5,
-                times: [0, 0.25, 0.35, 0.4, 0.45, 0.5, 0.7, 0.9],
+                times: [0, 0.25, 0.3, 0.35, 0.38, 0.42, 0.46, 0.5, 0.7, 0.9],
                 repeat: Infinity,
               }}
               style={{ transformOrigin: 'left' }}
@@ -475,12 +475,12 @@ export default function AnimatedCards() {
             <motion.div
               className="h-2 w-11/12 rounded bg-gray-200"
               animate={{
-                opacity: [0, 0, 0, 0, 0, 1, 1, 1, 1],
-                scaleX: [0, 0, 0, 0, 0, 1, 1, 1, 0],
+                opacity: [0, 0, 0, 0, 0, 1, 0.4, 1, 0.4, 1, 1],
+                scaleX: [0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0],
               }}
               transition={{
                 duration: 5,
-                times: [0, 0.25, 0.35, 0.4, 0.45, 0.5, 0.55, 0.7, 0.9],
+                times: [0, 0.25, 0.3, 0.35, 0.38, 0.41, 0.44, 0.47, 0.5, 0.7, 0.9],
                 repeat: Infinity,
               }}
               style={{ transformOrigin: 'left' }}
@@ -490,12 +490,12 @@ export default function AnimatedCards() {
             <motion.div
               className="h-2 w-full rounded bg-gray-200"
               animate={{
-                opacity: [0, 0, 0, 0, 0, 0, 1, 1, 1, 1],
-                scaleX: [0, 0, 0, 0, 0, 0, 1, 1, 1, 0],
+                opacity: [0, 0, 0, 0, 0, 0, 1, 0.4, 1, 0.4, 1, 1],
+                scaleX: [0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 0],
               }}
               transition={{
                 duration: 5,
-                times: [0, 0.25, 0.35, 0.4, 0.45, 0.5, 0.55, 0.6, 0.7, 0.9],
+                times: [0, 0.25, 0.3, 0.35, 0.38, 0.41, 0.44, 0.47, 0.5, 0.53, 0.7, 0.9],
                 repeat: Infinity,
               }}
               style={{ transformOrigin: 'left' }}
