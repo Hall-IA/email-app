@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { Mail, RefreshCw, Check, MailIcon } from 'lucide-react';
+import { Mail, RefreshCw, Check, MailIcon, Clock } from 'lucide-react';
 import { useAuth } from '../../../../context/AuthContext';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/lib/utils';
@@ -925,11 +925,7 @@ export default function Dashboard() {
             >
               <div className="mb-4 flex items-center justify-between">
                 <span className="md:text-md font-inter text-sm text-black">Temps économisé</span>
-                <img
-                  src="/assets/icon/icon-envelope.png"
-                  alt="envelope"
-                  className="rounded-md bg-gray-100/50 p-2"
-                />{' '}
+                <Clock className="w-9 h-9 bg-blue-200/50 rounded-md p-2 text-blue-600" />
               </div>
               {loading ? (
                 <div className="mb-1 text-2xl font-bold text-gray-900 md:text-3xl">...</div>
@@ -983,11 +979,21 @@ export default function Dashboard() {
               <div className="mb-4 flex items-center justify-between">
                 <span className="md:text-md font-inter text-sm text-black">Emails triés</span>
                 <img
-                  src="/assets/icon/icon-close.png"
-                  alt="close"
-                  className="rounded-2xl bg-red-200/50 p-2"
+                  src="/assets/icon/icon-actualise.png"
+                  alt="actualise"
+                  className="rounded-2xl  p-2" style={{
+                    background: `conic-gradient(
+                        from 195.77deg at 84.44% -1.66%,
+                        #FE9736 0deg,
+                        #F4664C 76.15deg,
+                        #F97E41 197.31deg,
+                        #E3AB8D 245.77deg,
+                        #FE9736 360deg
+                    )`,
+                  }}
                 />
               </div>
+              {/* CHANGER LE BACKGROUND */}
               {loading ? (
                 <div className="mb-1 text-2xl font-bold text-gray-900 md:text-3xl">...</div>
               ) : (
@@ -1014,9 +1020,9 @@ export default function Dashboard() {
                   Publicités filtrées
                 </span>
                 <img
-                  src="/assets/icon/icon-info.png"
+                  src="/assets/icon/icon-close.png"
                   alt="info"
-                  className="rounded-2xl bg-blue-200/50 p-2"
+                  className="rounded-2xl bg-red-200/50 p-2"
                 />
               </div>
               {loading ? (

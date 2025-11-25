@@ -136,6 +136,23 @@ export default function UserSettingsPage() {
     return postalCodeRegex.test(postalCode);
   };
 
+  const validatePhone = (phone: string): boolean => {
+    // Nettoyer le numéro en enlevant les espaces, tirets, points et parenthèses
+    const cleaned = phone.replace(/[\s\-\.\(\)]/g, '');
+    
+    // Format français : commence par 0 suivi de 9 chiffres (ex: 0123456789)
+    const frenchFormat = /^0[1-9][0-9]{8}$/;
+    
+    // Format international : commence par + suivi de 1 à 4 chiffres (indicatif pays) puis 6 à 14 chiffres
+    // Ex: +33 1 23 45 67 89, +33123456789, +33612345678
+    const internationalFormat = /^\+[1-9][0-9]{0,3}[0-9]{6,14}$/;
+    
+    // Format avec indicatif 00 : commence par 00 suivi de 1 à 4 chiffres puis 6 à 14 chiffres
+    const doubleZeroFormat = /^00[1-9][0-9]{0,3}[0-9]{6,14}$/;
+    
+    return frenchFormat.test(cleaned) || internationalFormat.test(cleaned) || doubleZeroFormat.test(cleaned);
+  };
+
   const validateCompanyInfo = (): boolean => {
     const errors: { [key: string]: string } = {};
 
@@ -183,12 +200,18 @@ export default function UserSettingsPage() {
   const validateContact = (): boolean => {
     const errors: { [key: string]: string } = {};
 
-    if (editFormData.contact_email && !validateEmail(editFormData.contact_email)) {
-      errors.contact_email = "L'email de contact n'est pas valide";
+    // Email de facturation obligatoire
+    if (!editFormData.invoice_email || editFormData.invoice_email.trim() === '') {
+      errors.invoice_email = "L'email de facturation est obligatoire";
+    } else if (!validateEmail(editFormData.invoice_email)) {
+      errors.invoice_email = "L'email de facturation n'est pas valide";
     }
 
-    if (editFormData.invoice_email && !validateEmail(editFormData.invoice_email)) {
-      errors.invoice_email = "L'email de facturation n'est pas valide";
+    // Téléphone obligatoire
+    if (!editFormData.phone || editFormData.phone.trim() === '') {
+      errors.phone = 'Le téléphone est obligatoire';
+    } else if (!validatePhone(editFormData.phone)) {
+      errors.phone = 'Le format du téléphone n\'est pas valide';
     }
 
     setValidationErrors(errors);
@@ -891,36 +914,20 @@ export default function UserSettingsPage() {
                     <div className="space-y-4">
                       <div>
                         <label className="mb-2 block text-sm font-medium text-gray-700">
-                          Adresse email
-                        </label>
-                        <input
-                          type="email"
-                          value={editFormData.contact_email}
-                          onChange={(e) =>
-                            setEditFormData({ ...editFormData, contact_email: e.target.value })
-                          }
-                          className={`w-full border px-4 py-2 ${validationErrors.contact_email ? 'border-red-500' : 'border-gray-300'} rounded-lg focus:border-transparent focus:ring-2 focus:ring-blue-500`}
-                          placeholder="contact@entreprise.fr"
-                        />
-                        {validationErrors.contact_email && (
-                          <p className="mt-1 text-sm text-red-500">
-                            {validationErrors.contact_email}
-                          </p>
-                        )}
-                      </div>
-
-                      <div>
-                        <label className="mb-2 block text-sm font-medium text-gray-700">
-                          Adresse email supplémentaire pour la réception des factures
+                          Adresse email supplémentaire pour la réception des factures <span className="text-red-500">*</span>
                         </label>
                         <input
                           type="email"
                           value={editFormData.invoice_email}
-                          onChange={(e) =>
-                            setEditFormData({ ...editFormData, invoice_email: e.target.value })
-                          }
+                          onChange={(e) => {
+                            setEditFormData({ ...editFormData, invoice_email: e.target.value });
+                            if (validationErrors.invoice_email) {
+                              setValidationErrors({ ...validationErrors, invoice_email: '' });
+                            }
+                          }}
                           className={`w-full border px-4 py-2 ${validationErrors.invoice_email ? 'border-red-500' : 'border-gray-300'} rounded-lg focus:border-transparent focus:ring-2 focus:ring-blue-500`}
                           placeholder="factures@entreprise.fr"
+                          required
                         />
                         {validationErrors.invoice_email && (
                           <p className="mt-1 text-sm text-red-500">
@@ -931,17 +938,26 @@ export default function UserSettingsPage() {
 
                       <div>
                         <label className="mb-2 block text-sm font-medium text-gray-700">
-                          Téléphone
+                          Téléphone <span className="text-red-500">*</span>
                         </label>
                         <input
                           type="tel"
                           value={editFormData.phone}
-                          onChange={(e) =>
-                            setEditFormData({ ...editFormData, phone: e.target.value })
-                          }
-                          className="w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-transparent focus:ring-2 focus:ring-blue-500"
+                          onChange={(e) => {
+                            setEditFormData({ ...editFormData, phone: e.target.value });
+                            if (validationErrors.phone) {
+                              setValidationErrors({ ...validationErrors, phone: '' });
+                            }
+                          }}
+                          className={`w-full border px-4 py-2 ${validationErrors.phone ? 'border-red-500' : 'border-gray-300'} rounded-lg focus:border-transparent focus:ring-2 focus:ring-blue-500`}
                           placeholder="+33 1 23 45 67 89"
+                          required
                         />
+                        {validationErrors.phone && (
+                          <p className="mt-1 text-sm text-red-500">
+                            {validationErrors.phone}
+                          </p>
+                        )}
                       </div>
 
                       <div className="flex gap-3 pt-4">
@@ -979,7 +995,7 @@ export default function UserSettingsPage() {
                     </div>
                   ) : (
                     <div className="space-y-3">
-                      {!profile.contact_email && !profile.invoice_email && !profile.phone ? (
+                      {!profile.invoice_email && !profile.phone ? (
                         <div className="py-12 text-center">
                           <div className="mb-4">
                             <Mail className="mx-auto mb-3 h-12 w-12 text-gray-300" />
@@ -1009,14 +1025,6 @@ export default function UserSettingsPage() {
                         </div>
                       ) : (
                         <>
-                          <div className="grid grid-cols-3 gap-4 border-b border-gray-100 py-3">
-                            <span className="text-sm font-medium" style={{ color: '#ABA9A6' }}>
-                              Adresse email
-                            </span>
-                            <span className="col-span-2 font-medium text-gray-900">
-                              {profile.contact_email || '-'}
-                            </span>
-                          </div>
                           <div className="grid grid-cols-3 gap-4 border-b border-gray-100 py-3">
                             <span className="text-sm font-medium" style={{ color: '#ABA9A6' }}>
                               Email de facturation
