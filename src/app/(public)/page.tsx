@@ -11,7 +11,7 @@ const sampleVideoItems: ListItem[] = [
     id: '1',
     title: 'Réception Email',
     description: 'Nouvel email dans votre boite',
-    videoUrl: '/assets/img/reception-email.png',
+    videoUrl: '/assets/img/reception-email-item1.png',
     alt: "Interface de tri automatique d'emails par IA - Gestion intelligente de boîte mail professionnelle",
     keywords: [
       'tri emails automatique',
@@ -26,7 +26,7 @@ const sampleVideoItems: ListItem[] = [
     id: '2',
     title: 'Analyse & Classification',
     description: 'Scan du contenu, expéditeur, context et tri automatique des emails.',
-    videoUrl: '/assets/img/analyse-classification.png',
+    videoUrl: '/assets/img/analyse-classification-item2.png',
     alt: "Image de l'analyse et classification des emails",
     keywords: [
       'analyse email IA',

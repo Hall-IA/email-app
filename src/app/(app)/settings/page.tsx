@@ -1791,18 +1791,6 @@ export default function Settings() {
                                     // basé sur totalPaidSlots - accounts.length au lieu d'utiliser unlinkedSubscriptions.length
                                     const slotsToAdd = totalPaidSlots - accounts.length;
                                     
-                                    console.log('[Settings] AFFICHAGE - Nombre de slots non configurés à afficher:', {
-                                        unlinkedSubscriptionsLength: unlinkedSubscriptions.length,
-                                        accountsLength: accounts.length,
-                                        totalPaidSlots,
-                                        calculatedUnconfigured: slotsToAdd,
-                                        slotsToAdd,
-                                        unlinkedSubscriptions: unlinkedSubscriptions.map(s => ({
-                                            subscription_id: s.subscription_id,
-                                            isSlot: s.subscription_id?.includes('_slot_')
-                                        }))
-                                    });
-                                    
                                     // Créer un tableau de slots pour l'affichage (comme dans Subscription.tsx)
                                     const displaySlots: Array<{ subscription_id: string | null; index: number }> = [];
                                     
