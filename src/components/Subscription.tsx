@@ -1672,7 +1672,7 @@ export function Subscription() {
                     {additionalAccounts > 1 ? 's' : ''}
                   </span>
                   <span className="text-sm text-gray-700">
-                    {additionalAccounts} × {userPrice}€
+                    {additionalAccounts} × {userPrice}€ HT
                   </span>
                   <span className="text-sm font-medium text-gray-900 md:text-right">
                     {(additionalAccounts * userPrice).toFixed(2)}€ HT

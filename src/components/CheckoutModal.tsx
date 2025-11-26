@@ -436,7 +436,7 @@ export function CheckoutModal({
                                 <div className="space-y-2 text-sm text-gray-700">
                                     <div className="flex justify-between">
                                         <span>{nbComptes} compte{nbComptes > 1 ? 's' : ''} additionnel{nbComptes > 1 ? 's' : ''} :</span>
-                                        <span className="font-semibold">{nbComptes} × {additionalPrice}€ = {prixTotal}€ HT/mois</span>
+                                        <span className="font-semibold">{nbComptes} × {additionalPrice}€ HT = {prixTotal}€ HT/mois</span>
                                     </div>
                                     <div className="text-xs text-gray-500 mt-2">
                                         Renouvellement automatique chaque mois
@@ -648,8 +648,8 @@ export function CheckoutModal({
                                                 <p className="text-xs text-gray-600 mt-1 font-inter">Facturé mensuellement</p>
                                             </div>
                                             <div className="text-right">
-                                                <p className="text-2xl font-bold text-orange-600">{basePrice}€</p>
-                                                <p className="text-xs text-gray-600 font-inter">HT/mois</p>
+                                                <p className="text-2xl font-bold text-orange-600">{basePrice}€ HT</p>
+                                                <p className="text-xs text-gray-600 font-inter">/mois</p>
                                             </div>
                                         </div>
                                     </div>

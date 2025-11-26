@@ -11,11 +11,11 @@ import { BadgeCheck, HelpCircle, XCircle } from 'lucide-react';
 export default function AppPack() {
   const searchParams = useSearchParams();
   const showFreeTrial = searchParams.get('promo') === 'true';
-  
+
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
-  
+
   const handleStartClick = (planType: string) => {
     setSelectedPlan(planType);
     localStorage.setItem('selected_plan', planType);
@@ -189,6 +189,7 @@ export default function AppPack() {
         isOpen={showLoginModal}
         onClose={() => setShowLoginModal(false)}
         onSignupSuccess={handleSignupSuccess}
+        initialEmail={' '}
       />
 
       {/* Modal Conditions d'abonnement */}
