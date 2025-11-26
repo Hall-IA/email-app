@@ -74,7 +74,7 @@ async function verifyImapConnection(
       console.log("✅ Connexion IMAP réussie");
       return { success: true };
     } else if (loginResponse.includes("NO") || loginResponse.includes("BAD") || loginResponse.toLowerCase().includes("invalid") || loginResponse.toLowerCase().includes("fail")) {
-      return { success: false, error: "Email ou mot de passe incorrect" };
+      return { success: false, error: "Email, mot de passe ou serveur IMAP incorrect" };
     } else {
       return { success: false, error: "Échec de l'authentification" };
     }

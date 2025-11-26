@@ -59,11 +59,21 @@ export default function AuthCallbackPage() {
             router.push('/reset-password');
           }, 2000);
         } else {
-          // Déconnecter l'utilisateur pour qu'il se connecte via la popup
+          // IMPORTANT : Déconnecter complètement l'utilisateur avant la redirection
+          // Cela évite que AuthContext le redirige automatiquement vers le dashboard
           await supabase.auth.signOut();
           
+          // Nettoyer aussi le storage local
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('supabase.auth.token');
+            sessionStorage.clear();
+            
+            // Marquer qu'on vient de valider l'email pour éviter la redirection auto vers dashboard
+            sessionStorage.setItem('email_just_verified', 'true');
+          }
+          
           // Rediriger vers la page d'accueil avec paramètre pour ouvrir la popup de connexion
-          console.log('[Auth Callback] Email validé → ouverture popup de connexion');
+          console.log('[Auth Callback] Email validé → déconnexion complète et ouverture popup de connexion');
           setTimeout(() => {
             router.push('/?login=true&verified=true');
           }, 2000);

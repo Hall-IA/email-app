@@ -161,8 +161,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }, []);
 
     const signUp = async (email: string, password: string, fullName: string) => {
+        // ✅ CORRECTION : Rediriger vers /auth/callback après validation d'email
         const emailRedirectTo = typeof window !== 'undefined' 
-            ? `${window.location.origin}` 
+            ? `${window.location.origin}/auth/callback` 
             : undefined;
             
         const { data, error } = await supabase.auth.signUp({

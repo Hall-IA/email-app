@@ -15,7 +15,7 @@ export default function AddEmailCount({ onComplete, onClose }: AddEmailCountProp
     const { user } = useAuth();
     const { showToast, ToastComponent } = useToast();
     const [loading, setLoading] = useState(false);
-    const [additionalEmails, setAdditionalEmails] = useState(0);
+    const [additionalEmails, setAdditionalEmails] = useState(1); // ✅ Minimum 1 par défaut
     const [additionalPrice, setAdditionalPrice] = useState(39);
     const [isVisible, setIsVisible] = useState(true);
 
@@ -24,8 +24,9 @@ export default function AddEmailCount({ onComplete, onClose }: AddEmailCountProp
         if (typeof window !== 'undefined') {
             const saved = localStorage.getItem('business_pass_email_counter');
             if (saved) {
-                const count = parseInt(saved, 10) || 0;
-                setAdditionalEmails(count);
+                const count = parseInt(saved, 10) || 1; // ✅ Minimum 1
+                // S'assurer que c'est au moins 1
+                setAdditionalEmails(Math.max(count, 1));
             }
         }
     }, []);
@@ -76,9 +77,9 @@ export default function AddEmailCount({ onComplete, onClose }: AddEmailCountProp
         }
     };
 
-    // Décrémenter les emails
+    // Décrémenter les emails (minimum 1)
     const decrementEmails = () => {
-        if (additionalEmails > 0) {
+        if (additionalEmails > 1) { // ✅ Minimum 1 au lieu de 0
             const newValue = additionalEmails - 1;
             setAdditionalEmails(newValue);
             // Sauvegarder dans localStorage
@@ -208,7 +209,7 @@ export default function AddEmailCount({ onComplete, onClose }: AddEmailCountProp
                                 <div className="flex items-center justify-between gap-4 mb-3">
                                     <button
                                         onClick={decrementEmails}
-                                        disabled={additionalEmails === 0}
+                                        disabled={additionalEmails <= 1}
                                         className="w-10 h-10 rounded-lg bg-white border-2 border-gray-300 hover:border-orange-400 hover:bg-orange-50 disabled:opacity-30 disabled:cursor-not-allowed transition-all flex items-center justify-center"
                                     >
                                         <Minus className="w-5 h-5 text-gray-700" />
@@ -219,7 +220,7 @@ export default function AddEmailCount({ onComplete, onClose }: AddEmailCountProp
                                             {additionalEmails}
                                         </span>
                                         <span className="text-xs text-gray-600 font-inter">
-                                            {additionalEmails} compte{(additionalEmails) > 1 ? 's' : ''} additionnel{(additionalEmails) > 1 ? 's' : ''} seront ajoutés
+                                            {additionalEmails} compte{additionalEmails > 1 ? 's' : ''} additionnel{additionalEmails > 1 ? 's' : ''} {additionalEmails > 1 ? 'seront ajoutés' : 'sera ajouté'}
                                         </span>
                                     </div>
 

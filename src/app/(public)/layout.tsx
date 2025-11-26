@@ -17,6 +17,19 @@ export default function PublicLayout({
 
     useEffect(() => {
         if (!loading && user) {
+            // Vérifier si l'utilisateur vient de valider son email
+            // Dans ce cas, ne pas le rediriger automatiquement vers le dashboard
+            if (typeof window !== 'undefined') {
+                const justVerified = sessionStorage.getItem('email_just_verified');
+                if (justVerified === 'true') {
+                    // Nettoyer le flag et ne pas rediriger
+                    sessionStorage.removeItem('email_just_verified');
+                    console.log('[PublicLayout] Email vient d\'être vérifié, pas de redirection auto');
+                    return;
+                }
+            }
+            
+            // Redirection normale vers le dashboard
             router.push('/dashboard');
         }
     }, [user, loading, router]);
@@ -34,8 +47,21 @@ export default function PublicLayout({
     }
 
     // Si l'utilisateur est connecté, ne rien afficher (redirection en cours)
+    // SAUF s'il vient de valider son email
     if (user) {
-        return null;
+        if (typeof window !== 'undefined') {
+            const justVerified = sessionStorage.getItem('email_just_verified');
+            if (justVerified === 'true') {
+                // Afficher la page normalement pour qu'il puisse se connecter via la popup
+                // Le flag sera nettoyé dans le useEffect ci-dessus
+                console.log('[PublicLayout] Email vient d\'être vérifié, affichage de la page');
+            } else {
+                // Redirection en cours, ne rien afficher
+                return null;
+            }
+        } else {
+            return null;
+        }
     }
 
     return (
