@@ -1,3 +1,7 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import HowItWorkSection, { ListItem } from '@/components/HowItWorkSection';
 import AppPack from '@/components/pages/home/AppPack';
 import CTASection from '@/components/pages/home/CTASection';
@@ -78,6 +82,35 @@ const sampleVideoItems: ListItem[] = [
 ];
 
 export default function Accueil() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const [showLoginPopup, setShowLoginPopup] = useState(false);
+
+  useEffect(() => {
+    // Vérifier si on doit ouvrir la popup de connexion
+    const login = searchParams.get('login');
+    const verified = searchParams.get('verified');
+
+    if (login === 'true') {
+      console.log('[Accueil] Paramètre login détecté, ouverture de la popup de connexion');
+      
+      // Afficher un message si l'email a été vérifié
+      if (verified === 'true') {
+        console.log('[Accueil] Email vérifié avec succès');
+      }
+
+      // Déclencher l'ouverture de la popup de connexion
+      // On utilise un événement personnalisé que le Header peut écouter
+      setTimeout(() => {
+        const event = new CustomEvent('openLoginModal');
+        window.dispatchEvent(event);
+        
+        // Nettoyer l'URL
+        router.replace('/');
+      }, 500);
+    }
+  }, [searchParams, router]);
+
   return (
     <section className="space-y-30 overflow-x-hidden">
       <Hero />

@@ -1,123 +1,7 @@
-@import "tailwindcss";
-@import "tw-animate-css";
+@import 'tailwindcss';
+@import 'tw-animate-css';
 
 @custom-variant dark (&:is(.dark *));
-
-/* :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --radius: 0.625rem;
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
-html,
-body {
-  max-width: 100vw;
-  overflow-x: hidden;
-}
-
-body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-* {
-  box-sizing: border-box;
-  padding: 0;
-  margin: 0;
-}
-
-a {
-  color: inherit;
-  text-decoration: none;
-}
-
-@media (prefers-color-scheme: dark) {
-  html {
-    color-scheme: dark;
-  }
-}
-
-.dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
-}
-
-@layer base {
-  * {
-    @apply border-border outline-ring/50;
-  }
-  body {
-    @apply bg-background text-foreground;
-  }
-} */
 
 :root {
   --radius: 0.625rem;
@@ -165,7 +49,6 @@ a {
   --silverchalice-900: oklch(0.2102 0.0016 17.28);
 }
 
-
 @theme inline {
   --breakpoint-xs: 24rem;
 
@@ -174,11 +57,12 @@ a {
   --font-roboto: var(--font-roboto), ui-sans-serif, system-ui, sans-serif;
   --font-inter: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   --font-thunder: var(--font-thunder), ui-sans-serif, system-ui, sans-serif;
-  
+  --font-azeret: var(--font-azeret), ui-sans-serif, system-ui, sans-serif;
+
   /* Animations Marquee */
   --animate-marquee: marquee var(--duration) infinite linear;
   --animate-marquee-vertical: marquee-vertical var(--duration) linear infinite;
-  
+
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -223,7 +107,7 @@ a {
   --color-silverchalice-700: var(--silverchalice-700);
   --color-silverchalice-800: var(--silverchalice-800);
   --color-silverchalice-900: var(--silverchalice-900);
-  
+
   /* Keyframes pour Marquee */
   @keyframes marquee {
     from {
@@ -233,7 +117,7 @@ a {
       transform: translateX(calc(-100% - var(--gap)));
     }
   }
-  
+
   @keyframes marquee-vertical {
     from {
       transform: translateY(0);
@@ -243,8 +127,6 @@ a {
     }
   }
 }
-
-
 
 @layer base {
   * {
@@ -387,11 +269,12 @@ a {
     translateX(0) = pas de déplacement, position de départ
     opacity: 1 = totalement visible
   */
-  0%, 30% {
+  0%,
+  30% {
     transform: translateX(-25px);
     opacity: 1;
   }
-  
+
   /* 
     Position 2 (CENTRE) - L'enveloppe glisse au centre et reste ici
     35%, 65% = de 2.1s à 3.9s
@@ -399,18 +282,20 @@ a {
     Si tu mets 100px = enveloppes plus rapprochées
     Si tu mets 150px = enveloppes plus espacées
   */
-  35%, 65% {
+  35%,
+  65% {
     transform: translateX(100px);
     opacity: 1;
   }
-  
+
   /* 
     Position 3 (DROITE) - L'enveloppe glisse à droite et disparaît
     70%, 100% = de 4.2s à 6s
     translateX(260px) = déplace de 260px (2 fois 130px = 2 pas complets)
     Cette valeur doit être = 2 × la valeur de la position 2
   */
-  70%, 100% {
+  70%,
+  100% {
     transform: translateX(200px);
     opacity: 1;
   }
