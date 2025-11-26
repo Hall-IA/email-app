@@ -163,7 +163,7 @@ export default function CardPack({
               </div>
             </div>
             <p className="text-center text-xs text-gray-500">
-              +{additionalPrice}€ par email additionnel
+              +{additionalPrice}€ HT par email additionnel
             </p>
           </section>
         )}
@@ -187,19 +187,19 @@ export default function CardPack({
       <div className="relative z-20 space-y-5 px-10 pb-10">
         {/* Prix */}
         {!hidePrice && (
-          <div className="flex flex-col w-full gap-4">
-              <p className="font-thunder text-4xl font-black">
-                {calculateTotalPrice()}€ <span className="text-lg font-normal">{priceUnit}</span>
-              </p>
+          <div className="flex w-full flex-col gap-4">
+            <p className="font-thunder text-4xl font-black">
+              {calculateTotalPrice()}€ HT <span className="text-lg font-normal">{priceUnit}</span>
+            </p>
 
-              {/* Détail du prix si compteur activé */}
-              {enableCounter && additionalEmails > 0 && (
-                <p className="text-sm text-gray-500">
-                  {basePrice}€ (base) + {additionalEmails * additionalPrice}€ ({additionalEmails}{' '}
-                  email
-                  {additionalEmails > 1 ? 's' : ''} additionnel{additionalEmails > 1 ? 's' : ''})
-                </p>
-              )}
+            {/* Détail du prix si compteur activé */}
+            {enableCounter && additionalEmails > 0 && (
+              <p className="text-sm text-gray-500">
+                {basePrice}€ HT (base) + {additionalEmails * additionalPrice}€ HT (
+                {additionalEmails} email
+                {additionalEmails > 1 ? 's' : ''} additionnel{additionalEmails > 1 ? 's' : ''})
+              </p>
+            )}
             <button
               onClick={() => setShowSubscriptionModal(true)}
               className="flex cursor-pointer items-center gap-1 text-gray-600 transition-colors hover:text-gray-800"

@@ -245,8 +245,8 @@ export default function AddEmailCount({ onComplete, onClose }: AddEmailCountProp
                                         <p className="text-xs text-gray-600 mt-1 font-inter">Facturé mensuellement</p>
                                     </div>
                                     <div className="text-right">
-                                        <p className="text-2xl font-bold text-orange-600">{totalPrice}€</p>
-                                        <p className="text-xs text-gray-600 font-inter">HT / mois</p>
+                                        <p className="text-2xl font-bold text-orange-600">{totalPrice}€ HT</p>
+                                        <p className="text-xs text-gray-600 font-inter">/ mois</p>
                                     </div>
                                 </div>
                             </div>
