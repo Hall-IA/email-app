@@ -1507,7 +1507,7 @@ export function Subscription() {
               if (account.isSlot) {
                 // Le premier compte de la liste (index 0) est toujours le plan de base
                 const isFirstSlot = index === 0;
-                const price = isFirstSlot ? '29€ HT/mois' : '+19€ HT/mois';
+                const price = isFirstSlot ? '49€ HT/mois' : '+39€ HT/mois';
                 // Calculer l'index du slot parmi les slots non configurés
                 const slotIndex = emailAccounts.filter((a) => a.isSlot).indexOf(account);
 
@@ -1558,7 +1558,7 @@ export function Subscription() {
               const isPrimary = account.is_primary === true;
               const isAccountActive = account.is_active !== false;
               const isCanceled = account.cancel_at_period_end === true;
-              const price = isPrimary ? '29€ HT/mois' : '+19€ HT/mois';
+              const price = isPrimary ? '49€ HT/mois' : '+39€ HT/mois';
 
               return (
                 <div key={account.id}>

@@ -109,6 +109,17 @@ Deno.serve(async (req) => {
       throw new Error('Ce compte Gmail est déjà configuré');
     }
 
+    // Vérifier si c'est le PREMIER email de l'utilisateur
+    const { data: allEmails, error: countError } = await supabase
+      .from('email_configurations')
+      .select('id')
+      .eq('user_id', user.id);
+
+    const isFirstEmail = !allEmails || allEmails.length === 0;
+    
+    console.log('[Gmail OAuth Callback] Nombre d\'emails existants:', allEmails?.length || 0);
+    console.log('[Gmail OAuth Callback] Est-ce le premier email ?', isFirstEmail);
+
     // Enregistrer les tokens Gmail
     const { data: tokenData, error: tokenError } = await supabase
       .from('gmail_tokens')
@@ -129,7 +140,7 @@ Deno.serve(async (req) => {
     }
     console.log('[Gmail OAuth Callback] Token inséré avec succès:', tokenData?.id);
 
-    // Créer la configuration email
+    // Créer la configuration email avec is_primary si c'est le premier
     const { error: configError } = await supabase
       .from('email_configurations')
       .insert({
@@ -138,6 +149,7 @@ Deno.serve(async (req) => {
         email: userInfo.email,
         provider: 'gmail',
         is_connected: true,
+        is_primary: isFirstEmail, // ✅ CORRECTION : Marquer comme principal si c'est le premier email
         is_classement: false,
         gmail_token_id: tokenData.id,
         last_sync_at: new Date().toISOString()
