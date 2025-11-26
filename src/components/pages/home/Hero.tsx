@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import { MacbookScrollSection } from '../../MacbookScroll';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { LoginModal } from '../../LoginModal';
 import AnimatedCards from '@/components/AnimatedCards';
 import { HelpCircle, User, XCircle } from 'lucide-react';
@@ -16,6 +16,20 @@ export default function Hero() {
     e.preventDefault();
     setIsLoginModalOpen(true);
   };
+
+  // Écouter l'événement personnalisé pour ouvrir la popup de connexion
+  useEffect(() => {
+    const handleOpenLoginModal = () => {
+      console.log('[Hero] Événement openLoginModal reçu');
+      setIsLoginModalOpen(true);
+    };
+
+    window.addEventListener('openLoginModal', handleOpenLoginModal);
+
+    return () => {
+      window.removeEventListener('openLoginModal', handleOpenLoginModal);
+    };
+  }, []);
 
   return (
     <section className="m-auto max-w-7xl overflow-x-hidden">
