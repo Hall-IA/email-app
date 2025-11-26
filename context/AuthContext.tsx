@@ -1,7 +1,29 @@
 'use client'
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { User, Session, AuthError } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
+
+// Types compatibles avec l'ancien système Supabase
+interface User {
+    id: string;
+    email: string;
+    full_name: string | null;
+    email_confirmed_at?: string;
+    user_metadata?: {
+        full_name?: string;
+    };
+}
+
+interface Session {
+    access_token: string;
+    refresh_token: string;
+    user: User;
+}
+
+interface AuthError {
+    message: string;
+    name: string;
+    status: number;
+}
 
 interface AuthContextType {
     user: User | null;
@@ -33,17 +55,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
 
             if (session?.user) {
-                // Vérifier que l'email est confirmé
-                if (!session.user.email_confirmed_at) {
-                    console.error('Email not confirmed');
-                    await supabase.auth.signOut();
-                    setSession(null);
-                    setUser(null);
-                    localStorage.clear();
-                    sessionStorage.clear();
-                    setLoading(false);
-                    return;
-                }
+                // Avec PostgreSQL, l'email est automatiquement confirmé
+                // pas besoin de vérifier email_confirmed_at
 
                 try {
                     const { data: existingProfile, error: profileError } = await supabase
@@ -74,7 +87,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 }
             }
 
-            setSession(session);
+            setSession(session as Session | null);
             setUser(session?.user ?? null);
             setLoading(false);
         }).catch(async (err) => {
@@ -98,31 +111,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     return;
                 }
 
-                // Ne pas définir la session si l'email n'est pas confirmé (pour tous les événements)
-                if (session?.user && !session.user.email_confirmed_at) {
-                    console.error('Session has unconfirmed email, signing out');
-                    await supabase.auth.signOut();
-                    setSession(null);
-                    setUser(null);
-                    localStorage.clear();
-                    sessionStorage.clear();
-                    setLoading(false);
-                    return;
-                }
-
                 if (event === 'SIGNED_IN' && session?.user) {
-                    // Vérifier que l'email est confirmé (double vérification)
-                    if (!session.user.email_confirmed_at) {
-                        console.error('Email not confirmed');
-                        await supabase.auth.signOut();
-                        setSession(null);
-                        setUser(null);
-                        localStorage.clear();
-                        sessionStorage.clear();
-                        setLoading(false);
-                        return;
-                    }
-
                     try {
                         const { data: existingProfile } = await supabase
                             .from('profiles')
@@ -149,7 +138,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     }
                 }
 
-                setSession(session);
+                setSession(session as Session | null);
                 setUser(session?.user ?? null);
                 setLoading(false);
             })();
@@ -161,10 +150,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }, []);
 
     const signUp = async (email: string, password: string, fullName: string) => {
-        const emailRedirectTo = typeof window !== 'undefined' 
-            ? `${window.location.origin}/auth/callback` 
-            : undefined;
-            
         const { data, error } = await supabase.auth.signUp({
             email,
             password,
@@ -172,22 +157,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 data: {
                     full_name: fullName,
                 },
-                ...(emailRedirectTo && { emailRedirectTo }),
             },
         });
         
-        // Si l'inscription réussit mais que l'email n'est pas confirmé, déconnecter immédiatement
-        // et nettoyer le localStorage/sessionStorage
-        if (data?.user && !data.user.email_confirmed_at) {
-            await supabase.auth.signOut();
-            // Nettoyer aussi manuellement pour être sûr
-            if (typeof window !== 'undefined') {
-                localStorage.clear();
-                sessionStorage.clear();
-            }
-        }
+        // Avec PostgreSQL, pas besoin de vérifier l'email
+        // L'utilisateur est automatiquement confirmé
         
-        return { error };
+        return { error: error as AuthError | null };
     };
 
     const signIn = async (email: string, password: string) => {
@@ -196,20 +172,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             password,
         });
         
-        // Vérifier si l'email est confirmé
-        if (data?.user && !data.user.email_confirmed_at) {
-            // Déconnecter l'utilisateur car l'email n'est pas confirmé
-            await supabase.auth.signOut();
-            return { 
-                error: {
-                    message: 'Veuillez vérifier votre email et cliquer sur le lien de confirmation avant de vous connecter.',
-                    name: 'EmailNotConfirmed',
-                    status: 403
-                } as AuthError
-            };
-        }
+        // Avec PostgreSQL, pas besoin de vérifier l'email
+        // L'utilisateur est automatiquement confirmé
         
-        return { error };
+        return { error: error as AuthError | null };
     };
 
     const signOut = async () => {

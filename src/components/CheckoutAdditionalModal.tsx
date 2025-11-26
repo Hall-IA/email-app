@@ -27,18 +27,10 @@ export function CheckoutAdditionalModal({
     useEffect(() => {
         const fetchStripePrices = async () => {
             try {
-                const { data: { session } } = await supabase.auth.getSession();
-                if (!session) return;
-
-                const response = await fetch(
-                    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/get-stripe-prices`,
-                    {
-                        method: 'GET',
-                        headers: {
-                            'Authorization': `Bearer ${session.access_token}`,
-                        },
-                    }
-                );
+                const response = await fetch('/api/stripe/prices', {
+                    method: 'GET',
+                    credentials: 'include',
+                });
 
                 if (response.ok) {
                     const data = await response.json();
@@ -70,35 +62,27 @@ export function CheckoutAdditionalModal({
         setLoading(true);
 
         try {
-            const { data: { session } } = await supabase.auth.getSession();
-
-            if (!session) {
-                showToast('Vous devez être connecté', 'error');
-                setLoading(false);
-                return;
-            }
-
-            const response = await fetch(
-                `${process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, '')}/functions/v1/stripe-add-account-checkout`,
-                {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${session.access_token}`,
-                        'Content-Type': 'application/json',
-                        'Apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
-                    },
-                    body: JSON.stringify({
-                        additional_accounts: additionalAccounts + 1,
-                        success_url: `${window.location.origin}/settings?upgraded=success`,
-                        cancel_url: `${window.location.origin}/settings?upgraded=cancelled`,
-                    }),
-                }
-            );
+            const response = await fetch('/api/stripe/add-account-checkout', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                credentials: 'include',
+                body: JSON.stringify({
+                    additional_accounts: additionalAccounts + 1,
+                    success_url: `${window.location.origin}/settings?upgraded=success`,
+                    cancel_url: `${window.location.origin}/settings?upgraded=cancelled`,
+                }),
+            });
 
             const data = await response.json();
 
             if (data.error) {
-                showToast(`Erreur: ${data.error}`, 'error');
+                const errorMessage = data.details 
+                    ? `${data.error}: ${data.details}` 
+                    : data.error;
+                showToast(errorMessage, 'error');
+                console.error('[Checkout]', errorMessage);
                 setLoading(false);
                 return;
             }

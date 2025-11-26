@@ -343,65 +343,49 @@ export function Subscription() {
         console.log('[Subscription.tsx] Nombre de subscriptions premier:', premierCount);
 
         // Récupérer la quantité réelle depuis Stripe pour chaque subscription additionnelle
-        const {
-          data: { session },
-        } = await supabase.auth.getSession();
-        if (session) {
-          // Récupérer les quantités réelles depuis Stripe
-          let totalAdditionalQuantity = 0;
-          const additionalSubs = allSubs.filter(
-            (s) => s.subscription_type === 'additional_account',
-          );
+        let totalAdditionalQuantity = 0;
+        const additionalSubs = allSubs.filter(
+          (s) => s.subscription_type === 'additional_account',
+        );
 
-          console.log('[Subscription.tsx] Subscriptions additionnelles trouvées:', {
-            count: additionalSubs.length,
-            subscriptions: additionalSubs.map(s => ({
-              subscription_id: s.subscription_id,
-              isSlot: s.subscription_id?.includes('_slot_')
-            }))
-          });
+        console.log('[Subscription.tsx] Subscriptions additionnelles trouvées:', {
+          count: additionalSubs.length,
+          subscriptions: additionalSubs.map(s => ({
+            subscription_id: s.subscription_id,
+            isSlot: s.subscription_id?.includes('_slot_')
+          }))
+        });
 
-          for (const sub of additionalSubs) {
-            try {
-              const response = await fetch(
-                `${process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, '')}/functions/v1/get-subscription-quantity`,
-                {
-                  method: 'POST',
-                  headers: {
-                    Authorization: `Bearer ${session.access_token}`,
-                    'Content-Type': 'application/json',
-                  },
-                  body: JSON.stringify({
-                    subscription_id: sub.subscription_id,
-                  }),
-                },
-              );
+        for (const sub of additionalSubs) {
+          try {
+            const response = await fetch('/api/stripe/subscription-quantity', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              credentials: 'include',
+              body: JSON.stringify({
+                subscription_id: sub.subscription_id,
+              }),
+            });
 
-              if (response.ok) {
-                const data = await response.json();
-                const quantity = data.quantity || 1; // Par défaut 1 si pas de quantité
-                console.log(`[Subscription.tsx] Quantité pour ${sub.subscription_id}:`, quantity);
-                totalAdditionalQuantity += quantity;
-              } else {
-                console.warn(`[Subscription.tsx] Erreur pour ${sub.subscription_id}, fallback à 1`);
-                totalAdditionalQuantity += 1; // Fallback : 1 par défaut
-              }
-            } catch (error) {
-              console.error(`[Subscription.tsx] Exception pour ${sub.subscription_id}:`, error);
+            if (response.ok) {
+              const data = await response.json();
+              const quantity = data.quantity || 1; // Par défaut 1 si pas de quantité
+              console.log(`[Subscription.tsx] Quantité pour ${sub.subscription_id}:`, quantity);
+              totalAdditionalQuantity += quantity;
+            } else {
+              console.warn(`[Subscription.tsx] Erreur pour ${sub.subscription_id}, fallback à 1`);
               totalAdditionalQuantity += 1; // Fallback : 1 par défaut
             }
+          } catch (error) {
+            console.error(`[Subscription.tsx] Exception pour ${sub.subscription_id}:`, error);
+            totalAdditionalQuantity += 1; // Fallback : 1 par défaut
           }
-
-          console.log('[Subscription.tsx] Total quantité additionnelle:', totalAdditionalQuantity);
-          totalPaidSlots = premierCount > 0 ? 1 + totalAdditionalQuantity : 0;
-        } else {
-          // Fallback si pas de session : compter les lignes (ancienne méthode)
-          const additionalCount = allSubs.filter(
-            (s) => s.subscription_type === 'additional_account',
-          ).length;
-          console.log('[Subscription.tsx] Pas de session, fallback - comptage des lignes:', additionalCount);
-          totalPaidSlots = premierCount > 0 ? 1 + additionalCount : 0;
         }
+
+        console.log('[Subscription.tsx] Total quantité additionnelle:', totalAdditionalQuantity);
+        totalPaidSlots = premierCount > 0 ? 1 + totalAdditionalQuantity : 0;
       } else {
         console.log('[Subscription.tsx] Aucune subscription trouvée');
       }
@@ -444,20 +428,10 @@ export function Subscription() {
 
   const fetchStripePrices = async () => {
     try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session) return;
-
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, '')}/functions/v1/get-stripe-prices`,
-        {
-          method: 'GET',
-          headers: {
-            Authorization: `Bearer ${session.access_token}`,
-          },
-        },
-      );
+      const response = await fetch('/api/stripe/prices', {
+        method: 'GET',
+        credentials: 'include',
+      });
 
       if (response.ok) {
         const data = await response.json();
@@ -494,32 +468,20 @@ export function Subscription() {
       }
 
       // Récupérer la quantité réelle depuis Stripe pour chaque subscription additionnelle
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session) {
-        setTotalAdditionalQuantity(allSubs.length); // Fallback : nombre de lignes
-        setPaidAdditionalAccounts(allSubs.length);
-        return;
-      }
-
       let totalQuantity = 0;
 
       for (const sub of allSubs) {
         try {
-          const response = await fetch(
-            `${process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, '')}/functions/v1/get-subscription-quantity`,
-            {
-              method: 'POST',
-              headers: {
-                Authorization: `Bearer ${session.access_token}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                subscription_id: sub.subscription_id,
-              }),
+          const response = await fetch('/api/stripe/subscription-quantity', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
             },
-          );
+            credentials: 'include',
+            body: JSON.stringify({
+              subscription_id: sub.subscription_id,
+            }),
+          });
 
           if (response.ok) {
             const data = await response.json();

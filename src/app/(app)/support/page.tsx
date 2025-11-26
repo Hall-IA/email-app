@@ -110,6 +110,7 @@ export default function SupportPage() {
   const [successEmail, setSuccessEmail] = useState('');
   const [showError, setShowError] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [isDragging, setIsDragging] = useState(false);
 
   // Charger les informations de l'utilisateur
   useEffect(() => {
@@ -171,6 +172,46 @@ export default function SupportPage() {
     setScreenshots(screenshots.filter((_, i) => i !== index));
   };
 
+  // Gestion du drag and drop
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    const files = Array.from(e.dataTransfer.files);
+    const imageFiles = files.filter(file => file.type.startsWith('image/'));
+    
+    if (imageFiles.length !== files.length) {
+      setErrorMessage('Seules les images sont acceptées (PNG, JPG, GIF, etc.)');
+      setShowError(true);
+      setTimeout(() => setShowError(false), 5000);
+    }
+    
+    if (imageFiles.length > 0) {
+      const newScreenshots = [...screenshots, ...imageFiles].slice(0, 3);
+      setScreenshots(newScreenshots);
+      
+      // Afficher un message si on a atteint la limite
+      if (screenshots.length + imageFiles.length > 3) {
+        setErrorMessage('Maximum 3 captures d\'écran. Les images supplémentaires ont été ignorées.');
+        setShowError(true);
+        setTimeout(() => setShowError(false), 5000);
+      }
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -196,76 +237,85 @@ export default function SupportPage() {
       // Générer un ticketId unique
       const ticketId = `TKT-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
 
-      // Upload des screenshots vers le bucket Supabase Storage
-      const screenshotUrls: string[] = [];
+      // Convertir les screenshots en base64 pour les inclure dans l'email
+      const screenshotData: Array<{ name: string; data: string; type: string }> = [];
       
-      if (screenshots.length > 0 && user) {
+      if (screenshots.length > 0) {
         for (let i = 0; i < screenshots.length; i++) {
           const file = screenshots[i];
-          const fileExt = file.name.split('.').pop()?.toLowerCase() || 'png';
-          const timestamp = Date.now();
-          const fileName = `${user.id}/${timestamp}_${i}_${ticketId}.${fileExt}`;
-
+          
           try {
-            // Upload vers Supabase Storage
-            const { data, error } = await supabase.storage
-              .from('support-screenshots')
-              .upload(fileName, file, {
-                cacheControl: '3600',
-                upsert: false,
-                contentType: file.type || 'image/png',
-              });
+            // Convertir l'image en base64
+            const base64 = await new Promise<string>((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onloadend = () => {
+                if (typeof reader.result === 'string') {
+                  resolve(reader.result);
+                } else {
+                  reject(new Error('Erreur de lecture du fichier'));
+                }
+              };
+              reader.onerror = reject;
+              reader.readAsDataURL(file);
+            });
 
-            if (error) {
-              console.error('Erreur upload screenshot:', error);
-              throw new Error(`Erreur lors de l'upload de ${file.name}`);
-            }
-
-            // Récupérer l'URL publique
-            const { data: { publicUrl } } = supabase.storage
-              .from('support-screenshots')
-              .getPublicUrl(fileName);
-
-            screenshotUrls.push(publicUrl);
+            screenshotData.push({
+              name: file.name,
+              data: base64,
+              type: file.type || 'image/png'
+            });
           } catch (uploadError) {
-            console.error('Erreur upload:', uploadError);
-            throw new Error('Erreur lors de l\'upload des captures d\'écran');
+            console.error('Erreur conversion screenshot:', uploadError);
+            throw new Error(`Erreur lors de la conversion de ${file.name}`);
           }
         }
       }
 
-      // Récupérer la session pour l'authentification
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        throw new Error('Session expirée. Veuillez vous reconnecter.');
-      }
-
       // 1. Envoyer le ticket au support
-      const { error: ticketError } = await supabase.functions.invoke('send-ticket-to-support', {
-        body: {
+      const ticketResponse = await fetch('/api/send-ticket-to-support', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
           ticketId,
           name: name.trim(),
           email: email.trim(),
           category,
           subject: subject.trim(),
           message: message.trim(),
-          screenshots: screenshotUrls,
-        },
+          screenshots: screenshotData,
+        }),
       });
 
-      if (ticketError) {
-        throw new Error(ticketError.message || 'Erreur lors de l\'envoi du ticket au support');
+      if (!ticketResponse.ok) {
+        const errorData = await ticketResponse.json();
+        throw new Error(errorData.error || 'Erreur lors de l\'envoi du ticket au support');
       }
+
+      const ticketResult = await ticketResponse.json();
+      console.log('✅ Ticket envoyé:', ticketResult);
 
       // 2. Envoyer la réponse automatique au client
       try {
-        await supabase.functions.invoke('support-auto-reply', {
-          body: {
+        const autoReplyResponse = await fetch('/api/support-auto-reply', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+          body: JSON.stringify({
             to: email.trim(),
             name: name.trim(),
             ticketId,
-          },
+          }),
         });
+
+        if (autoReplyResponse.ok) {
+          const autoReplyResult = await autoReplyResponse.json();
+          console.log('✅ Réponse automatique envoyée:', autoReplyResult);
+        }
       } catch (autoReplyError) {
         console.warn('Erreur envoi réponse automatique (non bloquant):', autoReplyError);
       }
@@ -496,9 +546,20 @@ export default function SupportPage() {
                   </div>
                 )}
 
-                {/* Bouton d'upload */}
+                {/* Zone de drag and drop / upload */}
                 {screenshots.length < 3 && (
-                  <label className="block">
+                  <div
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                    className={`
+                      relative border-2 border-dashed rounded-lg p-8 text-center transition-all duration-200
+                      ${isDragging 
+                        ? 'border-orange-500 bg-orange-50 scale-[1.02]' 
+                        : 'border-gray-300 hover:border-orange-400 hover:bg-orange-50'
+                      }
+                    `}
+                  >
                     <input
                       type="file"
                       accept="image/*"
@@ -506,17 +567,49 @@ export default function SupportPage() {
                       onChange={handleFileSelect}
                       className="hidden"
                       disabled={isSending}
+                      id="screenshot-upload"
                     />
-                    <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center cursor-pointer hover:border-orange-400 hover:bg-orange-50 transition-all">
-                      <Upload className="w-6 h-6 text-gray-400 mx-auto mb-2" />
-                      <p className="text-sm font-medium text-gray-700">
-                        Cliquez pour ajouter des captures d'écran
-                      </p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        PNG, JPG, GIF (max 3 fichiers, 5MB chacun)
-                      </p>
+                    
+                    {/* Icône et texte */}
+                    <div className={`transition-all duration-200 ${isDragging ? 'scale-110' : ''}`}>
+                      <Upload className={`w-8 h-8 mx-auto mb-3 transition-colors ${isDragging ? 'text-orange-500' : 'text-gray-400'}`} />
+                      
+                      {isDragging ? (
+                        <div>
+                          <p className="text-base font-semibold text-orange-600 mb-1">
+                            📸 Déposez vos images ici
+                          </p>
+                          <p className="text-sm text-orange-500">
+                            Relâchez pour ajouter les captures d'écran
+                          </p>
+                        </div>
+                      ) : (
+                        <div>
+                          <p className="text-sm font-semibold text-gray-700 mb-1">
+                            Glissez-déposez vos captures d'écran ici
+                          </p>
+                          <p className="text-xs text-gray-500 mb-3">
+                            ou
+                          </p>
+                          <label
+                            htmlFor="screenshot-upload"
+                            className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 hover:border-orange-400 transition-all cursor-pointer"
+                          >
+                            <Upload className="w-4 h-4" />
+                            Parcourir les fichiers
+                          </label>
+                          <p className="text-xs text-gray-500 mt-3">
+                            PNG, JPG, GIF • Max 3 fichiers • 5MB chacun
+                          </p>
+                        </div>
+                      )}
                     </div>
-                  </label>
+
+                    {/* Overlay de drag */}
+                    {isDragging && (
+                      <div className="absolute inset-0 border-2 border-orange-500 rounded-lg bg-orange-100 bg-opacity-20 pointer-events-none" />
+                    )}
+                  </div>
                 )}
               </div>
             </div>

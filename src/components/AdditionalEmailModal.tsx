@@ -41,28 +41,37 @@ export function AdditionalEmailModal({ userId, subscriptionId, onComplete, onClo
 
     const handleGmailConnect = async () => {
         try {
-            const { data: { session } } = await supabase.auth.getSession();
-            const response = await fetch(
-                `${process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, '')}/functions/v1/gmail-oauth-init`,
-                {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${session?.access_token}`,
-                        'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({ 
-                        redirectUrl: window.location.origin,
-                        subscriptionId: subscriptionId 
-                    }),
-                }
-            );
+            const response = await fetch('/api/gmail/oauth-init', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                credentials: 'include',
+                body: JSON.stringify({ 
+                    redirectUrl: window.location.origin,
+                    subscriptionId: subscriptionId 
+                }),
+            });
 
             if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.error || 'Échec de l\'initialisation Gmail');
+                let errorMessage = 'Échec de l\'initialisation Gmail';
+                try {
+                    const error = await response.json();
+                    errorMessage = error.error || errorMessage;
+                } catch {
+                    // Si la réponse n'est pas du JSON, c'est probablement une erreur serveur
+                    errorMessage = 'Erreur serveur. Vérifiez que GOOGLE_CLIENT_ID est configuré dans .env.local';
+                }
+                showToast(errorMessage, 'error');
+                return;
             }
-            const { authUrl } = await response.json();
+            
+            const data = await response.json();
+            if (!data.authUrl) {
+                showToast('Configuration OAuth manquante. Consultez CONFIGURATION_GMAIL_OAUTH.md', 'error');
+                return;
+            }
+            const { authUrl } = data;
             const width = 600;
             const height = 700;
             const left = window.screen.width / 2 - width / 2;
@@ -116,30 +125,19 @@ export function AdditionalEmailModal({ userId, subscriptionId, onComplete, onClo
         setTestResult(null);
 
         try {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (!session) {
-                showToast('Session expirée', 'error');
-                setTesting(false);
-                return;
-            }
-
-            const response = await fetch(
-                `${process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, '')}/functions/v1/verify-email-connection`,
-                {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${session.access_token}`,
-                        'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        email: formData.email,
-                        password: formData.password,
-                        imap_host: formData.imapHost,
-                        imap_port: typeof formData.imapPort === 'number' ? formData.imapPort : parseInt(formData.imapPort),
-                    }),
-                }
-            );
+            const response = await fetch('/api/email/verify-connection', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                credentials: 'include',
+                body: JSON.stringify({
+                    email: formData.email,
+                    password: formData.password,
+                    imap_host: formData.imapHost,
+                    imap_port: typeof formData.imapPort === 'number' ? formData.imapPort : parseInt(formData.imapPort),
+                }),
+            });
 
             const data = await response.json();
 

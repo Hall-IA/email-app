@@ -44,19 +44,22 @@ export default function GmailCallback() {
           throw new Error('Token d\'authentification introuvable. Veuillez réessayer.');
         }
 
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
         // Utiliser le même redirect_uri que celui utilisé pour obtenir le code
         const redirectUri = `${window.location.origin}/gmail-callback`;
 
-        console.log('📡 Envoi à la Edge Function...');
+        console.log('📡 Envoi à l\'API...');
 
-        const response = await fetch(`${supabaseUrl}/functions/v1/gmail-oauth-callback`, {
+        const response = await fetch('/api/gmail/oauth-callback', {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${accessToken}`,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ code, redirect_uri: redirectUri }),
+          credentials: 'include',
+          body: JSON.stringify({ 
+            code, 
+            redirect_uri: redirectUri,
+            token: accessToken 
+          }),
         });
 
         const result = await response.json();

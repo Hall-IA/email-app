@@ -110,18 +110,10 @@ export function CheckoutModal({
     useEffect(() => {
         const fetchStripePrices = async () => {
             try {
-                const { data: { session } } = await supabase.auth.getSession();
-                if (!session) return;
-
-                const response = await fetch(
-                    `${process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, '')}/functions/v1/get-stripe-prices`,
-                    {
-                        method: 'GET',
-                        headers: {
-                            'Authorization': `Bearer ${session.access_token}`,
-                        },
-                    }
-                );
+                const response = await fetch('/api/stripe/prices', {
+                    method: 'GET',
+                    credentials: 'include',
+                });
 
                 if (response.ok) {
                     const data = await response.json();
@@ -162,7 +154,7 @@ export function CheckoutModal({
                     table: 'stripe_subscriptions',
                     filter: `user_id=eq.${user.id}`
                 }, 
-                (payload) => {
+                (payload: any) => {
                     console.log('[CheckoutModal] Changement détecté sur subscriptions:', payload);
                     fetchUnlinkedSubscriptions();
                 }
@@ -178,7 +170,7 @@ export function CheckoutModal({
                     table: 'email_configurations',
                     filter: `user_id=eq.${user.id}`
                 }, 
-                (payload) => {
+                (payload: any) => {
                     console.log('[CheckoutModal] Changement détecté sur email_configurations:', payload);
                     fetchUnlinkedSubscriptions();
                 }

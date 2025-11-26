@@ -127,6 +127,7 @@ export default function Settings() {
   const [editTempValue, setEditTempValue] = useState('');
   const [modalError, setModalError] = useState<string>('');
   const [totalPaidSlots, setTotalPaidSlots] = useState(0); // Nombre total d'emails payés (base + additionnels)
+  const [isSyncing, setIsSyncing] = useState(false); // État de synchronisation Stripe
 
   // Knowledge base states
   const [currentConfig, setCurrentConfig] = useState<{
@@ -538,72 +539,74 @@ export default function Settings() {
   // Détecter le retour du paiement Stripe
   useEffect(() => {
     const upgraded = searchParams.get('upgrade');
-        const payment = searchParams.get('payment');
+    const payment = searchParams.get('payment');
+    const upgraded_value = searchParams.get('upgraded');
 
-    if (upgraded === 'success' || payment === 'success') {
-            // Nettoyer l'URL
-      router.replace('/settings');
+    console.log('[Settings] 🔍 Vérification paramètres URL:', {
+      upgrade: upgraded,
+      payment: payment,
+      upgraded: upgraded_value,
+      fullUrl: window.location.href
+    });
+
+    if (upgraded === 'success' || payment === 'success' || upgraded_value === 'success') {
+      console.log('[Settings] ✅ RETOUR DE PAIEMENT DÉTECTÉ !');
+      console.log('[Settings] 🧹 Nettoyage URL et démarrage sync...');
+      
+      // Nettoyer l'URL sans recharger
+      const newUrl = window.location.pathname;
+      window.history.replaceState({}, '', newUrl);
+      
+      // Lancer la synchronisation
       handleUpgradeReturn();
     }
   }, [searchParams]);
 
   const handleUpgradeReturn = async () => {
-    // Forcer la synchronisation avec Stripe
+    console.log('[Settings] 🔄 DÉBUT SYNCHRONISATION POST-PAIEMENT');
+    setIsSyncing(true);
+    
+    // Attendre 2 secondes pour que Stripe finalise tout
+    console.log('[Settings] ⏳ Attente de 2 secondes pour finalisation Stripe...');
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
     try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (session) {
-            const syncResponse = await fetch(
-                `${process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, '')}/functions/v1/stripe-force-sync`,
-                {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${session.access_token}`,
-                        'Content-Type': 'application/json',
-                    },
-                }
-            );
+        console.log('[Settings] 📡 Appel API de synchronisation...');
+        const syncResponse = await fetch('/api/stripe/sync', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            credentials: 'include',
+        });
+        
+        console.log('[Settings] 📥 Réponse reçue, status:', syncResponse.status);
+        
+        if (syncResponse.ok) {
+            const result = await syncResponse.json();
+            console.log('[Settings] ✅ SYNC RÉUSSIE:', result);
+            console.log('[Settings] 📊 Subscriptions:', result.data.subscriptions);
+            console.log('[Settings] 📄 Factures:', result.data.invoices);
             
-            if (syncResponse.ok) {
-                // Attendre un peu pour que le webhook Stripe traite tout
-                await new Promise(resolve => setTimeout(resolve, 2000));
-                
-                // Recharger la page complètement
-                window.location.reload();
-                return;
-            } else {
-                console.error('[Settings] Erreur stripe-force-sync:', await syncResponse.text());
-            }
+            // Attendre encore un peu
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            console.log('[Settings] 🔄 RECHARGEMENT COMPLET DE LA PAGE...');
+            // Force un reload complet (pas de cache)
+            window.location.href = window.location.href.split('?')[0] + '?t=' + Date.now();
+            return;
+        } else {
+            const error = await syncResponse.json();
+            console.error('[Settings] ❌ Erreur API:', error);
         }
     } catch (error) {
-        console.error('[Settings] Erreur lors de la synchronisation:', error);
+        console.error('[Settings] ❌ Exception:', error);
     }
     
-    // Fallback si la sync échoue : recharger quand même après polling
+    // Fallback : forcer le reload même en cas d'erreur
+    console.log('[Settings] ⚠️ FALLBACK: Rechargement forcé dans 2 secondes...');
     await new Promise(resolve => setTimeout(resolve, 2000));
-    await fetchPaidEmailSlots();
-    await checkSubscription();
-    await loadAccounts();
-    
-    // Polling pendant 15 secondes
-    let pollCount = 0;
-    const maxPolls = 7;
-    
-    const pollInterval = setInterval(async () => {
-        pollCount++;
-        await fetchPaidEmailSlots();
-        await loadAccounts();
-        
-        if (pollCount >= maxPolls) {
-            clearInterval(pollInterval);
-            // Recharger la page après le polling
-            window.location.reload();
-        }
-    }, 2000);
-    
-    // Cleanup après 15 secondes
-    setTimeout(() => {
-        clearInterval(pollInterval);
-    }, 15000);
+    window.location.href = window.location.href.split('?')[0] + '?t=' + Date.now();
 };
   const checkSubscription = async () => {
     if (!user) return;
@@ -725,8 +728,7 @@ export default function Settings() {
             
             for (const sub of additionalSubs) {
                 try {
-                    const response = await fetch(
-                            `${process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, '')}/functions/v1/get-subscription-quantity`,
+        const response = await fetch('/api/stripe/subscription-quantity',
                         {
                             method: 'POST',
                             headers: {
@@ -1608,6 +1610,28 @@ export default function Settings() {
 
   return (
     <section className="mx-auto max-w-7xl">
+      {/* Overlay de synchronisation */}
+      {isSyncing && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-[9999]">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-md mx-4 text-center">
+            <Loader2 className="h-16 w-16 animate-spin text-blue-600 mx-auto mb-4" />
+            <h3 className="text-2xl font-bold text-gray-900 mb-2">
+              Synchronisation en cours...
+            </h3>
+            <p className="text-gray-600 mb-4">
+              Récupération de vos données depuis Stripe
+            </p>
+            <div className="flex items-center justify-center gap-2 text-sm text-gray-500">
+              <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+              <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+              <div className="w-2 h-2 bg-blue-600 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+            </div>
+            <p className="text-xs text-gray-400 mt-4">
+              Veuillez patienter, ne fermez pas cette fenêtre
+            </p>
+          </div>
+        </div>
+      )}
 
       <Container>
         <HowItWorks />
@@ -1626,7 +1650,15 @@ export default function Settings() {
             transition={{ duration: 0.5 }}
             className="font-inter flex flex-col items-center justify-between rounded-t-xl border border-gray-200 bg-white p-6 sm:flex-row"
           >
-            <h2 className="mb-2 text-2xl font-bold text-gray-900">Configuration de vos emails</h2>
+            <div className="flex items-center gap-3">
+              <h2 className="mb-2 text-2xl font-bold text-gray-900">Configuration de vos emails</h2>
+              {isSyncing && (
+                <div className="flex items-center gap-2 text-blue-600">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span className="text-sm font-medium">Synchronisation...</span>
+                </div>
+              )}
+            </div>
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}

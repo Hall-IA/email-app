@@ -175,23 +175,19 @@ export function SetupEmailModal({ userId, onComplete }: SetupEmailModalProps) {
                 return;
             }
 
-            const response = await fetch(
-                `${process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, '')}/functions/v1/verify-email-connection`,
-                {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${session.access_token}`,
-                        'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({
-                        email: formData.email,
-                        password: formData.password,
-                        imap_host: formData.imapHost,
-                        imap_port: typeof formData.imapPort === 'number' ? formData.imapPort : parseInt(formData.imapPort),
-                    }),
-                }
-            );
+            const response = await fetch('/api/email/verify-connection', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                credentials: 'include',
+                body: JSON.stringify({
+                    email: formData.email,
+                    password: formData.password,
+                    imap_host: formData.imapHost,
+                    imap_port: typeof formData.imapPort === 'number' ? formData.imapPort : parseInt(formData.imapPort),
+                }),
+            });
 
             const data = await response.json();
 

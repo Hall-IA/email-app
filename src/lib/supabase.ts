@@ -1,13 +1,14 @@
-import { createClient } from '@supabase/supabase-js';
+/**
+ * Ce fichier a été modifié pour utiliser PostgreSQL au lieu de Supabase
+ * VERSION CLIENT UNIQUEMENT - utilise les API routes
+ * 
+ * Pour le code côté serveur (API routes), utilisez src/lib/supabase-server.ts
+ */
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+import { supabase as clientSupabase, from as clientFrom } from './supabase-compat-client';
 
-if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error('Missing Supabase environment variables');
-}
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = clientSupabase;
+export const from = clientFrom;
 
 export type Database = {
     public: {
