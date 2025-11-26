@@ -122,6 +122,20 @@ export default function NavBar() {
     setIsUserMenuOpen(false);
   };
 
+  // Écouter l'événement personnalisé pour ouvrir la popup de connexion
+  useEffect(() => {
+    const handleOpenLoginModal = () => {
+      console.log('[NavBar] Événement openLoginModal reçu');
+      setIsLoginModalOpen(true);
+    };
+
+    window.addEventListener('openLoginModal', handleOpenLoginModal);
+
+    return () => {
+      window.removeEventListener('openLoginModal', handleOpenLoginModal);
+    };
+  }, []);
+
   const getInitial = () => {
     if (!user?.email) return '?';
     return user.email.charAt(0).toUpperCase();
