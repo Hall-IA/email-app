@@ -248,7 +248,7 @@ export function LoginModal({ isOpen, onClose, initialEmail, onSignupSuccess }: L
 
               {/* Email */}
               <div>
-                <label className="block text-sm font-semibold text-gray-900 mb-2">Email</label>
+                <label className="block text-sm font-semibold text-gray-900 mb-2 font-roboto">Email</label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                   <input
@@ -265,7 +265,7 @@ export function LoginModal({ isOpen, onClose, initialEmail, onSignupSuccess }: L
 
               {/* Mot de passe */}
               <div>
-                <label className="block text-sm font-semibold text-gray-900 mb-2">Mot de passe</label>
+                <label className="block text-sm font-semibold text-gray-900 mb-2 font-roboto">Mot de passe</label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                   <input
@@ -287,6 +287,21 @@ export function LoginModal({ isOpen, onClose, initialEmail, onSignupSuccess }: L
                     {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                   </button>
                 </div>
+                {isLogin && (
+                  <div className="mt-2 text-right">
+                    <a
+                      href="/forgot-password"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        onClose();
+                        router.push('/forgot-password');
+                      }}
+                      className="text-sm text-orange-600 hover:text-orange-700 font-medium transition-colors font-roboto"
+                    >
+                      Mot de passe oublié ?
+                    </a>
+                  </div>
+                )}
               </div>
 
               {/* Bouton submit */}
@@ -298,10 +313,10 @@ export function LoginModal({ isOpen, onClose, initialEmail, onSignupSuccess }: L
                 {loading ? (
                   <>
                     <div className="animate-spin  rounded-full h-4 w-4 border-b-2 border-white"></div>
-                    <span>{isLogin ? 'Connexion...' : 'Inscription...'}</span>
+                    <span className="font-roboto">{isLogin ? 'Connexion...' : 'Inscription...'}</span>
                   </>
                 ) : (
-                  isLogin ? 'Se connecter' : "S'inscrire"
+                  <span className="font-roboto">{isLogin ? 'Se connecter' : "S'inscrire"}</span>
                 )}
               </button>
             </form>
@@ -315,7 +330,7 @@ export function LoginModal({ isOpen, onClose, initialEmail, onSignupSuccess }: L
                   setError(null);
                   setSuccessMessage(null);
                 }}
-                className="text-orange-600 hover:text-orange-700 hover:underline text-sm font-medium cursor-pointer"
+                className="text-orange-600 hover:text-orange-700 hover:underline text-sm font-medium cursor-pointer font-roboto"
                 disabled={loading}
               >
                 {isLogin ? "Pas encore de compte ? S'inscrire" : 'Déjà un compte ? Se connecter'}
