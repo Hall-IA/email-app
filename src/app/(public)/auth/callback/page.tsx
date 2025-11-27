@@ -74,7 +74,7 @@ export default function AuthCallbackPage() {
             localStorage.clear();
             sessionStorage.clear();
             
-            
+
             // Restaurer les données préservées
             if (businessPassCounter) {
               localStorage.setItem('business_pass_email_counter', businessPassCounter);
@@ -83,7 +83,7 @@ export default function AuthCallbackPage() {
               localStorage.setItem('selected_plan', selectedPlan);
             }
             
-            // Marquer qu'on vient de valider l'email
+            
             sessionStorage.setItem('email_just_verified', 'true');
           }
           
