@@ -109,16 +109,19 @@ Deno.serve(async (req) => {
       throw new Error('Ce compte Gmail est déjà configuré');
     }
 
-    // Vérifier si c'est le PREMIER email de l'utilisateur
-    const { data: allEmails, error: countError } = await supabase
+    // Vérifier si un email principal existe déjà
+    // Si aucun email principal n'existe, ce Gmail devient le principal
+    const { data: existingPrimary } = await supabase
       .from('email_configurations')
-      .select('id')
-      .eq('user_id', user.id);
+      .select('id, is_primary')
+      .eq('user_id', user.id)
+      .eq('is_primary', true)
+      .maybeSingle();
 
-    const isFirstEmail = !allEmails || allEmails.length === 0;
+    const shouldBePrimary = !existingPrimary;
     
-    console.log('[Gmail OAuth Callback] Nombre d\'emails existants:', allEmails?.length || 0);
-    console.log('[Gmail OAuth Callback] Est-ce le premier email ?', isFirstEmail);
+    console.log('[Gmail OAuth Callback] Email principal existant:', existingPrimary ? 'Oui' : 'Non');
+    console.log('[Gmail OAuth Callback] Ce Gmail sera principal ?', shouldBePrimary);
 
     // Enregistrer les tokens Gmail
     const { data: tokenData, error: tokenError } = await supabase
@@ -140,7 +143,7 @@ Deno.serve(async (req) => {
     }
     console.log('[Gmail OAuth Callback] Token inséré avec succès:', tokenData?.id);
 
-    // Créer la configuration email avec is_primary si c'est le premier
+    // Créer la configuration email avec is_primary s'il n'y a pas déjà d'email principal
     const { error: configError } = await supabase
       .from('email_configurations')
       .insert({
@@ -149,7 +152,7 @@ Deno.serve(async (req) => {
         email: userInfo.email,
         provider: 'gmail',
         is_connected: true,
-        is_primary: isFirstEmail, // ✅ CORRECTION : Marquer comme principal si c'est le premier email
+        is_primary: shouldBePrimary, // ✅ Marquer comme principal s'il n'y a pas d'email principal existant
         is_classement: false,
         gmail_token_id: tokenData.id,
         last_sync_at: new Date().toISOString()

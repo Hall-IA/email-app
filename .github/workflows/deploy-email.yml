@@ -2,7 +2,7 @@ name: Deploy Email App
 
 on:
   push:
-    branches: [ main, Rag ]
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:

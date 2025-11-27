@@ -135,16 +135,19 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Vérifier si c'est le PREMIER email de l'utilisateur
-    const { data: allEmails } = await supabase
+    // Vérifier si un email principal existe déjà
+    // Si aucun email principal n'existe, cet Outlook devient le principal
+    const { data: existingPrimary } = await supabase
       .from('email_configurations')
-      .select('id')
-      .eq('user_id', userId);
+      .select('id, is_primary')
+      .eq('user_id', userId)
+      .eq('is_primary', true)
+      .maybeSingle();
 
-    const isFirstEmail = !allEmails || allEmails.length === 0;
+    const shouldBePrimary = !existingPrimary;
     
-    console.log('[Outlook OAuth Callback] Nombre d\'emails existants:', allEmails?.length || 0);
-    console.log('[Outlook OAuth Callback] Est-ce le premier email ?', isFirstEmail);
+    console.log('[Outlook OAuth Callback] Email principal existant:', existingPrimary ? 'Oui' : 'Non');
+    console.log('[Outlook OAuth Callback] Cet Outlook sera principal ?', shouldBePrimary);
 
     const { data: tokenData, error: dbError } = await supabase
       .from('outlook_tokens')
@@ -170,7 +173,7 @@ Deno.serve(async (req) => {
         email: userEmail,
         provider: 'outlook',
         is_connected: true,
-        is_primary: isFirstEmail, // ✅ CORRECTION : Marquer comme principal si c'est le premier email
+        is_primary: shouldBePrimary, // ✅ Marquer comme principal s'il n'y a pas d'email principal existant
         is_classement: false, // Tri automatique désactivé par défaut - sera activé après configuration de l'entreprise
         outlook_token_id: tokenData.id,
         last_sync_at: new Date().toISOString()

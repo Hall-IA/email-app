@@ -189,7 +189,7 @@ export default function AddEmailCount({ onComplete, onClose }: AddEmailCountProp
                         <div className="relative z-10 py-5">
                             <h2 className='text-4xl font-bold font-thunder text-black text-center mb-2'>Compte additionnel</h2>
                             <p className="text-gray-600 text-sm mt-1 text-center">
-                                Ajoutez des comptes email que vous configurerez plus tard
+                            Si vous avez besoin de comptes e-mail supplémentaires, indiquez le nombre souhaité puis cliquez sur « Continuer ». Dans le cas contraire, cliquez sur « Passer » et conservez uniquement votre compte e-mail principal.
                             </p>
                         </div>
                     </div>

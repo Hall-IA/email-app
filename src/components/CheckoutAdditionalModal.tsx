@@ -147,7 +147,8 @@ export function CheckoutAdditionalModal({
                   Compte additionnel
                 </h2>
                 <p className="mt-1 text-center text-sm text-gray-600">
-                  Ajoutez des comptes email que vous pouvez configurerez plus tard
+                Ajoutez des comptes e-mail supplémentaires.
+
                 </p>
               </div>
             </div>

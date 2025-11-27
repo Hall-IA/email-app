@@ -89,8 +89,8 @@ export function Subscription() {
     isPrimary: boolean;
   } | null>(null);
   const [showReactivatedMessage, setShowReactivatedMessage] = useState(false);
-  const [basePlanPrice, setBasePlanPrice] = useState(29);
-  const [userPrice, setUserPrice] = useState(19);
+  const [basePlanPrice, setBasePlanPrice] = useState(49);
+  const [userPrice, setUserPrice] = useState(39);
   const [isSyncing, setIsSyncing] = useState(false);
   const [paidAdditionalAccounts, setPaidAdditionalAccounts] = useState(0);
   const [showAddAccountModal, setShowAddAccountModal] = useState(false);
@@ -1908,7 +1908,7 @@ export function Subscription() {
                         <span className="font-bold text-green-600">•</span>
                         <span>
                           Facturation{' '}
-                          {subscriptionToReactivate.isPrimary ? 'à 29€ HT/mois' : 'à 19€ HT/mois'}
+                          {subscriptionToReactivate.isPrimary ? 'à 49€ HT/mois' : 'à 39€ HT/mois'}
                         </span>
                       </li>
                       <li className="flex items-start gap-2">

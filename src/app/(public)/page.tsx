@@ -49,7 +49,7 @@ const sampleVideoItems: ListItem[] = [
     id: '3',
     title: 'Génération de réponse',
     description: "Création d'un brouillon personnalisé et adapté.",
-    videoUrl: '/assets/img/generation-reponse.png',
+    videoUrl: '/assets/img/generation-reponse-item3.png',
     alt: 'Outil IA de transcription de réunions - Résumé automatique et compte-rendu intelligent',
     keywords: [
       'génération de réponse email IA',
