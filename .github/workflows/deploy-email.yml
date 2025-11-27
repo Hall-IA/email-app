@@ -12,25 +12,18 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     
-    - name: Setup Node.js
-      uses: actions/setup-node@v3
+    - name: Deploy to server via SSH
+      uses: appleboy/ssh-action@v1.0.0
       with:
-        node-version: '22'
-        
-    - name: Install dependencies
-      run: npm install
-      
-    - name: Build
-      run: npm run build
-      env:
-        NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-      
-    - name: Deploy to server
-      run: |
-        chmod +x deploy/email-app.sh
-        ./deploy/email-app.sh
-      env:
-        SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-        SERVER_HOST: ${{ secrets.SERVER_HOST }}
-        SERVER_USER: ${{ secrets.SERVER_USER }}
+        host: ${{ secrets.SERVER_HOST }}
+        username: ${{ secrets.SERVER_USER }}
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        script: |
+          cd /var/www/email-app
+          git fetch origin
+          git reset --hard origin/main
+          npm install --legacy-peer-deps
+          npm run build
+          pm2 delete email-app || true
+          pm2 start npm --name email-app -- start -- -p 3001
+          pm2 save
