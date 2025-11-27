@@ -74,7 +74,6 @@ export default function AuthCallbackPage() {
             localStorage.clear();
             sessionStorage.clear();
             
-
             
             // Restaurer les données préservées
             if (businessPassCounter) {
