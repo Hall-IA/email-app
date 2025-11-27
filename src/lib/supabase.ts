@@ -1,13 +1,26 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
+// Pendant le build (SSG), les variables peuvent ne pas être disponibles
+// Mais ce n'est pas grave car le client Supabase n'est utilisé que côté client
 if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error('Missing Supabase environment variables');
+    // En mode build/développement sans variables, créer un client dummy
+    if (typeof window === 'undefined') {
+        // Côté serveur pendant le build : créer un client avec des valeurs par défaut
+        console.warn('⚠️ Supabase environment variables not found during build. Using placeholder values.');
+    } else {
+        // Côté client : les variables doivent être présentes
+        throw new Error('Missing Supabase environment variables');
+    }
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Utiliser les vraies valeurs si disponibles, sinon des placeholders pour le build
+const finalUrl = supabaseUrl || 'https://placeholder.supabase.co';
+const finalKey = supabaseAnonKey || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBsYWNlaG9sZGVyIiwicm9sZSI6ImFub24iLCJpYXQiOjE2NDUxOTI4MDAsImV4cCI6MTk2MDc2ODgwMH0.placeholder';
+
+export const supabase = createClient(finalUrl, finalKey);
 
 export type Database = {
     public: {
