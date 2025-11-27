@@ -1,63 +1,72 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Check, X, Loader2 } from 'lucide-react';
 
 export default function AuthCallbackPage() {
-  const router = useRouter();
-  const searchParams = useSearchParams();
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [message, setMessage] = useState('Vérification en cours...');
+  const hasHandled = useRef(false);
 
   useEffect(() => {
-    const handleCallback = async () => {
+    let timeoutId: NodeJS.Timeout;
+
+    const handleSuccess = async () => {
+      if (hasHandled.current) return;
+      hasHandled.current = true;
+
+      console.log('[Auth Callback] ✅ Email confirmé !');
+      setStatus('success');
+      setMessage('Email vérifié avec succès !');
+
+      // Stocker le flag AVANT de déconnecter
+      sessionStorage.setItem('email_just_verified', 'true');
+
+      // Déconnecter localement pour forcer une reconnexion manuelle
       try {
-        // Récupérer les paramètres de l'URL
-        const token_hash = searchParams.get('token_hash');
-        const type = searchParams.get('type') as 'signup' | 'email' | 'recovery' | null;
-        
-        console.log('[Auth Callback] Type:', type);
-        console.log('[Auth Callback] Token hash:', token_hash ? 'présent' : 'absent');
+        await supabase.auth.signOut({ scope: 'local' });
+      } catch (e) {
+        console.log('[Auth Callback] SignOut error (ignoré):', e);
+      }
 
-        if (!token_hash || !type) {
-          console.error('[Auth Callback] Paramètres manquants');
-          setStatus('error');
-          setMessage('Lien de validation invalide ou expiré');
-          return;
-        }
+      // Rediriger vers l'accueil avec les paramètres pour ouvrir la modal
+      setTimeout(() => {
+        window.location.href = '/?login=true&verified=true';
+      }, 2000);
+    };
 
-        // Échanger le token contre une session
-        const { data, error } = await supabase.auth.verifyOtp({
-          token_hash,
-          type,
+    const handleError = (msg: string) => {
+      if (hasHandled.current) return;
+      hasHandled.current = true;
+      setStatus('error');
+      setMessage(msg);
+    };
+
+    const checkSession = async () => {
+      try {
+        // Attendre que Supabase traite le token dans l'URL
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        const { data: { session }, error } = await supabase.auth.getSession();
+
+        console.log('[Auth Callback] Session:', {
+          hasSession: !!session,
+          emailConfirmed: !!session?.user?.email_confirmed_at,
+          error: error?.message
         });
 
         if (error) {
-          console.error('[Auth Callback] Erreur lors de la vérification:', error);
-          setStatus('error');
-          
-          if (error.message.includes('expired')) {
-            setMessage('Le lien de validation a expiré. Veuillez demander un nouvel email de confirmation.');
-          } else if (error.message.includes('invalid')) {
-            setMessage('Le lien de validation est invalide. Veuillez vérifier votre email.');
-          } else {
-            setMessage('Erreur lors de la validation de votre email. Veuillez réessayer.');
-          }
+          handleError('Erreur: ' + error.message);
           return;
         }
 
-        console.log('[Auth Callback] ✅ Email vérifié avec succès');
-
-        // Vérifier si c'est une validation d'email ou une récupération de mot de passe
-        if (type === 'recovery') {
-          setStatus('success');
-          setMessage('Email vérifié avec succès ! Redirection...');
-          // Rediriger vers la page de reset password
-          setTimeout(() => {
-            router.push('/reset-password');
-          }, 2000);
+        if (session?.user?.email_confirmed_at) {
+          await handleSuccess();
+        } else if (session?.user) {
+          // Email pas encore marqué comme confirmé, réessayer
+          console.log('[Auth Callback] En attente de confirmation...');
+          setTimeout(checkSession, 1000);
         } else {
           // IMPORTANT : Déconnecter complètement l'utilisateur IMMÉDIATEMENT
           // avant d'afficher le message de succès
@@ -99,22 +108,43 @@ export default function AuthCallbackPage() {
             window.location.href = '/?login=true&verified=true';
           }, 2000);
         }
-
-      } catch (error) {
-        console.error('[Auth Callback] Erreur inattendue:', error);
-        setStatus('error');
-        setMessage('Une erreur inattendue s\'est produite. Veuillez réessayer.');
+      } catch (err) {
+        console.error('[Auth Callback] Erreur:', err);
+        handleError('Une erreur inattendue s\'est produite.');
       }
     };
 
-    handleCallback();
-  }, [searchParams, router]);
+    // Écouter les events Supabase
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log('[Auth Callback] Event:', event);
+        if (hasHandled.current) return;
+        
+        if (session?.user?.email_confirmed_at) {
+          await handleSuccess();
+        }
+      }
+    );
+
+    checkSession();
+
+    // Timeout de sécurité
+    timeoutId = setTimeout(() => {
+      if (!hasHandled.current) {
+        handleError('Délai d\'attente dépassé.');
+      }
+    }, 15000);
+
+    return () => {
+      clearTimeout(timeoutId);
+      subscription.unsubscribe();
+    };
+  }, []);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 via-white to-yellow-50 p-4">
       <div className="max-w-md w-full">
         <div className="bg-white rounded-2xl shadow-xl p-8 text-center">
-          {/* Icône animée */}
           <div className="mb-6 flex justify-center">
             {status === 'loading' && (
               <div className="w-16 h-16 rounded-full bg-orange-100 flex items-center justify-center">
@@ -122,45 +152,42 @@ export default function AuthCallbackPage() {
               </div>
             )}
             {status === 'success' && (
-              <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center animate-scale-in">
+              <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center">
                 <Check className="w-8 h-8 text-green-600" />
               </div>
             )}
             {status === 'error' && (
-              <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center animate-scale-in">
+              <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center">
                 <X className="w-8 h-8 text-red-600" />
               </div>
             )}
           </div>
 
-          {/* Titre */}
           <h1 className="text-2xl font-bold text-gray-900 mb-2 font-thunder">
             {status === 'loading' && 'Vérification en cours'}
             {status === 'success' && 'Email vérifié !'}
             {status === 'error' && 'Erreur de validation'}
           </h1>
 
-          {/* Message */}
-          <p className="text-gray-600 mb-6 font-inter text-sm">
-            {message}
-          </p>
+          <p className="text-gray-600 mb-6 font-inter text-sm">{message}</p>
 
-          {/* Barre de progression pour le succès */}
           {status === 'success' && (
             <div className="mb-4">
               <div className="w-full bg-gray-200 rounded-full h-1.5 overflow-hidden">
-                <div className="bg-gradient-to-r from-orange-500 to-yellow-500 h-full rounded-full animate-progress" />
+                <div 
+                  className="bg-gradient-to-r from-orange-500 to-yellow-500 h-full rounded-full"
+                  style={{ animation: 'progress 2s ease-in-out forwards' }}
+                />
               </div>
               <p className="text-xs text-gray-500 mt-2 font-inter">
-                Redirection en cours...
+                Redirection vers la connexion...
               </p>
             </div>
           )}
 
-          {/* Bouton pour les erreurs */}
           {status === 'error' && (
             <button
-              onClick={() => router.push('/')}
+              onClick={() => window.location.href = '/'}
               className="w-full bg-gradient-to-r from-orange-500 to-yellow-500 text-white px-6 py-3 rounded-lg font-semibold hover:shadow-lg transition-all duration-300 font-inter"
             >
               Retour à l'accueil
@@ -168,43 +195,20 @@ export default function AuthCallbackPage() {
           )}
         </div>
 
-        {/* Footer */}
         <p className="text-center text-sm text-gray-500 mt-4 font-inter">
-          Besoin d'aide ? <a href="/support" className="text-orange-600 hover:underline">Contactez-nous</a>
+          Besoin d'aide ?{' '}
+          <a href="/support" className="text-orange-600 hover:underline">
+            Contactez-nous
+          </a>
         </p>
       </div>
 
-      {/* Styles pour les animations */}
       <style jsx>{`
-        @keyframes scale-in {
-          from {
-            transform: scale(0);
-            opacity: 0;
-          }
-          to {
-            transform: scale(1);
-            opacity: 1;
-          }
-        }
-
         @keyframes progress {
-          from {
-            width: 0%;
-          }
-          to {
-            width: 100%;
-          }
-        }
-
-        .animate-scale-in {
-          animation: scale-in 0.3s ease-out;
-        }
-
-        .animate-progress {
-          animation: progress 2s ease-in-out;
+          from { width: 0%; }
+          to { width: 100%; }
         }
       `}</style>
     </div>
   );
 }
-

@@ -208,7 +208,7 @@ export function CheckoutAdditionalModal({
               <div className="flex items-center justify-between">
                 <div>
                   <p className="font-inter text-sm font-medium text-gray-700">Montant total</p>
-                  <p className="font-inter mt-1 text-xs text-gray-600">Facturé mensuellement</p>
+                  <p className="font-inter mt-1 text-xs text-gray-600">Abonnement mensuel - sans engagement</p>
                 </div>
                 <div className="text-right">
                   <p className="text-2xl font-bold text-orange-600">{totalPrice}€ HT</p>

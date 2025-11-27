@@ -5,26 +5,25 @@ import CustomButton from '../../CustomButton';
 import CardPack from '../../CardPack';
 import { useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { LoginModal } from '../../LoginModal';
+// LoginModal gérée par NavBar
 import { BadgeCheck, HelpCircle, XCircle } from 'lucide-react';
 
 export default function AppPack() {
   const searchParams = useSearchParams();
   const showFreeTrial = searchParams.get('promo') === 'true';
 
-  const [showLoginModal, setShowLoginModal] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
 
   const handleStartClick = (planType: string) => {
     setSelectedPlan(planType);
     localStorage.setItem('selected_plan', planType);
-    setShowLoginModal(true);
+    // Déclencher l'événement pour que NavBar ouvre la modal
+    const event = new CustomEvent('openLoginModal');
+    window.dispatchEvent(event);
   };
 
-  const handleSignupSuccess = (userId: string) => {
-    setShowLoginModal(false);
-  };
+  // handleSignupSuccess géré par NavBar
 
   return (
     <section className="relative flex w-full flex-col items-center overflow-hidden px-4 py-16">
@@ -184,13 +183,7 @@ export default function AppPack() {
         <HelpCircle className="h-4 w-5" />
       </button>
 
-      {/* Modal de connexion/inscription */}
-      <LoginModal
-        isOpen={showLoginModal}
-        onClose={() => setShowLoginModal(false)}
-        onSignupSuccess={handleSignupSuccess}
-        initialEmail={' '}
-      />
+      {/* Modal de connexion gérée par NavBar */}
 
       {/* Modal Conditions d'abonnement */}
       {showSubscriptionModal && (
