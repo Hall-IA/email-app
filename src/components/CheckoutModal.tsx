@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Plus, Minus, CreditCard, Check, X, Star, Mail, Info, Lock } from 'lucide-react';
+import { Plus, Minus, CreditCard, Check, X, Star, Mail, Info, Lock, HelpCircle, XCircle } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from './Toast';
@@ -31,6 +31,7 @@ export function CheckoutModal({
     const [additionalEmails, setAdditionalEmails] = useState(0);
     const [basePrice, setBasePrice] = useState(49);
     const [additionalPrice, setAdditionalPrice] = useState(39);
+    const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
     
     // État local pour les slots non configurés - calculé dynamiquement
     const [unlinkedSubscriptionsCount, setUnlinkedSubscriptionsCount] = useState(initialUnlinkedCount);
@@ -458,7 +459,13 @@ export function CheckoutModal({
 
                             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                                 <p className="text-sm font-medium text-blue-900 text-center">
-                                    ✓ Sans engagement - Résiliez à tout moment
+                                    <HelpCircle className="w-4 h-4 inline-block mr-2" /> 
+                                    <button
+                                        onClick={() => setShowSubscriptionModal(true)}
+                                        className="underline hover:text-blue-700 transition-colors"
+                                    >
+                                        Sans engagement - Résiliez à tout moment
+                                    </button>
                                 </p>
                             </div>
 
@@ -657,7 +664,12 @@ export function CheckoutModal({
 
                                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-4">
                                     <p className="text-sm font-medium text-blue-900 text-center font-inter">
-                                        ✓ Sans engagement - Résiliez à tout moment
+                                        <button
+                                            onClick={() => setShowSubscriptionModal(true)}
+                                            className="underline hover:text-blue-700 transition-colors"
+                                        >
+                                            ✓ Sans engagement - Résiliez à tout moment
+                                        </button>
                                     </p>
                                 </div>
 
@@ -704,6 +716,108 @@ export function CheckoutModal({
                     </div>
                 </div>
             </div>
+
+            {/* Modal Conditions d'abonnement */}
+            {showSubscriptionModal && (
+                <div
+                    className="animate-in fade-in fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm duration-300"
+                    onClick={() => setShowSubscriptionModal(false)}
+                >
+                    <div
+                        className="relative max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-2xl bg-white shadow-2xl"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {/* Header */}
+                        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-200 bg-white px-6 py-4">
+                            <div className="flex items-center gap-3">
+                                <h2 className="text-2xl font-bold text-gray-900">Conditions d'abonnement</h2>
+                            </div>
+                            <button
+                                onClick={() => setShowSubscriptionModal(false)}
+                                className="group flex h-10 w-10 cursor-pointer items-center justify-center rounded-full bg-gray-200/50 transition-all duration-300 hover:bg-gray-300"
+                            >
+                                <XCircle className="h-5 w-5 text-black transition-transform duration-300 group-hover:scale-110" />
+                            </button>
+                        </div>
+
+                        {/* Content */}
+                        <div className="space-y-6 p-6">
+                            <p className="text-base text-gray-700">
+                                Nos applications sont disponibles sous forme d'abonnement mensuel ou annuel, selon
+                                les conditions ci-dessous.
+                            </p>
+
+                            <div className="space-y-5">
+                                <div>
+                                    <h3 className="mb-2 text-lg font-bold text-gray-900">1. Durée et reconduction</h3>
+                                    <p className="text-base text-gray-700">
+                                        Chaque abonnement, qu'il soit mensuel ou annuel, est conclu pour la durée
+                                        initialement choisie par le client. À l'issue de cette période, l'abonnement se
+                                        renouvelle automatiquement par tacite reconduction pour une durée identique,
+                                        sauf résiliation préalable du client.
+                                    </p>
+                                </div>
+
+                                <div>
+                                    <h3 className="mb-2 text-lg font-bold text-gray-900">2. Paiement</h3>
+                                    <p className="mb-2 text-base text-gray-700">
+                                        <strong>Abonnement mensuel :</strong> le montant est facturé et payable d'avance
+                                        chaque mois.
+                                    </p>
+                                    <p className="text-base text-gray-700">
+                                        <strong>Abonnement annuel :</strong> le montant est facturé et payable d'avance
+                                        pour une période de 12 mois.
+                                    </p>
+                                </div>
+
+                                <div>
+                                    <h3 className="mb-2 text-lg font-bold text-gray-900">3. Résiliation</h3>
+                                    <p className="mb-2 text-base text-gray-700">
+                                        Le client peut demander la résiliation de son abonnement à tout moment.
+                                    </p>
+                                    <p className="mb-2 text-base text-gray-700">
+                                        Pour un abonnement mensuel, la résiliation prend effet à la fin du mois en
+                                        cours.
+                                    </p>
+                                    <p className="mb-2 text-base text-gray-700">
+                                        Pour un abonnement annuel, la résiliation prend effet à la fin de la période
+                                        annuelle en cours.
+                                    </p>
+                                    <p className="text-base text-gray-700">
+                                        Aucun remboursement, même partiel, ne sera effectué pour une période déjà
+                                        commencée, les abonnements étant payables d'avance.
+                                    </p>
+                                </div>
+
+                                <div>
+                                    <h3 className="mb-2 text-lg font-bold text-gray-900">
+                                        4. Modalités d'annulation
+                                    </h3>
+                                    <p className="mb-2 text-base text-gray-700">
+                                        La demande de résiliation peut être effectuée :
+                                    </p>
+                                    <ul className="ml-4 list-inside list-disc space-y-1 text-base text-gray-700">
+                                        <li>Depuis l'espace client</li>
+                                    </ul>
+                                    <p className="mt-2 text-base text-gray-700">
+                                        Une confirmation de résiliation sera envoyée par email. Pour éviter le
+                                        renouvellement automatique, la résiliation doit être faite avant la date
+                                        d'échéance de la période en cours.
+                                    </p>
+                                </div>
+
+                                <div>
+                                    <h3 className="mb-2 text-lg font-bold text-gray-900">5. Réactivation</h3>
+                                    <p className="text-base text-gray-700">
+                                        Le client peut réactiver son abonnement à tout moment en souscrivant à nouveau
+                                        via la plateforme.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </>
     );
 }

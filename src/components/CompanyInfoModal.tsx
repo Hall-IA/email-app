@@ -11,7 +11,7 @@ interface CompanyInfoModalProps {
     emailAccountId?: string;
     email?: string;
     initialStep?: number;
-    onComplete: () => void;
+    onComplete: (emailConfigId?: string, email?: string) => void;
     onClose?: () => void;
     onShowAddEmailCount?: () => void;
 }
@@ -53,6 +53,7 @@ export function CompanyInfoModal({ userId, emailAccountId, email, initialStep = 
     const [saveTimeout, setSaveTimeout] = useState<NodeJS.Timeout | null>(null);
     const [isInitialLoad, setIsInitialLoad] = useState(true); // Flag pour désactiver l'auto-save pendant le chargement initial
     const [isAnalyzingKnowledge, setIsAnalyzingKnowledge] = useState(false); // Flag pour indiquer l'analyse de la base de connaissance
+    const [knowledgeProgress, setKnowledgeProgress] = useState(0); // Pourcentage de progression de l'analyse
 
     const totalSteps = 5;
 
@@ -189,26 +190,27 @@ export function CompanyInfoModal({ userId, emailAccountId, email, initialStep = 
             };
 
             // Si l'email actuel est vide et n'est pas l'email principal, 
-            // charger les données de l'email principal UNIQUEMENT pour pré-remplir les champs (pas pour sauvegarder)
+            // charger les données de l'email principal UNIQUEMENT pour pré-remplir les champs obligatoires
+            // MAIS PAS la base de connaissances (URLs et PDFs) - chaque email doit avoir sa propre base
             if (!isPrimary && (!currentEmailData?.company_name?.trim() && !currentEmailData?.activity_description?.trim() && !currentEmailData?.services_offered?.trim())) {
-                // Charger les données de l'email principal (y compris logo, URLs et base de connaissance)
+                // Charger les données de l'email principal (sauf la base de connaissances)
                 const { data: primaryEmailData, error: primaryError } = await supabase
                     .from('email_configurations')
-                    .select('company_name, activity_description, services_offered, signature_image_base64, knowledge_base_urls, knowledge_base_pdfs')
+                    .select('company_name, activity_description, services_offered, signature_image_base64')
                     .eq('user_id', userId)
                     .eq('is_primary', true)
                     .maybeSingle();
 
                 if (!primaryError && primaryEmailData) {
                     // Utiliser les données de l'email principal pour AFFICHAGE uniquement
-                    // Ces données ne seront sauvegardées que quand l'utilisateur clique sur "Terminer"
+                    // MAIS ne pas pré-remplir la base de connaissances - chaque email doit avoir la sienne
                     displayData = {
                         company_name: primaryEmailData.company_name || '',
                         activity_description: primaryEmailData.activity_description || '',
                         services_offered: primaryEmailData.services_offered || '',
                         signature_image_base64: primaryEmailData.signature_image_base64 || '',
-                        knowledge_base_urls: primaryEmailData.knowledge_base_urls || null,
-                        knowledge_base_pdfs: primaryEmailData.knowledge_base_pdfs || null,
+                        knowledge_base_urls: null, // Ne pas pré-remplir pour les emails secondaires
+                        knowledge_base_pdfs: null, // Ne pas pré-remplir pour les emails secondaires
                     };
                 }
             }
@@ -222,19 +224,27 @@ export function CompanyInfoModal({ userId, emailAccountId, email, initialStep = 
             });
             
             // Charger les URLs de la base de connaissances
-            if (displayData.knowledge_base_urls) {
+            // Seulement si c'est l'email principal ou si l'email actuel a déjà des données
+            if (displayData.knowledge_base_urls && (isPrimary || currentEmailData?.knowledge_base_urls)) {
                 const urls = Array.isArray(displayData.knowledge_base_urls) 
                     ? displayData.knowledge_base_urls 
                     : JSON.parse(displayData.knowledge_base_urls || '[]');
                 setKnowledgeUrls(urls.length > 0 ? urls : ['']);
+            } else {
+                // Pour les emails secondaires sans données, commencer avec un champ vide
+                setKnowledgeUrls(['']);
             }
             
             // Charger les PDFs existants de la base de connaissances
-            if (displayData.knowledge_base_pdfs) {
+            // Seulement si c'est l'email principal ou si l'email actuel a déjà des données
+            if (displayData.knowledge_base_pdfs && (isPrimary || currentEmailData?.knowledge_base_pdfs)) {
                 const pdfs = Array.isArray(displayData.knowledge_base_pdfs)
                     ? displayData.knowledge_base_pdfs
                     : JSON.parse(displayData.knowledge_base_pdfs || '[]');
                 setExistingPdfs(pdfs);
+            } else {
+                // Pour les emails secondaires sans données, commencer vide
+                setExistingPdfs([]);
             }
                 
             // Restaurer l'étape sauvegardée après avoir chargé les données
@@ -487,13 +497,25 @@ export function CompanyInfoModal({ userId, emailAccountId, email, initialStep = 
             const hasKnowledgeBase = newUrls.length > 0 || knowledgePdfFiles.length > 0 || existingPdfs.length > 0;
             
             if (hasKnowledgeBase) {
+                let progressInterval: NodeJS.Timeout | null = null;
                 try {
                     // Activer l'indicateur d'analyse de la base de connaissance
                     setIsAnalyzingKnowledge(true);
+                    setKnowledgeProgress(0);
                     
-                    // Convertir les PDFs en base64
+                    // Simuler la progression pendant la conversion des PDFs
+                    progressInterval = setInterval(() => {
+                        setKnowledgeProgress((prev) => {
+                            if (prev >= 90) return prev; // Ne pas dépasser 90% avant la fin
+                            return prev + Math.random() * 10; // Incrémenter progressivement
+                        });
+                    }, 200);
+                    
+                    // Convertir les PDFs en base64 (0-40%)
                     const pdfPromises = knowledgePdfFiles.map(file => fileToBase64(file));
                     const pdfBase64Array = await Promise.all(pdfPromises);
+                    setKnowledgeProgress(40); // 40% après conversion des PDFs
+                    
                     const pdfsData = pdfBase64Array.map((base64, index) => ({
                         name: knowledgePdfFiles[index].name,
                         base64: base64
@@ -503,7 +525,7 @@ export function CompanyInfoModal({ userId, emailAccountId, email, initialStep = 
                     const allPdfs = [...existingPdfs, ...pdfsData];
                     const allUrls = newUrls;
 
-                    // Récupérer l'ID de la configuration email
+                    // Récupérer l'ID de la configuration email (40-60%)
                     let configId = emailAccountId;
                     if (!configId && email) {
                         const { data: configData } = await supabase
@@ -514,8 +536,9 @@ export function CompanyInfoModal({ userId, emailAccountId, email, initialStep = 
                             .maybeSingle();
                         configId = configData?.id;
                     }
+                    setKnowledgeProgress(60); // 60% après récupération de l'ID
 
-                    // Synchroniser avec la base de connaissances
+                    // Synchroniser avec la base de connaissances (60-90%)
                     if (configId) {
                         await syncKnowledgeBase({
                             id: configId,
@@ -523,16 +546,30 @@ export function CompanyInfoModal({ userId, emailAccountId, email, initialStep = 
                             urls: allUrls,
                             pdfs: allPdfs
                         });
+                        setKnowledgeProgress(90); // 90% après synchronisation
                     }
 
                     updateData.knowledge_base_urls = JSON.stringify(allUrls);
                     updateData.knowledge_base_pdfs = JSON.stringify(allPdfs);
                     updateData.knowledge_base_synced_at = new Date().toISOString();
+                    
+                    // Finalisation (90-100%)
+                    if (progressInterval) {
+                        clearInterval(progressInterval);
+                    }
+                    setKnowledgeProgress(100); // 100% à la fin
+                    
+                    // Attendre un peu pour que l'utilisateur voie 100%
+                    await new Promise(resolve => setTimeout(resolve, 500));
                 } catch (kbError) {
                     console.error('Error syncing knowledge base:', kbError);
                     // Ne pas bloquer la sauvegarde si la base de connaissances échoue
                 } finally {
+                    if (progressInterval) {
+                        clearInterval(progressInterval);
+                    }
                     setIsAnalyzingKnowledge(false);
+                    setKnowledgeProgress(0);
                 }
             }
 
@@ -661,7 +698,7 @@ export function CompanyInfoModal({ userId, emailAccountId, email, initialStep = 
                     if (emailConfig?.is_primary) {
                         // C'est le premier email, fermer la modal et afficher AddEmailCount après un court délai
                         setTimeout(() => {
-                            onComplete(); // Fermer CompanyInfoModal
+                            onComplete(finalConfigId, email); // Fermer CompanyInfoModal avec les infos
                             onShowAddEmailCount(); // Afficher AddEmailCount
                         }, 500);
                         return;
@@ -671,7 +708,7 @@ export function CompanyInfoModal({ userId, emailAccountId, email, initialStep = 
                 }
             }
             
-            setTimeout(() => onComplete(), 500);
+            setTimeout(() => onComplete(finalConfigId, email), 500);
         } catch (error) {
             console.error('Error:', error);
             showToast('Une erreur est survenue. Veuillez réessayer.', 'error');
@@ -873,7 +910,7 @@ Grâce à notre méthodologie rigoureuse, notre équipe experte et notre vision 
                                             }}
                                             className="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all resize-none font-inter text-sm"
                                             rows={4}
-                                            placeholder="Ex: Cordialement,&#10;Votre nom&#10;Votre fonction"
+                                            placeholder={`Ex: Cordialement, \nvotre conseiller \nHALL-IA \n14 avenue Barthélemy Thimonnier \n69300 CALUIRE ET CUIRE \nTél: 04 51 08 83 99"`}
                                             required
                                             minLength={1}
                                             autoFocus
@@ -1069,10 +1106,27 @@ Grâce à notre méthodologie rigoureuse, notre équipe experte et notre vision 
                     <div className="px-6 pb-5 pt-4 border-t border-gray-100 bg-white">
                         {/* Message d'avertissement lors de l'analyse de la base de connaissance */}
                         {isAnalyzingKnowledge && (
-                            <div className="mb-4 bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-start gap-2">
-                                <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin flex-shrink-0 mt-0.5" />
-                                <p className="text-sm text-blue-800 font-inter font-medium">
-                                    Merci de ne pas recharger la fenêtre, nous analysons votre base de connaissance.
+                            <div className="mb-4  rounded-lg p-4">
+                                <div className="flex items-center gap-3 mb-3">
+                                    <p className="text-sm font-inter font-medium text-orange-900">
+                                        Analyse de votre base de connaissance en cours...
+                                    </p>
+                                    <span className="ml-auto text-sm font-semibold text-orange-900">
+                                        {Math.round(knowledgeProgress)}%
+                                    </span>
+                                </div>
+                                {/* Barre de progression avec dégradé */}
+                                <div className="w-full h-2.5 bg-orange-100 rounded-full overflow-hidden">
+                                    <div 
+                                        className="h-full rounded-full transition-all duration-300 ease-out"
+                                        style={{
+                                            width: `${knowledgeProgress}%`,
+                                            background: `conic-gradient(from 194deg at 84% -3.1%, #FF9A34 0deg, #F35F4F 76.15384697914124deg, #CE7D2A 197.30769395828247deg, #FFAD5A 245.76922416687012deg), #F9F7F5`,
+                                        }}
+                                    />
+                                </div>
+                                <p className="text-xs text-orange-700 mt-2 font-inter">
+                                    Merci de ne pas recharger la fenêtre pendant l'analyse.
                                 </p>
                             </div>
                         )}
@@ -1109,7 +1163,7 @@ Grâce à notre méthodologie rigoureuse, notre équipe experte et notre vision 
                                     {loading ? (
                                         <>
                                             <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                                            {isAnalyzingKnowledge ? 'Analyse en cours...' : 'Enregistrement...'}
+                                           Enregistrement...
                                         </>
                                     ) : (
                                         <>

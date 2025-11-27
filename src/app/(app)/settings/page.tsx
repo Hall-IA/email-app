@@ -1113,33 +1113,34 @@ export default function Settings() {
           knowledge_base_pdfs: data.knowledge_base_pdfs || null,
         });
         
-        // Restaurer les URLs depuis localStorage si elles existent
-        if (typeof window !== 'undefined' && selectedAccount?.email) {
-          const storageKey = `knowledge_urls_draft_${selectedAccount.email}`;
-          const savedUrls = localStorage.getItem(storageKey);
-          if (savedUrls) {
-            try {
-              const parsedUrls = JSON.parse(savedUrls);
-              // Ne restaurer que si ce sont des URLs non sauvegardées (pas dans la base de données)
-              const existingUrls = data.knowledge_base_urls
-                ? Array.isArray(data.knowledge_base_urls)
-                  ? data.knowledge_base_urls
-                  : JSON.parse(data.knowledge_base_urls || '[]')
-                : [];
-              // Si on a des URLs sauvegardées qui ne sont pas dans la base, on les restaure
-              if (parsedUrls.length > 0 && parsedUrls.some((url: string) => url.trim() !== '')) {
-                setKnowledgeUrls(parsedUrls);
-              } else {
+        // Charger les URLs depuis la base de données en priorité
+        if (data.knowledge_base_urls) {
+          try {
+            const urls = Array.isArray(data.knowledge_base_urls)
+              ? data.knowledge_base_urls
+              : JSON.parse(data.knowledge_base_urls || '[]');
+            setKnowledgeUrls(urls.length > 0 ? urls : ['']);
+          } catch (e) {
+            setKnowledgeUrls(['']);
+          }
+        } else {
+          // Si pas d'URLs dans la base, vérifier localStorage pour les brouillons
+          if (typeof window !== 'undefined' && selectedAccount?.email) {
+            const storageKey = `knowledge_urls_draft_${selectedAccount.email}`;
+            const savedUrls = localStorage.getItem(storageKey);
+            if (savedUrls) {
+              try {
+                const parsedUrls = JSON.parse(savedUrls);
+                setKnowledgeUrls(parsedUrls.length > 0 ? parsedUrls : ['']);
+              } catch (e) {
                 setKnowledgeUrls(['']);
               }
-            } catch (e) {
+            } else {
               setKnowledgeUrls(['']);
             }
           } else {
             setKnowledgeUrls(['']);
           }
-        } else {
-          setKnowledgeUrls(['']);
         }
       } else {
         setCurrentConfig(null);
@@ -2817,14 +2818,26 @@ export default function Settings() {
           emailAccountId={selectedAccount.id}
           email={selectedAccount.email}
           initialStep={companyInfoStep}
-          onComplete={async () => {
+          onComplete={async (emailConfigId, email) => {
             setShowCompanyInfoModal(false);
             setHasCheckedCompanyInfo(false);
-                        setHasCheckedMissingInfo(false);
+            setHasCheckedMissingInfo(false);
             setNotificationMessage('Informations mises à jour avec succès');
             setShowNotification(true);
             setTimeout(() => setShowNotification(false), 3000);
+            // Recharger toutes les données, y compris la base de connaissances
             await loadCompanyData();
+            await loadCurrentConfig();
+            // Recharger les comptes pour avoir les données à jour
+            await loadAccounts();
+            // Sélectionner l'email qu'on vient de configurer pour ouvrir la colonne de droite
+            if (emailConfigId && email) {
+              setSelectedAccount({
+                id: emailConfigId,
+                email: email,
+                provider: 'smtp_imap'
+              } as EmailAccount);
+            }
           }}
           onClose={() => {
             setShowCompanyInfoModal(false);
