@@ -49,33 +49,56 @@ export default function AuthCallbackPage() {
         }
 
         console.log('[Auth Callback] ✅ Email vérifié avec succès');
-        setStatus('success');
-        setMessage('Email vérifié avec succès ! Vous pouvez maintenant vous connecter.');
 
         // Vérifier si c'est une validation d'email ou une récupération de mot de passe
         if (type === 'recovery') {
+          setStatus('success');
+          setMessage('Email vérifié avec succès ! Redirection...');
           // Rediriger vers la page de reset password
           setTimeout(() => {
             router.push('/reset-password');
           }, 2000);
         } else {
-          // IMPORTANT : Déconnecter complètement l'utilisateur avant la redirection
-          // Cela évite que AuthContext le redirige automatiquement vers le dashboard
+          // IMPORTANT : Déconnecter complètement l'utilisateur IMMÉDIATEMENT
+          // avant d'afficher le message de succès
+          console.log('[Auth Callback] Déconnexion immédiate...');
           await supabase.auth.signOut();
           
-          // Nettoyer aussi le storage local
+          // Nettoyer le storage local (sauf les compteurs et données importantes)
           if (typeof window !== 'undefined') {
-            localStorage.removeItem('supabase.auth.token');
+            // Sauvegarder les données à préserver
+            const businessPassCounter = localStorage.getItem('business_pass_email_counter');
+            const selectedPlan = localStorage.getItem('selected_plan');
+            
+            // Nettoyer tous les storages
+            localStorage.clear();
             sessionStorage.clear();
             
-            // Marquer qu'on vient de valider l'email pour éviter la redirection auto vers dashboard
+            // Restaurer les données préservées
+            if (businessPassCounter) {
+              localStorage.setItem('business_pass_email_counter', businessPassCounter);
+            }
+            if (selectedPlan) {
+              localStorage.setItem('selected_plan', selectedPlan);
+            }
+            
+            // Marquer qu'on vient de valider l'email
             sessionStorage.setItem('email_just_verified', 'true');
           }
           
+          // Attendre un peu pour être sûr que la déconnexion est effective
+          await new Promise(resolve => setTimeout(resolve, 500));
+          
+          console.log('[Auth Callback] Déconnexion terminée, affichage du message de succès');
+          setStatus('success');
+          setMessage('Email vérifié avec succès ! Vous pouvez maintenant vous connecter.');
+          
           // Rediriger vers la page d'accueil avec paramètre pour ouvrir la popup de connexion
-          console.log('[Auth Callback] Email validé → déconnexion complète et ouverture popup de connexion');
+          console.log('[Auth Callback] Redirection vers la page d\'accueil avec popup de connexion');
           setTimeout(() => {
-            router.push('/?login=true&verified=true');
+            // Utiliser window.location.href pour forcer un rechargement complet
+            // et éviter que le router garde une session en cache
+            window.location.href = '/?login=true&verified=true';
           }, 2000);
         }
 
