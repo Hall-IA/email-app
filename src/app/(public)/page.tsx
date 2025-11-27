@@ -67,7 +67,7 @@ const sampleVideoItems: ListItem[] = [
     id: '4',
     title: 'Validation Humaine',
     description: "Vous validez ou modifiez avant l'envoi.",
-    videoUrl: '/assets/img/validation-email.png',
+    videoUrl: '/assets/img/validation-humaine-item4.png',
     alt: 'Système automatisé de gestion de factures - Création, relance et suivi comptable par IA',
     keywords: [
       'validation email IA',
