@@ -1464,7 +1464,7 @@ export function Subscription() {
           </motion.button>
         </div>
 
-        {!isActive && emailAccountsCount === 0 && (
+        {/* {!isActive && emailAccountsCount === 0 && (
           <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-4">
             <p className="mb-3 text-sm text-blue-900">
               <strong>Commencez par ajouter un compte email</strong>
@@ -1488,7 +1488,7 @@ export function Subscription() {
               29€ HT/mois pour pouvoir ajouter des comptes additionnels.
             </p>
           </div>
-        )}
+        )} */}
 
         <div
           className={`space-y-0 ${emailAccounts.length > 7 ? 'max-h-[600px] overflow-y-auto pr-2' : ''}`}

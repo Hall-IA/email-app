@@ -831,8 +831,23 @@ export function CompanyInfoModal({ userId, emailAccountId, email, initialStep = 
                                             }}
                                             className="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all resize-none font-inter text-sm"
                                             rows={4}
-                                            placeholder="Ex: Hall-IA développe des solutions intelligentes, dont HallMail, un outil qui organise automatiquement vos emails en catégories comme PUB, INFO ou TRAITÉ."
-                                            required
+                                            placeholder="Ex: HALL-IA est une entreprise spécialisée dans l’intégration concrète, intelligente et opérationnelle de l’intelligence artificielle au sein des PME, TPE et structures professionnelles. Notre mission est d’aider les organisations à gagner en efficacité, réduire leurs charges administratives et optimiser leurs processus internes grâce à des solutions IA robustes, rapides à déployer et adaptées à chaque métier.
+
+Nous intervenons auprès d’entreprises de tous secteurs souhaitant moderniser leur fonctionnement sans complexité, sans infrastructure technique lourde et sans perturber leurs outils existants. Notre approche repose sur un accompagnement sur mesure, orienté ROI, pragmatique et centré sur les besoins réels de nos clients.
+
+HALL-IA est composée d’une équipe de 30 spécialistes aux compétences complémentaires : développeurs IA, experts en automatisation et intégration, chefs de projet spécialisés en optimisation de workflows, ainsi que des designers et infographistes chargés de concevoir des interfaces et expériences fluides et intuitives. Cette structure multidisciplinaire nous permet d’offrir des solutions complètes, de la stratégie jusqu’à la mise en production, tout en garantissant une qualité irréprochable.
+
+Notre première expertise réside dans la réalisation d’audits IA sur mesure. Ces audits permettent d’analyser en profondeur les workflows d’une entreprise, d’identifier les frictions, les tâches répétitives, les pertes de temps et les pistes d’automatisation les plus rentables. Chaque audit débouche sur un rapport complet incluant une cartographie des processus, des recommandations claires, des scénarios d’implémentation et un scoring précis du retour sur investissement. Cet accompagnement constitue souvent la première étape vers une transformation intelligente et maîtrisée.
+
+Nous proposons également une gamme d’agents IA prêts à l’emploi disponibles sous forme d’abonnement mensuel. Ces agents spécialisés — juridique, marketing, commercial, RH, finance, veille concurrentielle, support client, compte-rendu de réunion, etc. — agissent comme de véritables experts métiers. Ils peuvent analyser, rédiger, classer, automatiser et assister la prise de décision tout en s’intégrant directement dans les outils utilisés quotidiennement par l’entreprise. Grâce à eux, une structure peut immédiatement augmenter sa productivité sans restructurer son organisation.
+
+En complément, HALL-IA conçoit et intègre des automatisations intelligentes permettant de simplifier des tâches chronophages sans modifier l’infrastructure technique en place : tri automatique d’e-mails, génération de documents, chatbot WhatsApp, prospection automatisée, gestion documentaire, transcription et synthèse de réunions, relances commerciales, automatisation comptable, etc. Ces automatisations sont conçues pour s’adapter aux besoins du client, garantir un gain de temps immédiat et fluidifier les échanges internes comme externes.
+
+Enfin, HALL-IA développe des CRM sur mesure, évolutifs et entièrement personnalisés selon le métier et les objectifs de l’entreprise. Chaque CRM est pensé comme un outil intelligent capable d’intégrer de l’automatisation native, de centraliser l’information, d’améliorer la prise de décision et d’accompagner le développement commercial. Grâce à l’IA, ces CRM deviennent de véritables assistants opérationnels capables d’anticiper les besoins, générer des tâches automatiques ou analyser les performances en temps réel.
+
+HALL-IA s’engage auprès de ses clients avec une démarche fondée sur la transparence, l’efficacité et la proximité. Chaque solution proposée vise un objectif clair : faire gagner un maximum de temps, réduire les charges inutiles et augmenter la performance globale de l’entreprise. Notre approche flexible, combinée à notre expertise technique et métier, nous permet d’accompagner aussi bien les petites structures que les entreprises plus établies dans leur transition vers l’intelligence artificielle.
+
+Grâce à notre méthodologie rigoureuse, notre équipe experte et notre vision centrée sur la rentabilité et l’efficacité, HALL-IA se positionne comme un partenaire clé pour toute entreprise souhaitant intégrer l’IA de manière concrète, rapide et adaptée."    required
                                             minLength={1}
                                             autoFocus
                                         />
