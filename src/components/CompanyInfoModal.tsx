@@ -910,7 +910,7 @@ Grâce à notre méthodologie rigoureuse, notre équipe experte et notre vision 
                                             }}
                                             className="w-full px-4 py-2.5 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent transition-all resize-none font-inter text-sm"
                                             rows={4}
-                                            placeholder={`Ex: Cordialement, \nvotre conseiller \nHALL-IA \n14 avenue Barthélemy Thimonnier \n69300 CALUIRE ET CUIRE \nTél: 04 51 08 83 99"`}
+                                            placeholder={`Ex: \nCordialement, \nvotre conseiller \nHALL-IA \n14 avenue Barthélemy Thimonnier \n69300 CALUIRE ET CUIRE \nTél: 04 51 08 83 99"`}
                                             required
                                             minLength={1}
                                             autoFocus
