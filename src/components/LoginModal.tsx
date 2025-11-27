@@ -26,23 +26,21 @@ export function LoginModal({ isOpen, onClose, initialEmail, onSignupSuccess }: L
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
 
-  const [isEmailVerified, setIsEmailVerified] = useState(false);
-
   // Vérifier si l'utilisateur vient de valider son email
   useEffect(() => {
-    if (isOpen && typeof window !== 'undefined') {
-      // Vérifier les paramètres URL
-      const searchParams = new URLSearchParams(window.location.search);
-      const verified = searchParams.get('verified');
+    if (isOpen && typeof window !== 'undefined') {m
+      // Vérifier dans sessionStorage si l'email a été vérifié
+      const emailVerified = sessionStorage.getItem('email_verified');
       
-      if (verified === 'true') {
-        setIsEmailVerified(true);
-        setSuccessMessage('Adresse email bien validée ! Connectez-vous pour accéder à l\'application.');
+      if (emailVerified === 'true') {
+        setSuccessMessage('✅ Adresse email bien validée ! Connectez-vous pour accéder à l\'application.');
         setIsLogin(true); // Afficher le formulaire de connexion
         
-        // Garder le message visible plus longtemps
+        // Supprimer le flag pour ne pas réafficher le message
+        sessionStorage.removeItem('email_verified');
+        
+        // Garder le message visible pendant 10 secondes
         setTimeout(() => {
-          setIsEmailVerified(false);
           setSuccessMessage(null);
         }, 10000);
       }
@@ -184,7 +182,7 @@ export function LoginModal({ isOpen, onClose, initialEmail, onSignupSuccess }: L
             <div className='flex items-center gap-3'>
               <img src="/logo/logo-hallia-orange.png" alt="HALL-IA Logo" className="w-10 h-10" />
               <h2 className='text-2xl font-bold font-roboto text-gray-800'>
-                {isEmailVerified ? 'Bienvenue !' : (isLogin ? 'Connexion' : 'Inscription')}
+                {isLogin ? 'Connexion' : 'Inscription'}
               </h2>
             </div>
 
@@ -208,32 +206,10 @@ export function LoginModal({ isOpen, onClose, initialEmail, onSignupSuccess }: L
             )}
 
             {successMessage && (
-              <div className={`rounded-lg ${
-                isEmailVerified 
-                  ? 'p-4 bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-400 shadow-lg animate-fade-in' 
-                  : 'p-3 bg-green-50 border border-green-200'
-              }`}>
-                <div className="flex items-start gap-3">
-                  {isEmailVerified && (
-                    <div className="flex-shrink-0 w-10 h-10 bg-green-500 rounded-full flex items-center justify-center animate-scale-in">
-                      <Check className="w-6 h-6 text-white" />
-                    </div>
-                  )}
-                  <div className="flex-1">
-                    <p className={`${
-                      isEmailVerified 
-                        ? 'text-base font-bold text-green-800 mb-1' 
-                        : 'text-sm text-green-700'
-                    }`}>
-                      {isEmailVerified ? 'Félicitations !' : successMessage}
-                    </p>
-                    {isEmailVerified && (
-                      <p className="text-sm text-green-700">
-                        {successMessage}
-                      </p>
-                    )}
-                  </div>
-                </div>
+              <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+                <p className="text-sm text-green-700">
+                  {successMessage}
+                </p>
               </div>
             )}
 

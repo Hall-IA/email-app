@@ -94,9 +94,10 @@ export default function Accueil() {
     if (login === 'true') {
       console.log('[Accueil] Paramètre login détecté, ouverture de la popup de connexion');
       
-      // Afficher un message si l'email a été vérifié
+      // Sauvegarder l'info de vérification dans sessionStorage AVANT de nettoyer l'URL
       if (verified === 'true') {
         console.log('[Accueil] Email vérifié avec succès');
+        sessionStorage.setItem('email_verified', 'true');
       }
 
       // Déclencher l'ouverture de la popup de connexion
@@ -105,7 +106,7 @@ export default function Accueil() {
         const event = new CustomEvent('openLoginModal');
         window.dispatchEvent(event);
         
-        // Nettoyer l'URL
+        // Nettoyer l'URL après avoir déclenché l'événement
         router.replace('/');
       }, 500);
     }

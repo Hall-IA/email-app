@@ -3,33 +3,22 @@
 import Image from 'next/image';
 import { MacbookScrollSection } from '../../MacbookScroll';
 import { useState, useEffect } from 'react';
-import { LoginModal } from '../../LoginModal';
+// LoginModal gérée par NavBar
 import AnimatedCards from '@/components/AnimatedCards';
 import { HelpCircle, User, XCircle } from 'lucide-react';
 
 export default function Hero() {
   const [email, setEmail] = useState('');
-  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoginModalOpen(true);
+    // Déclencher l'événement pour que NavBar ouvre la modal
+    const event = new CustomEvent('openLoginModal');
+    window.dispatchEvent(event);
   };
 
-  // Écouter l'événement personnalisé pour ouvrir la popup de connexion
-  useEffect(() => {
-    const handleOpenLoginModal = () => {
-      console.log('[Hero] Événement openLoginModal reçu');
-      setIsLoginModalOpen(true);
-    };
-
-    window.addEventListener('openLoginModal', handleOpenLoginModal);
-
-    return () => {
-      window.removeEventListener('openLoginModal', handleOpenLoginModal);
-    };
-  }, []);
+  // Plus besoin d'écouter l'événement ici, c'est géré par NavBar
 
   return (
     <section className="m-auto max-w-7xl overflow-x-hidden">
@@ -212,12 +201,7 @@ export default function Hero() {
       {/* Vidéo */}
       {/* <MacbookScrollSection /> */}
 
-      {/* Modal de connexion/inscription */}
-      <LoginModal
-        isOpen={isLoginModalOpen}
-        onClose={() => setIsLoginModalOpen(false)}
-        initialEmail={email}
-      />
+      {/* Modal de connexion gérée par NavBar */}
 
       {/* Modal Conditions d'abonnement */}
       {showSubscriptionModal && (
