@@ -5,9 +5,6 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { Check, X, Loader2 } from 'lucide-react';
 
-// Empêcher le prerendering de cette page car elle dépend des paramètres d'URL dynamiques
-export const dynamic = 'force-dynamic';
-
 export default function AuthCallbackPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
