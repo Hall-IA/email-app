@@ -73,9 +73,7 @@ export default function AuthCallbackPage() {
             // Nettoyer tous les storages
             localStorage.clear();
             sessionStorage.clear();
-            
 
-            // Restaurer les données préservées
             if (businessPassCounter) {
               localStorage.setItem('business_pass_email_counter', businessPassCounter);
             }
@@ -87,7 +85,6 @@ export default function AuthCallbackPage() {
             sessionStorage.setItem('email_just_verified', 'true');
           }
           
-          // Attendre un peu pour être sûr que la déconnexion est effective
           await new Promise(resolve => setTimeout(resolve, 500));
           
           console.log('[Auth Callback] Déconnexion terminée, affichage du message de succès');
