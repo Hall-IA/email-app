@@ -28,7 +28,7 @@ export function LoginModal({ isOpen, onClose, initialEmail, onSignupSuccess }: L
 
   // Vérifier si l'utilisateur vient de valider son email
   useEffect(() => {
-    if (isOpen && typeof window !== 'undefined') {m
+    if (isOpen && typeof window !== 'undefined') {
       // Vérifier dans sessionStorage si l'email a été vérifié
       const emailVerified = sessionStorage.getItem('email_verified');
       
