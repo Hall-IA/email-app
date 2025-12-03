@@ -49,7 +49,7 @@ const sampleVideoItems: ListItem[] = [
     id: '3',
     title: 'Génération de réponse',
     description: "Création d'un brouillon personnalisé et adapté.",
-    videoUrl: '/assets/img/generation-reponse-item3.png',
+    videoUrl: '/assets/img/generation-reponse.png',
     alt: 'Outil IA de transcription de réunions - Résumé automatique et compte-rendu intelligent',
     keywords: [
       'génération de réponse email IA',
@@ -67,7 +67,7 @@ const sampleVideoItems: ListItem[] = [
     id: '4',
     title: 'Validation Humaine',
     description: "Vous validez ou modifiez avant l'envoi.",
-    videoUrl: '/assets/img/validation-humaine-item4.png',
+    videoUrl: '/assets/img/validation-humaine.png',
     alt: 'Système automatisé de gestion de factures - Création, relance et suivi comptable par IA',
     keywords: [
       'validation email IA',

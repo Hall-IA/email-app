@@ -28,6 +28,7 @@ interface CardPackProps {
   localStorageKey?: string; // Clé pour le localStorage
   hidePrice?: boolean; // Masquer le prix et le hr dotted
   classNameButton?: string;
+  className?: string; // Classe pour le conteneur principal
 }
 
 export default function CardPack({
@@ -60,6 +61,7 @@ export default function CardPack({
   localStorageKey = 'email_counter',
   hidePrice = false,
   classNameButton,
+  className,
 }: CardPackProps) {
   // État pour le compteur d'emails additionnels
   const [additionalEmails, setAdditionalEmails] = useState(0);
@@ -101,7 +103,7 @@ export default function CardPack({
     setAdditionalEmails((prev) => Math.max(0, prev - 1));
   };
   return (
-    <div className="font-roboto relative flex w-full flex-col justify-between overflow-hidden rounded-2xl bg-white lg:w-96">
+    <div className={cn("font-roboto relative flex w-full flex-col justify-between overflow-hidden rounded-2xl bg-white lg:w-96", className)}>
       {/* Gradient blur en haut */}
       <div
         className="pointer-events-none absolute -top-8 right-0 left-0 z-10 h-[200px] w-full rounded-t-2xl blur-xl"

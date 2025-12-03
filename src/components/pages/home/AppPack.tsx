@@ -41,7 +41,7 @@ export default function AppPack() {
         Essayer, et commencez aujourd'hui
       </h2>
 
-      <section className="flex w-full max-w-7xl flex-col justify-center gap-8 lg:flex-row">
+      <section className="flex w-full max-w-7xl flex-col justify-center gap-8 lg:flex-row lg:items-stretch">
         {/* Essai Gratuit */}
         {showFreeTrial && (
           <div
@@ -103,6 +103,7 @@ export default function AppPack() {
         )}
 
         <CardPack
+          className={showFreeTrial ? '' : 'lg:flex-1 lg:w-auto'}
           title="Business"
           subtitle="L’automatisation de votre boîte mail, sans engagement"
           features={[
@@ -131,6 +132,7 @@ export default function AppPack() {
         />
 
         <CardPack
+          className={showFreeTrial ? '' : 'lg:flex-1 lg:w-auto'}
           topGradient={`radial-gradient(
               ellipse 90% 90% at 50% 0%,
               #9F78FF 0%,
