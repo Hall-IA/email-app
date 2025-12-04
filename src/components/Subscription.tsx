@@ -128,6 +128,25 @@ export function Subscription() {
 
     const success = searchParams.get('success');
     const canceled = searchParams.get('canceled');
+    const portal = searchParams.get('portal');
+
+    // Retour du portail Stripe - rafraîchir les données
+    if (portal === 'true') {
+      router.replace('/user-settings?tab=subscription');
+      
+      // Polling pour attendre que le webhook mette à jour les données
+      const pollInterval = setInterval(() => {
+        fetchSubscription();
+        fetchEmailAccountsCount();
+      }, 2000);
+
+      setTimeout(() => {
+        clearInterval(pollInterval);
+      }, 15000);
+
+      loadInitialData();
+      return () => clearInterval(pollInterval);
+    }
 
     if (success === 'true') {
       setShowSuccessMessage(true);
@@ -631,7 +650,7 @@ export function Subscription() {
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              return_url: window.location.href,
+              return_url: `${window.location.origin}/user-settings?tab=subscription&portal=true`,
             }),
           },
         );
@@ -1161,7 +1180,7 @@ export function Subscription() {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            return_url: window.location.href,
+            return_url: `${window.location.origin}/user-settings?tab=subscription&portal=true`,
           }),
         },
       );
