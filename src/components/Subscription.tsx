@@ -251,12 +251,15 @@ export function Subscription() {
               (s) => s.subscription_type === 'premier' && ['active', 'trialing'].includes(s.status),
             );
 
+            console.log('[fetchEmailAccountsCount] Premier sub found:', premierSub);
+
             if (premierSub) {
               subscriptionInfo = {
                 subscription_id: premierSub.subscription_id,
                 subscription_status: premierSub.status,
                 cancel_at_period_end: premierSub.cancel_at_period_end,
               };
+              console.log('[fetchEmailAccountsCount] Primary account cancel_at_period_end:', premierSub.cancel_at_period_end);
             } else {
               // Vérifier si le compte principal a une subscription supprimée
               const deletedPremierSub = allSubs?.find(
@@ -1532,6 +1535,16 @@ export function Subscription() {
               const isAccountActive = account.is_active !== false;
               const isCanceled = account.cancel_at_period_end === true;
               const price = isPrimary ? '49€ HT/mois' : '+39€ HT/mois';
+
+              // Debug log
+              console.log('[Subscription] Account state:', {
+                email: account.email,
+                isPrimary,
+                isAccountActive,
+                isCanceled,
+                cancel_at_period_end: account.cancel_at_period_end,
+                subscription_id: account.subscription_id,
+              });
 
               return (
                 <div key={account.id}>
