@@ -1,0 +1,45 @@
+name: Deploy to VPS
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch: # Permet le déclenchement manuel
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy to VPS via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USERNAME }}
+          password: ${{ secrets.VPS_PASSWORD }}
+          port: 22
+          script: |
+            cd /var/www/email-app
+            echo "📥 Pulling latest changes..."
+            git stash
+            git pull origin main
+            git stash pop || true
+            echo "📦 Installing dependencies..."
+            npm install --legacy-peer-deps
+            echo "🔨 Building application..."
+            npm run build
+            echo "🔄 Restarting PM2..."
+            pm2 restart email-app
+            echo "✅ Deployment completed!"
+
+      - name: Deployment Status
+        if: success()
+        run: echo "🎉 Deployment to VPS successful!"
+        
+      - name: Deployment Failed
+        if: failure()
+        run: echo "❌ Deployment failed. Check logs for details."
+
