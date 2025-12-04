@@ -1174,14 +1174,6 @@ export function Subscription() {
   };
 
   const handleCancelSubscription = async () => {
-    if (
-      !confirm(
-        "Êtes-vous sûr de vouloir annuler votre abonnement ? Il restera actif jusqu'à la fin de la période de facturation en cours.",
-      )
-    ) {
-      return;
-    }
-
     setIsCanceling(true);
     try {
       const {
@@ -1192,39 +1184,34 @@ export function Subscription() {
         return;
       }
 
+      // Rediriger vers le portail client Stripe pour gérer l'abonnement
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, '')}/functions/v1/stripe-cancel-subscription`,
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, '')}/functions/v1/stripe-billing-portal`,
         {
           method: 'POST',
           headers: {
             Authorization: `Bearer ${session.access_token}`,
             'Content-Type': 'application/json',
           },
+          body: JSON.stringify({
+            return_url: window.location.href,
+          }),
         },
       );
 
       const data = await response.json();
 
       if (data.error) {
-        alert(`Erreur: ${data.error}`);
+        showToast(`Erreur: ${data.error}`, 'error');
         return;
       }
 
-      if (data.success) {
-        alert('Votre abonnement sera annulé à la fin de la période de facturation en cours.');
-
-        await fetchSubscription();
-
-        const pollInterval = setInterval(async () => {
-          await fetchSubscription();
-        }, 2000);
-
-        setTimeout(() => {
-          clearInterval(pollInterval);
-        }, 10000);
+      if (data.success && data.url) {
+        // Rediriger vers le portail Stripe
+        window.location.href = data.url;
       }
     } catch (error) {
-      console.error("Erreur lors de l'annulation de l'abonnement:", error);
+      console.error("Erreur lors de l'ouverture du portail Stripe:", error);
       showToast('Une erreur est survenue', 'error');
     } finally {
       setIsCanceling(false);
