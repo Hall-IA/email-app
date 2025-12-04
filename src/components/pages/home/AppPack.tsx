@@ -38,7 +38,7 @@ export default function AppPack() {
       />
 
       <h2 className="font-thunder mb-16 text-center text-5xl font-black md:text-7xl lg:mt-10">
-        Essayer, et commencez aujourd'hui
+        Essayez, et commencez aujourd'hui
       </h2>
 
       <section className="flex w-full max-w-7xl flex-col justify-center gap-8 lg:flex-row lg:items-stretch">
@@ -104,7 +104,7 @@ export default function AppPack() {
 
         <CardPack
           className={showFreeTrial ? '' : 'lg:flex-1 lg:w-auto'}
-          title="Business"
+          title={`Business \n 7 jours gratuits`}
           subtitle="L’automatisation de votre boîte mail, sans engagement"
           features={[
             { title: '1 compte mail inclus' },
