@@ -612,40 +612,18 @@ export function Subscription() {
 
     try {
       if (accountToDelete.isPrimary) {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        if (!user) {
-          showToast('Vous devez être connecté', 'error');
-          return;
-        }
-
-        // Récupérer le subscription_id de la subscription "premier"
-        const { data: premierSub } = await supabase
-          .from('stripe_user_subscriptions')
-          .select('subscription_id')
-          .eq('user_id', user.id)
-          .eq('subscription_type', 'premier')
-          .in('status', ['active', 'trialing'])
-          .is('deleted_at', null)
-          .maybeSingle();
-
-        if (!premierSub?.subscription_id) {
-          showToast('Aucun abonnement de base trouvé', 'error');
-          setDeletingAccount(null);
-          return;
-        }
-
+        // Pour le compte principal, rediriger vers le portail Stripe
         const {
           data: { session },
         } = await supabase.auth.getSession();
         if (!session) {
           showToast('Vous devez être connecté', 'error');
+          setDeletingAccount(null);
           return;
         }
 
         const response = await fetch(
-          `${process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, '')}/functions/v1/stripe-cancel-subscription`,
+          `${process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, '')}/functions/v1/stripe-billing-portal`,
           {
             method: 'POST',
             headers: {
@@ -653,8 +631,7 @@ export function Subscription() {
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              subscription_id: premierSub.subscription_id,
-              subscription_type: 'premier',
+              return_url: window.location.href,
             }),
           },
         );
@@ -663,24 +640,14 @@ export function Subscription() {
 
         if (data.error) {
           showToast(`Erreur: ${data.error}`, 'error');
+          setDeletingAccount(null);
           return;
         }
 
-        setShowDeleteModal(false);
-        setAccountToDelete(null);
-        await fetchEmailAccountsCount();
-        await fetchSubscription();
-        setShowCanceledMessage(true);
-        setTimeout(() => setShowCanceledMessage(false), 5000);
-
-        const pollInterval = setInterval(async () => {
-          await fetchSubscription();
-          await fetchEmailAccountsCount();
-        }, 2000);
-
-        setTimeout(() => {
-          clearInterval(pollInterval);
-        }, 10000);
+        if (data.success && data.url) {
+          // Rediriger vers le portail Stripe
+          window.location.href = data.url;
+        }
       } else {
         const {
           data: { user },
