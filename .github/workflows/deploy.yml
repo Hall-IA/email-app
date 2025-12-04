@@ -22,13 +22,13 @@ jobs:
           password: ${{ secrets.VPS_PASSWORD }}
           port: 22
           script: |
-            cd /root/email-app
+            cd /var/www/email-app
             echo "📥 Pulling latest changes..."
             git stash
             git pull origin main
             git stash pop || true
             echo "📦 Installing dependencies..."
-            npm ci --production=false
+            npm install --legacy-peer-deps
             echo "🔨 Building application..."
             npm run build
             echo "🔄 Restarting PM2..."
