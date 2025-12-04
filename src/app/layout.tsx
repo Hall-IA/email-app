@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import localFont from 'next/font/local';
 import { Roboto, Inter, Azeret_Mono } from 'next/font/google';
+import Script from 'next/script';
 import '../styles/globals.css';
 import { Providers } from './providers';
 
@@ -127,6 +128,18 @@ export default function RootLayout({
       <body
         className={`${thunder.variable} ${roboto.variable} ${inter.variable} ${azeret.variable} antialiased`}
       >
+        <Script
+          src="https://www.googletagmanager.com/gtag/js?id=G-V0JMV5QRRV"
+          strategy="afterInteractive"
+        />
+        <Script id="google-analytics" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-V0JMV5QRRV');
+          `}
+        </Script>
         <Providers>{children}</Providers>
       </body>
     </html>
