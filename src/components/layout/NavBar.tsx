@@ -114,6 +114,7 @@ export default function NavBar() {
   const [isOpen, setIsOpen] = useState(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [initialEmail, setInitialEmail] = useState<string | undefined>(undefined);
   const { user, signOut } = useAuth();
 
   const handleLogout = async () => {
@@ -124,8 +125,14 @@ export default function NavBar() {
 
   // Écouter l'événement personnalisé pour ouvrir la popup de connexion
   useEffect(() => {
-    const handleOpenLoginModal = () => {
+    const handleOpenLoginModal = (event: Event) => {
       console.log('[NavBar] Événement openLoginModal reçu');
+      const customEvent = event as CustomEvent<{ email?: string; mode?: string }>;
+      if (customEvent.detail?.email) {
+        setInitialEmail(customEvent.detail.email);
+      } else {
+        setInitialEmail(undefined);
+      }
       setIsLoginModalOpen(true);
     };
 
@@ -423,7 +430,14 @@ export default function NavBar() {
       </nav>
 
       {/* Modal de connexion - rendu en dehors de la nav */}
-      <LoginModal isOpen={isLoginModalOpen} onClose={() => setIsLoginModalOpen(false)} />
+      <LoginModal 
+        isOpen={isLoginModalOpen} 
+        onClose={() => {
+          setIsLoginModalOpen(false);
+          setInitialEmail(undefined);
+        }}
+        initialEmail={initialEmail}
+      />
     </>
   );
 }

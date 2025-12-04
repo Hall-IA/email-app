@@ -13,8 +13,10 @@ export default function Hero() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    // Déclencher l'événement pour que NavBar ouvre la modal
-    const event = new CustomEvent('openLoginModal');
+    // Déclencher l'événement pour que NavBar ouvre la modal en mode inscription avec l'email
+    const event = new CustomEvent('openLoginModal', {
+      detail: { email, mode: 'signup' }
+    });
     window.dispatchEvent(event);
   };
 

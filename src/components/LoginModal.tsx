@@ -29,6 +29,11 @@ export function LoginModal({ isOpen, onClose, initialEmail, onSignupSuccess }: L
   // Vérifier si l'utilisateur vient de valider son email
   useEffect(() => {
     if (isOpen && typeof window !== 'undefined') {
+      // Ne pas forcer le mode connexion si on a un initialEmail (on veut rester en mode inscription)
+      if (initialEmail) {
+        return;
+      }
+      
       // Vérifier dans sessionStorage si l'email a été vérifié
       const emailVerified = sessionStorage.getItem('email_verified');
       
@@ -45,7 +50,7 @@ export function LoginModal({ isOpen, onClose, initialEmail, onSignupSuccess }: L
         }, 10000);
       }
     }
-  }, [isOpen]);
+  }, [isOpen, initialEmail]);
 
   // Bloquer le scroll quand le modal est ouvert
   useEffect(() => {
@@ -86,11 +91,16 @@ export function LoginModal({ isOpen, onClose, initialEmail, onSignupSuccess }: L
     }
   }, [isOpen, initialEmail]);
 
-  // Mettre à jour l'email quand initialEmail change
+  // Mettre à jour l'email quand initialEmail change et forcer le mode inscription
   useEffect(() => {
-    if (initialEmail && isOpen) {
-      setEmail(initialEmail);
-      setIsLogin(false); // Passer en mode inscription
+    if (isOpen) {
+      if (initialEmail) {
+        setEmail(initialEmail);
+        setIsLogin(false); // Passer en mode inscription
+      } else {
+        // Si pas d'initialEmail, vérifier le mode par défaut
+        setIsLogin(true);
+      }
     }
   }, [initialEmail, isOpen]);
 
