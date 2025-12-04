@@ -923,6 +923,8 @@ Grâce à notre méthodologie rigoureuse, notre équipe experte et notre vision 
                             {currentStep === 4 && (
                                 <div className="space-y-3 font-inter">
                                     <div>
+
+                                        
                                         <label className="block text-sm font-semibold text-gray-900 mb-2 font-inter">
                                             Logo de signature (optionnel)
                                         </label>
