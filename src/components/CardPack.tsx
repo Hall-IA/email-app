@@ -125,7 +125,7 @@ export default function CardPack({
               <span>
                 {feature.title}
                 {feature.text && (
-                  <p className="text-sm font-normal text-gray-600">{feature.text}</p>
+                  <p className="text-sm font-normal font-roboto text-gray-600">{feature.text}</p>
                 )}
               </span>
             </li>
