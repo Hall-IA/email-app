@@ -318,6 +318,7 @@ Deno.serve(async (req) => {
         enabled: true,
       },
       subscription_data: mode === 'subscription' ? {
+        trial_period_days: 7, // Période d'essai de 7 jours
         metadata: {
           user_id: user.id,
           primary_email: primaryEmailAddress,

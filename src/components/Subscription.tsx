@@ -128,6 +128,25 @@ export function Subscription() {
 
     const success = searchParams.get('success');
     const canceled = searchParams.get('canceled');
+    const portal = searchParams.get('portal');
+
+    // Retour du portail Stripe - rafraîchir les données
+    if (portal === 'true') {
+      router.replace('/user-settings?tab=subscription');
+      
+      // Polling pour attendre que le webhook mette à jour les données
+      const pollInterval = setInterval(() => {
+        fetchSubscription();
+        fetchEmailAccountsCount();
+      }, 2000);
+
+      setTimeout(() => {
+        clearInterval(pollInterval);
+      }, 15000);
+
+      loadInitialData();
+      return () => clearInterval(pollInterval);
+    }
 
     if (success === 'true') {
       setShowSuccessMessage(true);
@@ -232,12 +251,15 @@ export function Subscription() {
               (s) => s.subscription_type === 'premier' && ['active', 'trialing'].includes(s.status),
             );
 
+            console.log('[fetchEmailAccountsCount] Premier sub found:', premierSub);
+
             if (premierSub) {
               subscriptionInfo = {
                 subscription_id: premierSub.subscription_id,
                 subscription_status: premierSub.status,
                 cancel_at_period_end: premierSub.cancel_at_period_end,
               };
+              console.log('[fetchEmailAccountsCount] Primary account cancel_at_period_end:', premierSub.cancel_at_period_end);
             } else {
               // Vérifier si le compte principal a une subscription supprimée
               const deletedPremierSub = allSubs?.find(
@@ -612,40 +634,18 @@ export function Subscription() {
 
     try {
       if (accountToDelete.isPrimary) {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        if (!user) {
-          showToast('Vous devez être connecté', 'error');
-          return;
-        }
-
-        // Récupérer le subscription_id de la subscription "premier"
-        const { data: premierSub } = await supabase
-          .from('stripe_user_subscriptions')
-          .select('subscription_id')
-          .eq('user_id', user.id)
-          .eq('subscription_type', 'premier')
-          .in('status', ['active', 'trialing'])
-          .is('deleted_at', null)
-          .maybeSingle();
-
-        if (!premierSub?.subscription_id) {
-          showToast('Aucun abonnement de base trouvé', 'error');
-          setDeletingAccount(null);
-          return;
-        }
-
+        // Pour le compte principal, rediriger vers le portail Stripe
         const {
           data: { session },
         } = await supabase.auth.getSession();
         if (!session) {
           showToast('Vous devez être connecté', 'error');
+          setDeletingAccount(null);
           return;
         }
 
         const response = await fetch(
-          `${process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, '')}/functions/v1/stripe-cancel-subscription`,
+          `${process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, '')}/functions/v1/stripe-billing-portal`,
           {
             method: 'POST',
             headers: {
@@ -653,8 +653,7 @@ export function Subscription() {
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              subscription_id: premierSub.subscription_id,
-              subscription_type: 'premier',
+              return_url: `${window.location.origin}/user-settings?tab=subscription&portal=true`,
             }),
           },
         );
@@ -663,24 +662,14 @@ export function Subscription() {
 
         if (data.error) {
           showToast(`Erreur: ${data.error}`, 'error');
+          setDeletingAccount(null);
           return;
         }
 
-        setShowDeleteModal(false);
-        setAccountToDelete(null);
-        await fetchEmailAccountsCount();
-        await fetchSubscription();
-        setShowCanceledMessage(true);
-        setTimeout(() => setShowCanceledMessage(false), 5000);
-
-        const pollInterval = setInterval(async () => {
-          await fetchSubscription();
-          await fetchEmailAccountsCount();
-        }, 2000);
-
-        setTimeout(() => {
-          clearInterval(pollInterval);
-        }, 10000);
+        if (data.success && data.url) {
+          // Rediriger vers le portail Stripe
+          window.location.href = data.url;
+        }
       } else {
         const {
           data: { user },
@@ -1174,14 +1163,6 @@ export function Subscription() {
   };
 
   const handleCancelSubscription = async () => {
-    if (
-      !confirm(
-        "Êtes-vous sûr de vouloir annuler votre abonnement ? Il restera actif jusqu'à la fin de la période de facturation en cours.",
-      )
-    ) {
-      return;
-    }
-
     setIsCanceling(true);
     try {
       const {
@@ -1192,39 +1173,34 @@ export function Subscription() {
         return;
       }
 
+      // Rediriger vers le portail client Stripe pour gérer l'abonnement
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, '')}/functions/v1/stripe-cancel-subscription`,
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, '')}/functions/v1/stripe-billing-portal`,
         {
           method: 'POST',
           headers: {
             Authorization: `Bearer ${session.access_token}`,
             'Content-Type': 'application/json',
           },
+          body: JSON.stringify({
+            return_url: `${window.location.origin}/user-settings?tab=subscription&portal=true`,
+          }),
         },
       );
 
       const data = await response.json();
 
       if (data.error) {
-        alert(`Erreur: ${data.error}`);
+        showToast(`Erreur: ${data.error}`, 'error');
         return;
       }
 
-      if (data.success) {
-        alert('Votre abonnement sera annulé à la fin de la période de facturation en cours.');
-
-        await fetchSubscription();
-
-        const pollInterval = setInterval(async () => {
-          await fetchSubscription();
-        }, 2000);
-
-        setTimeout(() => {
-          clearInterval(pollInterval);
-        }, 10000);
+      if (data.success && data.url) {
+        // Rediriger vers le portail Stripe
+        window.location.href = data.url;
       }
     } catch (error) {
-      console.error("Erreur lors de l'annulation de l'abonnement:", error);
+      console.error("Erreur lors de l'ouverture du portail Stripe:", error);
       showToast('Une erreur est survenue', 'error');
     } finally {
       setIsCanceling(false);
@@ -1559,6 +1535,16 @@ export function Subscription() {
               const isAccountActive = account.is_active !== false;
               const isCanceled = account.cancel_at_period_end === true;
               const price = isPrimary ? '49€ HT/mois' : '+39€ HT/mois';
+
+              // Debug log
+              console.log('[Subscription] Account state:', {
+                email: account.email,
+                isPrimary,
+                isAccountActive,
+                isCanceled,
+                cancel_at_period_end: account.cancel_at_period_end,
+                subscription_id: account.subscription_id,
+              });
 
               return (
                 <div key={account.id}>
